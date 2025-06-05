@@ -1,61 +1,69 @@
-from dataclasses import dataclass
-from langchain_community.document_loaders import JSONLoader
-from langchain.text_splitters import RecursiveCharacterTextSplitter
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
+from pathlib import Path
+import logging
 import os
-from typing import dict
+from langchain_community.document_loaders import JSONLoader
+from langchain_core.documents import Document
+from langchain_experimental.text_splitter import SemanticChunker
+from langchain_cohere import CohereEmbeddings
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 @dataclass
 class DocumentProcessor:
-    chunk_size: int = 2000
-    chunk_overlap: int = 200
+    embeddings_model: str = "embed_english_v3.0"
+    breakpoint_threshold_type: str = "semantic"
+    breakpoint_threshold_amount: Optional[int] = None
+    number_of_chunks: Optional[int] = None
+    metadata_fields: List[str] = field(default_factory=lambda: [
+        "pmid", "title", "authors", "journal", "volume", "issues", 
+        "year", "month", "day", "pub_date", "doi", "pmc_id", 
+        "mesh_terms", "publication_types", "doi_url", "pubmed_url"
+    ])
+    cohere_api_key: Optional[str] = None
 
     def __post_init__(self):
-
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size = self.chunk_size,
-            chunk_overlap = self.chunk_overlap,
-            length_function = len
-        )
-    
-    def metadata_func(self, record: dict, metadata: dict) -> dict:
-        """Extract all the fields except the abstract as the metadata from the JSON record"""
-        metadata.update({
-            "pmid": record.get("pmid", ""),
-            "title": record.get("title", ""),
-            "authors": record.get("authors", ""),
-            "journal": record.get("journal", ""),
-            "volume": record.get("volume", ""),
-            "issues": record.get("issues", ""),
-            "year": record.get("year", ""),
-            "month": record.get("month", ""),
-            "day": record.get("day", ""),
-            "pub_date": record.get("pub_date", ""),
-            "doi": record.get("doi", ""),
-            "pmc_id": record.get("pmc_id", ""),
-            "mesh_terms": record.get("mesh_terms", ""),
-            "publication_types": record.get("publication_types", ""),
-            "doi_url": record.get("doi_url", ""),
-            "pubmed_url": record.get("pubmed_url", ""),
-        })
-
-    def load_documents(self, file_path):
-        if not os.path.exists(file_path):
-            raise FileNotFoundError("The file path you specified is not valid")
-
-        loader = JSONLoader(
-            file_path=file_path,
-            jq_schema=".[]",  # Assumes JSON is an array of records
-            content_key="abstract",  # The abstract field is the main content
-            metadata_func=self.metadata_func
-        )
-
-        # Load documents
-        documents = loader.load()
-        # Split documents into chunks using the text splitter
-        chunked_documents = self.text_splitter.split_documents(documents)
+        self.api_key = cohere_api_key or self.cohere_api_key
+        if not self.api_key:
+            raise ValueError("Cohere API KEY not found or is invalid. Please enter a valid API KEY")
         
-        return chunked_documents
+        # Initialize Embeddings
+        try:
+            self.embeddings = CohereEmbeddings(model = self.embeddings_model,
+                            api_key = self.api_key)
+            # Initialize semantic chunker with appropriate parameters
+            chunker_kwargs = {
+                "embeddings": self.embeddings,
+                "breakpoint_threshold_type": self.breakpoint_threshold_type
+            }
 
+            # Add parameters based on chunking type
+            if self.breakpoint_threshold_type == "percentile":
+                if self.breakpoint_threshold_amount:
+                    chunker_kwargs["breakpoint_threshold_amount"] = self.breakpoint_threshold_amount
+                if self.number_of_chunks:
+                    chunker_kwargs["number_of_chunks"] = self.number_of_chunks
+            
+            elif self.breakpoint_threshold_type in ["interquartile", "standard_deviation"]:
+                if self.breakpoint_threshold_amount:
+                    chunker_kwargs["breakpoint_threshold_amount"] = self.breakpoint_threshold_amount
+            elif self.breakpoint_threshold_type == "gradient":
+                pass # No further parameters for gradient type
 
+            else:
+                print("Please enter a valid threshold type")
 
+            self.text_splitter = SemanticChunker(**chunker_kwargs)
+            logger.info(f"Initialized DocumentProcessor with semantic chunking")
+            logger.info(f"Embeddings model: {self.embeddings_model}")
+            logger.info(f"Breakpoint threshold type: {self.breakpoint_threshold_type}")
 
-    
+        except Exception as e:
+            logger.error(f"Failed to initialize DocumentProcessor: {str(e)}")
+            raise ValueError(f"Failed to initialize semantic chunker: {str(e)}") from e
