@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import logging
 import os
+import re
 from langchain_community.document_loaders import JSONLoader
 from langchain_core.documents import Document
 from langchain_experimental.text_splitter import SemanticChunker
@@ -67,3 +68,37 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Failed to initialize DocumentProcessor: {str(e)}")
             raise ValueError(f"Failed to initialize semantic chunker: {str(e)}") from e
+
+    def metadata_func(self, record: Dict[str, Any], metadata: Dict[str, Any]) -> Dict[str, Any]:
+        for field in self.metadata_fields:
+            if field in record:
+                value = record[field]
+                if isinstance(value, (list, dict)):
+                    # Convert complex types to strings for metadata
+                    metadata[field] = str(value) if value else ""
+                else:
+                    metadata[field] = str(value) if value is not None else ""
+
+        # Add document source information
+        metadata["source_type"] = "research_paper"
+        metadata["chunk_method"] = "semantic_chunking"
+        metadata["embeddings_model"] = self.embeddings_model
+        metadata["threshold_type"] = self.breakpoint_threshold_type
+        
+        return metadata
+
+    def preprocess_text(self, text:str) -> str:
+        """Preprocess the data for better semantic chunking"""
+        if not text:
+            return ""
+        
+        text = text.strip()
+
+        # Remove excessive whitespace
+        
+        text = re.sub(r'\s+', " ", text)
+
+        # Ensure sentences end properly for better semantic boundaries
+        text = re.sub(r'([.!?])\s*([A-Z])', r'\1 \2', text)
+        
+        return text
