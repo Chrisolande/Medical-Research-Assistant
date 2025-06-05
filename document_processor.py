@@ -245,7 +245,6 @@ class DocumentProcessor:
         Save processed documents to a JSON file.
 
         """
-        import json
         
         output_data = {
             "processing_info": {
