@@ -102,3 +102,60 @@ class DocumentProcessor:
         text = re.sub(r'([.!?])\s*([A-Z])', r'\1 \2', text)
         
         return text
+
+    def preprocess_text(self, text: str) -> str:
+        """
+        Preprocess text for better semantic chunking.
+
+        """
+        if not text:
+            return ""
+        
+        # Basic text cleaning for research papers
+        text = text.strip()
+        
+        # Remove excessive whitespace
+  
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Ensure sentences end properly for better semantic boundaries
+        text = re.sub(r'([.!?])\s*([A-Z])', r'\1 \2', text)
+
+    def load_and_process_documents(
+        self, 
+        file_path: str, 
+        content_key: str = "abstract",
+        jq_schema: str = ".[]",
+        max_docs: Optional[int] = None,
+        min_chunk_size: int = 50  # Minimum chunk size to avoid very small chunks
+    ) -> List[Document]:
+        """Load and process documents from the JSON using semantic chunking"""
+
+        # Validate if the file path is ok
+
+        # Validate file path
+        validated_path = self.validate_file_path(file_path)
+        logger.info(f"Processing file: {validated_path}")
+        
+        # Create loader with custom metadata function
+        loader = JSONLoader(
+            file_path=str(validated_path),
+            jq_schema=jq_schema,
+            content_key=content_key,
+            metadata_func=self.metadata_func
+        )
+
+        # Load documents
+        logger.info("Loading documents")
+        documents = loader.load()
+
+        if not documents:
+            logger.warning("No documents were loaded from the file")
+            return []
+        
+        # Process the first n documents
+        if max_docs and max_docs > 0:
+            documents = documents[:max_docs]
+            logger.info(f"Limited to the first {max_docs} documents")
+        
+        logger.info(f"Loaded {len(documents)} documents")
