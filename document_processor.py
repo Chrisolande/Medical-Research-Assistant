@@ -131,31 +131,80 @@ class DocumentProcessor:
     ) -> List[Document]:
         """Load and process documents from the JSON using semantic chunking"""
 
-        # Validate if the file path is ok
+        try:
 
-        # Validate file path
-        validated_path = self.validate_file_path(file_path)
-        logger.info(f"Processing file: {validated_path}")
-        
-        # Create loader with custom metadata function
-        loader = JSONLoader(
-            file_path=str(validated_path),
-            jq_schema=jq_schema,
-            content_key=content_key,
-            metadata_func=self.metadata_func
-        )
+            # Validate file path
+            validated_path = self.validate_file_path(file_path)
+            logger.info(f"Processing file: {validated_path}")
+            
+            # Create loader with custom metadata function
+            loader = JSONLoader(
+                file_path=str(validated_path),
+                jq_schema=jq_schema,
+                content_key=content_key,
+                metadata_func=self.metadata_func
+            )
 
-        # Load documents
-        logger.info("Loading documents")
-        documents = loader.load()
+            # Load documents
+            logger.info("Loading documents")
+            documents = loader.load()
 
-        if not documents:
-            logger.warning("No documents were loaded from the file")
-            return []
+            if not documents:
+                logger.warning("No documents were loaded from the file")
+                return []
+            
+            # Process the first n documents
+            if max_docs and max_docs > 0:
+                documents = documents[:max_docs]
+                logger.info(f"Limited to the first {max_docs} documents")
+            
+            logger.info(f"Loaded {len(documents)} documents")
+
+            # Preprocess and filter documents
+            valid_documents = []
+            for doc in documents:
+                preprocessed_content = self.preprocess_text(doc.page_content)
+                if len(preprocessed_content.strip()) >= min_chunk_size: # Ensure the chunks are over the min chunk size
+                    # Update document with preprocessed content
+                    doc.page_content = preprocessed_content
+                    valid_documents.append(doc)
+
+            if len(valid_documents) != len(documents):
+                logger.warning(f"Filtered out {len(documents) - len(valid_documents)} "
+                                f"documents with insufficient content (< {min_chunk_size} chars)")
+
+            if not valid_documents:
+                logger.warning(f"No valid documents found after filtering")
+                return []
+
+            # Perform semantic chunking
+            logger.info("Performing semantic chunking ...")
+            try:
+
+                chunked_documents = self.text_splitter.split_documents(valid_documents)
+
+            except Exception as e:
+
+                logger.error(f"Error during semantic chunking: {str(e)}")
+                # Fallback: return original documents if chunking fails
+                logger.warning("Falling back to original documents without chunking")
+                chunked_documents = valid_documents
+
+            # Filter out very small chunks
+            final_chunks = [dod for doc in chunked_documents if len(doc.page_content.strip()) >= min_chunk_size]
+            if len(final_chunks) != len(chunked_documents):
+                logger.info(f"Filtered out {len(chunked_documents) - len(final_chunks)} "
+                            f"chunks smaller than {min_chunk_size} characters")
+            
+            logger.info(f"Created {len(final_chunks)} semantic chunks from "
+                        f"{len(valid_documents)} documents")
+            
+            return final_chunks
+            
+        except Exception as e:
+            logger.error(f"Error processing documents: {str(e)}")
+            raise ValueError(f"Failed to process documents: {str(e)}") from e
+    
+
+                
         
-        # Process the first n documents
-        if max_docs and max_docs > 0:
-            documents = documents[:max_docs]
-            logger.info(f"Limited to the first {max_docs} documents")
-        
-        logger.info(f"Loaded {len(documents)} documents")
