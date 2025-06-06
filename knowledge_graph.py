@@ -53,7 +53,7 @@ class KnowledgeGraph:
         ]
 
     def _get_node_count(self) -> int:
-        """Get total node count - unified method for graph existence checks."""
+        """Get total node count"""
         try:
             result = self.graph.query("MATCH (n) RETURN count(n) as count LIMIT 1")
             return result[0]['count'] if result else 0
@@ -160,7 +160,7 @@ class KnowledgeGraph:
 
     def _execute_batch_query(self, query: str, batch_data: List[Dict], 
                            batch_size: int, desc: str = "Processing") -> None:
-        """Unified batch execution with fallback to individual processing."""
+        """Batch execution with fallback to individual processing."""
         for i in tqdm(range(0, len(batch_data), batch_size), desc=desc):
             chunk = batch_data[i:i + batch_size]
             try:
@@ -180,7 +180,7 @@ class KnowledgeGraph:
                 continue
 
     def _create_entities_batch(self, entities: Set[Tuple[str, str]]):
-        """Batch entity creation with unified error handling."""
+        """Batch entity creation"""
         if not entities:
             return
             
@@ -195,7 +195,7 @@ class KnowledgeGraph:
                                 min(self.entity_batch_size, 1000), "Creating entities")
 
     def _create_relationships_batch(self, relationships: List[Tuple[str, str, str]]):
-        """Batch relationship creation with unified error handling."""
+        """Batch relationship creation"""
         if not relationships:
             return
         
@@ -270,35 +270,39 @@ class KnowledgeGraph:
             self._create_relationships_batch(all_relationships)
 
     async def _fast_extract_async(self, text: str) -> Tuple[Set[Tuple[str, str]], List[Tuple[str, str, str]]]:
-        """Fast entity and relationship extraction."""
-        if len(text.strip()) < 50:
-            return set(), []
-            
-        # Truncate very long texts
-        if len(text) > 8000:
-            text = text[:8000] + "..."
+            """Fast entity and relationship extraction using few-shot examples."""
+            if len(text.strip()) < 50:
+                return set(), []
+                
+            # Truncate very long texts
+            if len(text) > 8000:
+                text = text[:8000] + "..."
 
-            
-        prompt = f"""Extract medical/scientific entities and relationships from this text. Be precise and focus on key information.
+            prompt = f"""Extract medical/scientific entities and relationships from text using these examples:
 
-        ENTITY TYPES: Researchers, Institutions, Medical_Conditions, Anatomy, Procedures, Medications, Equipment, Methods, Demographics, Locations, Journals, Time_Periods
+            Example 1:
+            Text: "Dr. Smith from Harvard Medical School published a study on diabetes treatment using metformin in the Journal of Medicine."
+            ENTITIES: Dr. Smith|Researcher, Harvard Medical School|Institution, diabetes|Medical_Condition, metformin|Medication, Journal of Medicine|Journal
+            RELATIONSHIPS: Dr. Smith→affiliated_with→Harvard Medical School, Dr. Smith→published_in→Journal of Medicine, metformin→treats→diabetes
 
-        RELATIONSHIP TYPES: authored_by, conducted_at, published_in, diagnosed_with, treated_with, associated_with, affects, used_for, measures, occurs_in, validated_using
+            Example 2:
+            Text: "The MRI scan revealed lesions in the brain cortex of patients with multiple sclerosis."
+            ENTITIES: MRI scan|Equipment, brain cortex|Anatomy, multiple sclerosis|Medical_Condition, lesions|Medical_Condition
+            RELATIONSHIPS: MRI scan→reveals→lesions, lesions→located_in→brain cortex, lesions→associated_with→multiple sclerosis
 
-        TEXT: {text}
+            Now extract from this text:
+            {text}
 
-        OUTPUT FORMAT (exactly as shown):
-        ENTITIES: Entity1|Type1, Entity2|Type2, Entity3|Type3
-        RELATIONSHIPS: Entity1→relationship→Entity2, Entity3→relationship→Entity4
+            OUTPUT FORMAT:
+            ENTITIES: Entity1|Type1, Entity2|Type2, Entity3|Type3
+            RELATIONSHIPS: Entity1→relationship→Entity2, Entity3→relationship→Entity4"""
 
-        Keep it concise and medically relevant."""
-
-        try:
-            result = await self.llm.ainvoke(prompt)
-            return self._parse_extraction_result(result.content.strip())
-        except Exception as e:
-            print(f"Extraction failed: {e}")
-            return set(), []
+            try:
+                result = await self.llm.ainvoke(prompt)
+                return self._parse_extraction_result(result.content.strip())
+            except Exception as e:
+                print(f"Extraction failed: {e}")
+                return set(), []
 
     def _parse_extraction_result(self, content: str) -> Tuple[Set[Tuple[str, str]], List[Tuple[str, str, str]]]:
         """Parse LLM extraction results."""
