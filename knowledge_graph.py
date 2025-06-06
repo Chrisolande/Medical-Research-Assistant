@@ -93,7 +93,7 @@ class KnowledgeGraph:
             return False
 
     async def load_or_create_graph(self, documents: Optional[List[Document]] = None, 
-                                   method: str = "custom") -> bool:
+                               method: str = "custom", source_name: str = None) -> bool:
         """Load existing graph if it exists, otherwise create new one from documents."""
         if self.load_existing_graph():
             return True
@@ -101,9 +101,9 @@ class KnowledgeGraph:
         if documents:
             print("No existing graph found. Creating new graph from documents...")
             if method == "custom":
-                await self.create_graph_from_documents(documents)  
+                await self.create_graph_from_documents(documents, source_name)  
             else:
-                self.create_graph(documents)  
+                self.create_graph(documents, source_name)  
             self._graph_loaded = True
             return True
         
@@ -179,22 +179,26 @@ class KnowledgeGraph:
             except:
                 continue
 
-    def _create_entities_batch(self, entities: Set[Tuple[str, str]]):
+    def _create_entities_batch(self, entities, docs_id: str = None):
         """Batch entity creation"""
         if not entities:
             return
             
-        batch_data = [{"name": name, "type": etype} for name, etype in entities]
         query = """
         UNWIND $batch_data AS entity_data
         MERGE (e:__Entity__ {id: entity_data.name})
         SET e.type = entity_data.type
         """
+        if doc_id:
+            query += "\nWITH e MATCH (d:Document {id: $doc_id}) MERGE (e)-[:EXTRACTED_FROM]->(d)"
+            batch_data = [{"name": name, "type": etype, "doc_id": doc_id} for name, etype in entities]
+        else:
+            batch_data = [{"name": name, "type": etype} for name, etype in entities]
         
         self._execute_batch_query(query, batch_data, 
                                 min(self.entity_batch_size, 1000), "Creating entities")
 
-    def _create_relationships_batch(self, relationships: List[Tuple[str, str, str]]):
+    def _create_relationships_batch(self, relationships: List[Tuple[str, str, str]], doc_id: str = None):
         """Batch relationship creation"""
         if not relationships:
             return
@@ -213,14 +217,34 @@ class KnowledgeGraph:
             MERGE (e2:__Entity__ {{id: rel.e2}})
             MERGE (e1)-[:{rel_type}]->(e2)
             """
+            if doc_id:
+                query += "\nWITH r MATCH (d:Document {id: $doc_id}) MERGE (r)-[:EXTRACTED_FROM]->(d)"
+                pairs = [{"e1": e1, "e2": e2, "doc_id": doc_id} for e1, e2 in [(p["e1"], p["e2"]) for p in pairs]]
+            else:
+                pairs = [{"e1": e1, "e2": e2} for e1, e2 in [(p["e1"], p["e2"]) for p in pairs]]
             
             self._execute_batch_query(query, pairs, 
                                     min(self.rel_batch_size, 500), f"Creating {rel_type}")
 
-    async def create_graph_from_documents(self, documents: List[Document]):
-        """Async processing with controlled concurrency."""
-        print(f"Processing {len(documents)} documents with max {self.max_concurrent} concurrent calls...")
+    async def create_graph_from_documents(self, documents: List[Document], source_name: str = None):
+        """Async processing with controlled concurrency and automatic source tracking."""
+        if not source_name:
+            source_name = self._extract_source_name(documents)
         
+        print(f"Processing {len(documents)} documents from source '{source_name}' with max {self.max_concurrent} concurrent calls...")
+        
+        # Add source metadata to documents
+        timestamp = str(pd.Timestamp.now())
+        for i, doc in enumerate(documents):
+            doc.metadata.update({
+                "source_name": source_name, 
+                "added_timestamp": timestamp,
+                "doc_id": f"{source_name}_{i}"
+            })
+        
+        # Create the document nodes
+        self._create_document_nodes(documents, source_name)
+
         semaphore = asyncio.Semaphore(self.max_concurrent)
         
         async def process_doc_with_semaphore(doc):
@@ -248,26 +272,48 @@ class KnowledgeGraph:
                     continue
             
             # Combine results
-            for entities, relationships in batch_results:
-                all_entities.update(entities)
-                all_relationships.extend(relationships)
-            
-            # Periodic database write
-            if (batch_idx + 1) % 5 == 0:
-                print(f"Writing intermediate results...")
-                if all_entities:
-                    self._create_entities_batch(all_entities)
-                    all_entities.clear()
-                if all_relationships:
-                    self._create_relationships_batch(all_relationships)
-                    all_relationships.clear()
+            for i, (entities, relationships) in enumerate(batch_results):
+                if i < len(doc_batch):  # Safety check
+                    doc_id = doc_batch[i].metadata["doc_id"]
+                    
+                    if entities:
+                        self._create_entities_batch(entities, doc_id)
+                    if relationships:
+                        self._create_relationships_batch(relationships, doc_id)
         
-        # Final write
-        print(f"Final write: {len(all_entities)} entities, {len(all_relationships)} relationships")
-        if all_entities:
-            self._create_entities_batch(all_entities)
-        if all_relationships:
-            self._create_relationships_batch(all_relationships)
+        print("Processing complete!")
+        
+    def _extract_source_name(self, documents: List[Document]) -> str:
+        """Extract source name from document metadata."""
+        if documents and 'source' in documents[0].metadata:
+            source = documents[0].metadata['source']
+            # Clean up file extensions and paths
+            if '/' in source:
+                source = source.split('/')[-1]
+            if '\\' in source:
+                source = source.split('\\')[-1]
+            if '.' in source:
+                source = source.rsplit('.', 1)[0]
+            return source
+        
+        # Fallback to timestamp-based name
+        return f"documents_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}"
+
+    def get_entity_with_sources(self, entity_name: str):
+        return self.graph.query("""
+            MATCH (e:__Entity__ {id: $entity_name})-[:EXTRACTED_FROM]->(d:Document)
+            RETURN e.id as entity, e.type as type, 
+                collect({source: d.source_name, doc_id: d.id, content: d.content[0..200]}) as sources
+        """, {"entity_name": entity_name})
+
+    def get_relationship_with_sources(self, entity1: str, entity2: str):
+        return self.graph.query("""
+            MATCH (e1:__Entity__ {id: $entity1})-[r]->(e2:__Entity__ {id: $entity2})
+            OPTIONAL MATCH (r)-[:EXTRACTED_FROM]->(d:Document)
+            RETURN type(r) as relationship, 
+                collect({source: d.source_name, doc_id: d.id}) as sources
+        """, {"entity1": entity1, "entity2": entity2})
+
 
     async def _fast_extract_async(self, text: str) -> Tuple[Set[Tuple[str, str]], List[Tuple[str, str, str]]]:
             """Fast entity and relationship extraction using few-shot examples."""
@@ -304,8 +350,7 @@ class KnowledgeGraph:
                 print(f"Extraction failed: {e}")
                 return set(), []
 
-    def _parse_extraction_result(self, content: str) -> Tuple[Set[Tuple[str, str]], List[Tuple[str, str, str]]]:
-        """Parse LLM extraction results."""
+    def _parse_extraction_result(self, content: str):
         entities = set()
         relationships = []
         
@@ -455,8 +500,18 @@ class KnowledgeGraph:
             "status": "success"
         }
 
-    def create_graph(self, documents: List[Document]):
+    def create_graph(self, documents: List[Document], source_name: str = None):
         """LangChain transformer approach."""
+        if not source_name:
+            source_name = self._extract_source_name(documents)
+        
+        print(f"Creating graph using LangChain transformer for source '{source_name}'")
+        
+        # Add source metadata to documents
+        timestamp = str(pd.Timestamp.now())
+        for doc in documents:
+            doc.metadata.update({"source_name": source_name, "added_timestamp": timestamp})
+        
         llm_transformer = LLMGraphTransformer(llm=self.llm)
         batch_size = min(self.batch_size, 20)
         
@@ -474,6 +529,9 @@ class KnowledgeGraph:
                         self.graph.add_graph_documents(graph_docs, baseEntityLabel=True, include_source=True)
                     except:
                         continue
+        
+        # Create document nodes for source tracking
+        self._create_document_nodes(documents, source_name)
 
     def visualize_graph(self, limit: int = 50):
         """Visualize the graph using yfiles."""
@@ -513,7 +571,7 @@ class KnowledgeGraph:
         
         result = self.graph.query(stats_query)[0]
         
-        # Get detailed counts
+        # Get counts
         rel_type_counts = {}
         if result['rel_types']:
             for rel_type in result['rel_types']:
