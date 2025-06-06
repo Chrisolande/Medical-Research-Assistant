@@ -53,7 +53,7 @@ class KnowledgeGraph:
                         (re.compile(r'[^A-Z0-9_]'), ''),  # Remove any character that is not an uppercase letter, digit, or underscore
                         (re.compile(r'_+'), '_')          # Replace multiple consecutive underscores with a single underscore
                     ]
-    def _get_node_count(self):
+    def _get_node_count(self) -> int:
         """Get node count"""
         try:
             result = self.graph.query("MATCH (n) RETURN count(n) as count LIMIT 1")
@@ -161,44 +161,50 @@ class KnowledgeGraph:
             clean = 'RELATED_TO'
         return clean
 
+    def _execute_batch_query(self, query: str, batch_data: List[Dict], batch_size: int, desc: str = "Processing...") -> None:
+        for i in tqdm(range(0, len(batch_data), batch_size), desc=desc):
+            chunk = batch_data[i:i + batch_size]
+            try:
+                self.graph.query(query, {"batch_data": chunk})
+            except Exception as e:
+                print(f"Batch failed ({e}), using individual processing")
+                self._execute_individual_fallback(query, chunk)
+
+    def _execute_individual_fallback(self):
+        """Fallback to individual execution"""
+        for item in chunk:
+            try:
+                # Convert query to work with single item
+                single_query = query.replace("UNWIND $batch_data AS", "WITH $batch_data AS")
+                self.graph.query(single_query, {"batch_data": item})
+            except:
+                continue
+
     def _create_entities_batch(self, entities: Set[Tuple[str, str]]):
         """Batch entity creation."""
         if not entities:
             return
-            
-        entity_list = list(entities)
+
         batch_size = min(self.entity_batch_size, 1000)  
         
-        # Single query for all entities using UNWIND
         batch_data = [{"name": name, "type": etype} for name, etype in entity_list]
-        
-        # Process in chunks
-        for i in tqdm(range(0, len(batch_data), batch_size), desc="Creating entities"):
-            chunk = batch_data[i:i + batch_size]
-            query = """
+
+        query = """
             UNWIND $batch_data AS entity_data
             MERGE (e:__Entity__ {id: entity_data.name})
             SET e.type = entity_data.type
             """
-            try:
-                self.graph.query(query, {"batch_data": chunk})
-            except Exception as e:
-                print(f"Batch failed, using individual creation: {e}")
-                for entity_data in chunk:
-                    try:
-                        self.graph.query(
-                            "MERGE (e:__Entity__ {id: $name}) SET e.type = $type",
-                            {"name": entity_data["name"], "type": entity_data["type"]}
-                        )
-                    except:
-                        continue
+
+        self._execute_batch_query(query, batch_data, 
+                                min(self.entity_batch_size, 1000), "Creating entities")
+        
 
     def _create_relationships_batch(self, relationships: List[Tuple[str, str, str]]):
         """Batch relationship creation."""
         if not relationships:
             return
             
-        # Group by relationship type for better performance
+        # Group by relationship type 
         rel_groups = defaultdict(list)
         for e1, rel, e2 in relationships:
             clean_rel = self._clean_relationship_name(rel)
@@ -206,36 +212,16 @@ class KnowledgeGraph:
         
         # Process each relationship type
         for rel_type, pairs in rel_groups.items():
-            batch_size = min(self.rel_batch_size, 500)
+            query = f"""
+            UNWIND $batch_data AS rel
+            MERGE (e1:__Entity__ {{id: rel.e1}})
+            MERGE (e2:__Entity__ {{id: rel.e2}})
+            MERGE (e1)-[:{rel_type}]->(e2)
+            """
             
-            for i in tqdm(range(0, len(pairs), batch_size), 
-                         desc=f"Creating {rel_type}", leave=False):
-                chunk = pairs[i:i + batch_size]
-                batch_data = [{"e1": e1, "e2": e2} for e1, e2 in chunk]
-                
-                # Optimized single query
-                query = f"""
-                UNWIND $batch_data AS rel
-                MERGE (e1:__Entity__ {{id: rel.e1}})
-                MERGE (e2:__Entity__ {{id: rel.e2}})
-                MERGE (e1)-[:{rel_type}]->(e2)
-                """
-                
-                try:
-                    self.graph.query(query, {"batch_data": batch_data})
-                except Exception as e:
-                    print(f"Batch relationship creation failed: {e}")
-                    # Fallback to individual creation
-                    for e1, e2 in chunk:
-                        try:
-                            self.graph.query(f"""
-                                MERGE (e1:__Entity__ {{id: $e1}})
-                                MERGE (e2:__Entity__ {{id: $e2}})
-                                MERGE (e1)-[:{rel_type}]->(e2)
-                            """, {"e1": e1, "e2": e2})
-                        except:
-                            continue
-
+            self._execute_batch_query(query, pairs, 
+                                    min(self.rel_batch_size, 500), f"Creating {rel_type}")
+                                    
     async def create_graph_from_documents(self, documents: List[Document]):
         """async processing with controlled concurrency."""
         print(f"Processing {len(documents)} documents with max {self.max_concurrent} concurrent calls...")
