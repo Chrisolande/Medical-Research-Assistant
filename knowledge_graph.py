@@ -13,6 +13,9 @@ import asyncio
 from tqdm.asyncio import tqdm
 import re
 from concurrent.futures import ThreadPoolExecutor
+from langchain_core.documents import Document
+import pandas as pd
+
 load_dotenv()
 
 MODEL_NAME = "meta-llama/llama-3.3-70b-instruct"
@@ -343,6 +346,82 @@ class KnowledgeGraph:
         except Exception as e:
             print(f"Extraction failed for text chunk: {e}")
             return set(), []
+
+    async def incremental_update_with_source_tracking(self, documents: List[Document], source_name: str) -> Dict[str, Any]:
+        """Add documents with source tracking to enable selective updates/deletions."""
+        print(f"Adding {len(documents)} documents from source: {source_name}")
+
+        # Add source metadata for each document
+        for doc in documents:
+            doc.metadata["source_name"] = source_name
+            doc.metadata['added_timestamp'] = str(pd.Timestamp.now())
+
+        # Was the document processed before?
+        existing_source = self.graph.query("""
+        MATCH (d:Document {source_name: $source_name})
+        RETURN count(d) as count
+        """, {"source_name": source_name})
+
+        if existing_source and existing_source[0]['count'] > 0:
+            print(f"Warning: Source '{source_name}' already exists with {existing_source[0]['count']} documents.")
+            print("Consider using replace_source_documents() to replace existing documents.")
+
+        # Get initial stats
+        initial_stats = self.get_graph_stats()
+
+        # Process the new documents
+        await self.create_graph_from_documents(documents)
+
+        # Create document nodes for source tracking
+        self._create_document_nodes(documents, source_name)
+
+        # Get final stats
+        final_stats = self.get_graph_stats()
+
+        # Calculate what was added
+        added_stats = {
+            "nodes_added": final_stats['nodes'] - initial_stats['nodes'],
+            "relationships_added": final_stats['relationships'] - initial_stats['relationships'],
+            "documents_processed": len(documents),
+            "source_name": source_name,
+            "status": "success"
+        }
+        
+        print(f"Successfully added {added_stats['nodes_added']} new nodes and {added_stats['relationships_added']} new relationships")
+        return added_stats
+
+    def _create_document_nodes(self, documents: List[Document], source_name: str):
+        """Create them source nodes for source tracking"""
+        doc_data = []
+        for i, doc in enumerate(documents):
+            doc_id = f"{source_name}_{i}"
+            doc_data.append({
+            "doc_id": doc_id,
+            "source_name": source_name,
+            "content": doc.page_content[:1000],  # Store first 1000 chars for reference
+            "added_timestamp": doc.metadata.get('added_timestamp'),
+            "original_metadata": str(doc.metadata)
+            })
+
+        # Batch create Document nodes
+        batch_size = 100
+        for i in range(0, len(doc_data), batch_size):
+            chunk = doc_data[i:i + batch_size]
+            query = """
+            UNWIND $doc_data AS doc
+            CREATE (d:Document {
+                id: doc.doc_id,
+                source_name: doc.source_name,
+                content: doc.content,
+                added_timestamp: doc.added_timestamp,
+                metadata: doc.original_metadata
+            })
+            """
+            try:
+                self.graph.query(query, {"doc_data": chunk})
+            except Exception as e:
+                print(f"Error creating document nodes: {e}")
+
     
     def create_graph(self, documents: List[Document]):
         """LangChain transformer approach."""
