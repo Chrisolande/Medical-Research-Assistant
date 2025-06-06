@@ -1,4 +1,3 @@
-from langchain_neo4j import Neo4jGraph
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from typing import List, Dict, Any, Optional, Set, Tuple
@@ -54,17 +53,18 @@ class KnowledgeGraph:
                         (re.compile(r'[^A-Z0-9_]'), ''),  # Remove any character that is not an uppercase letter, digit, or underscore
                         (re.compile(r'_+'), '_')          # Replace multiple consecutive underscores with a single underscore
                     ]
-
+    def _get_node_count(self):
+        """Get node count"""
+        try:
+            result = self.graph.query("MATCH (n) RETURN count(n) as count LIMIT 1")
+            return result[0]['count'] if result else 0
+        except Exception as e:
+            print(f"Error getting node count: {e}")
+            return 0
 
     def check_graph_exists(self) -> bool:
         """Check if the graph database contains any data."""
-        try:
-            result = self.graph.query("MATCH (n) RETURN count(n) as count LIMIT 1")
-            node_count = result[0]['count'] if result else 0
-            return node_count > 0
-        except Exception as e:
-            print(f"Error checking graph existence: {e}")
-            return False
+        return self._get_node_count() > 0
 
     def load_existing_graph(self, force_reload: bool = False) -> bool:
         """Load existing graph data and set internal state."""
