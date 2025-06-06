@@ -282,56 +282,54 @@ class KnowledgeGraph:
         if len(text.strip()) < 50:
             return set(), []
             
-        # Truncate very long texts to save on tokens
+        # Truncate very long texts
         if len(text) > 8000:
             text = text[:8000] + "..."
             
         prompt = f"""Extract medical/scientific entities and relationships from this text. Be precise and focus on key information.
 
-            ENTITY TYPES: Researchers, Institutions, Medical_Conditions, Anatomy, Procedures, Medications, Equipment, Methods, Demographics, Locations, Journals, Time_Periods
+        ENTITY TYPES: Researchers, Institutions, Medical_Conditions, Anatomy, Procedures, Medications, Equipment, Methods, Demographics, Locations, Journals, Time_Periods
 
-            RELATIONSHIP TYPES: authored_by, conducted_at, published_in, diagnosed_with, treated_with, associated_with, affects, used_for, measures, occurs_in, validated_using
+        RELATIONSHIP TYPES: authored_by, conducted_at, published_in, diagnosed_with, treated_with, associated_with, affects, used_for, measures, occurs_in, validated_using
 
-            TEXT: {text}
+        TEXT: {text}
 
-            OUTPUT FORMAT (exactly as shown):
-            ENTITIES: Entity1|Type1, Entity2|Type2, Entity3|Type3
-            RELATIONSHIPS: Entity1→relationship→Entity2, Entity3→relationship→Entity4
+        OUTPUT FORMAT (exactly as shown):
+        ENTITIES: Entity1|Type1, Entity2|Type2, Entity3|Type3
+        RELATIONSHIPS: Entity1→relationship→Entity2, Entity3→relationship→Entity4
 
-            Keep it concise and medically relevant."""
+        Keep it concise and medically relevant."""
 
         try:
-            result = await self.llm.ainvoke(prompt) # Async call the llm
-            content = result.content.strip()
-            
-            entities = set()
-            relationships = []
-            
-            # Fast parsing
-            for line in content.split('\n'):
-                line = line.strip()
-                if line.startswith('ENTITIES:'):
-                    entity_part = line[9:].strip()
-                    for item in entity_part.split(','):
-                        item = item.strip()
-                        if '|' in item:
-                            name, etype = item.split('|', 1)
-                            entities.add((name.strip(), etype.strip()))
-                
-                elif line.startswith('RELATIONSHIPS:'):
-                    rel_part = line[14:].strip()
-                    for rel_item in rel_part.split(','):
-                        rel_item = rel_item.strip()
-                        if '→' in rel_item:
-                            parts = [p.strip() for p in rel_item.split('→')]
-                            if len(parts) == 3:
-                                relationships.append(tuple(parts))
-            
-            return entities, relationships
-            
+            result = await self.llm.ainvoke(prompt)
+            return self._parse_extraction_result(result.content.strip())
         except Exception as e:
-            print(f"Extraction failed for text chunk: {e}")
+            print(f"Extraction failed: {e}")
             return set(), []
+            
+    def _parse_extraction_result(self, content: str):
+        entities = set()
+        relationships = []
+        
+        # Fast parsing
+        for line in content.split('\n'):
+            line = line.strip()
+            if line.startswith('ENTITIES:'):
+                for item in line[9:].strip().split(','):
+                    item = item.strip()
+                    if '|' in item:
+                        name, etype = item.split('|', 1)
+                        entities.add((name.strip(), etype.strip()))
+            
+            elif line.startswith('RELATIONSHIPS:'):
+                for rel_item in line[14:].strip().split(','):
+                    rel_item = rel_item.strip()
+                    if '→' in rel_item:
+                        parts = [p.strip() for p in rel_item.split('→')]
+                        if len(parts) == 3:
+                            relationships.append(tuple(parts))
+        
+        return entities, relationships
 
     async def incremental_update_with_source_tracking(self, documents: List[Document], source_name: str) -> Dict[str, Any]:
         """Add documents with source tracking to enable selective updates/deletions."""
