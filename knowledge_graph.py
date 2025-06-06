@@ -422,6 +422,99 @@ class KnowledgeGraph:
             except Exception as e:
                 print(f"Error creating document nodes: {e}")
 
+    async def replace_source_documents(self, documents: List[Document], source_name: str):
+        """Replace all documents from the source"""
+        print(f"Replacing documents from source: {source_name}")
+
+        # Get entities that were created from this document
+        entities_to_remove = self.graph.query("""
+        MATCH (d:Document {source_name: $source_name})-[:EXTRACTED_FROM]-(e:__Entity__)
+        RETURN DISTINCT e.id as entity_id
+        """, {"source_name": source_name})
+        # Remove existing documents and related entities from this source
+        removed_docs = self.graph.query("""
+            MATCH (d:Document {source_name: $source_name})
+            DETACH DELETE d
+            RETURN count(d) as removed
+        """, {"source_name": source_name})
+        
+        removed_count = removed_docs[0]['removed'] if removed_docs else 0
+        print(f"Removed {removed_count} existing documents from source")
+        
+        # Add new documents
+        result = await self.incremental_update_with_source_tracking(documents, source_name)
+        result['documents_replaced'] = removed_count
+        
+        return result
+
+    def get_source_info(self, source_name: str = None):
+        """ Get information about document sources"""
+        if source_name:
+            # Get info for specific source
+            source_info = self.graph.query("""
+                MATCH (d:Document {source_name: $source_name})
+                RETURN 
+                    d.source_name as source,
+                    count(d) as document_count,
+                    min(d.added_timestamp) as first_added,
+                    max(d.added_timestamp) as last_added
+            """, {"source_name": source_name})
+            
+            return source_info[0] if source_info else {"error": f"Source '{source_name}' not found"}
+
+        else:
+            # Get info for all sources
+            all_sources = self.graph.query("""
+                MATCH (d:Document)
+                RETURN 
+                    d.source_name as source,
+                    count(d) as document_count,
+                    min(d.added_timestamp) as first_added,
+                    max(d.added_timestamp) as last_added
+                ORDER BY last_added DESC
+            """)
+            
+            return {"sources": all_sources, "total_sources": len(all_sources)}
+
+    def remove_source(self, source_name: str) -> Dict[str, Any]:
+        """
+        Remove all documents and related data from a specific source.
+
+        """
+        print(f"Removing all data from source: {source_name}")
+        
+        # Count what we're about to remove
+        stats = self.graph.query("""
+            MATCH (d:Document {source_name: $source_name})
+            OPTIONAL MATCH (d)-[:EXTRACTED_FROM]-(e:__Entity__)
+            RETURN 
+                count(DISTINCT d) as docs,
+                count(DISTINCT e) as entities
+        """, {"source_name": source_name})
+        
+        initial_stats = stats[0] if stats else {"docs": 0, "entities": 0}
+        
+        # Remove documents and orphaned entities
+        self.graph.query("""
+            MATCH (d:Document {source_name: $source_name})
+            DETACH DELETE d
+        """, {"source_name": source_name})
+        
+        # Clean up orphaned entities (entities with no remaining document connections)
+        orphaned = self.graph.query("""
+            MATCH (e:__Entity__)
+            WHERE NOT EXISTS((e)-[:EXTRACTED_FROM]-(:Document))
+            DETACH DELETE e
+            RETURN count(e) as orphaned_removed
+        """)
+        
+        return {
+            "source_name": source_name,
+            "documents_removed": initial_stats["docs"],
+            "orphaned_entities_cleaned": orphaned[0]["orphaned_removed"] if orphaned else 0,
+            "status": "success"
+        }
+
     
     def create_graph(self, documents: List[Document]):
         """LangChain transformer approach."""
