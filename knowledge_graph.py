@@ -26,7 +26,7 @@ class KnowledgeGraph:
         self.username = NEO4J_USERNAME
         self.password = NEO4J_PASSWORD
         self.model_name = MODEL_NAME
-        self.flush_interval = 30
+        self.flush_interval = 60
         self.last_flush_time = time.time()
 
         self.llm = ChatOpenAI(
@@ -253,7 +253,7 @@ class KnowledgeGraph:
                     "source_name": doc.metadata["source_name"],
                     "content": doc.page_content[:1000],
                     "added_timestamp": doc.metadata["added_timestamp"],
-                    "metadata": json.dumps(doc.metadata)  # Proper JSON serialization
+                    "metadata": json.dumps(doc.metadata)  
                 }
                 for doc in documents
             ]
@@ -298,7 +298,7 @@ class KnowledgeGraph:
 
     async def _extract_entities_relationships(self, text: str, doc_id: str):
         """Extract entities and relationships from text."""
-        if len(text.strip()) < 30: 
+        if len(text.strip()) < 100: 
             return set(), []
             
         if len(text) > 4000: 
