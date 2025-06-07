@@ -1,12 +1,10 @@
 from langchain_neo4j import Neo4jGraph
 from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
-from langchain_experimental.graph_transformers import LLMGraphTransformer
 from typing import List, Dict, Any, Optional, Set, Tuple
 from collections import defaultdict
 from dotenv import load_dotenv
 from tqdm.notebook import tqdm
-from tqdm.asyncio import tqdm
 import asyncio
 import os
 import re
@@ -20,17 +18,12 @@ NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 class KnowledgeGraph:
-    def __init__(self, batch_size: int = 10, entity_batch_size: int = 500, rel_batch_size: int = 200, 
-                 url: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None, 
-                 model_name: Optional[str] = None, max_concurrent: int = 15):
-        self.batch_size = batch_size
-        self.entity_batch_size = entity_batch_size
-        self.rel_batch_size = rel_batch_size
+    def __init__(self, max_concurrent: int = 15):
         self.max_concurrent = max_concurrent
-        self.url = url or NEO4J_URI
-        self.username = username or NEO4J_USERNAME
-        self.password = password or NEO4J_PASSWORD
-        self.model_name = model_name or MODEL_NAME
+        self.url = NEO4J_URI
+        self.username = NEO4J_USERNAME
+        self.password = NEO4J_PASSWORD
+        self.model_name = MODEL_NAME
         
         self.llm = ChatOpenAI(
             model=self.model_name,
@@ -41,9 +34,7 @@ class KnowledgeGraph:
             max_retries=2,
             request_timeout=30
         )
-
         self.graph = Neo4jGraph()
-        self._graph_loaded = False
         
         # Compiled regex patterns for relationship cleaning
         self._relation_patterns = [
@@ -52,102 +43,17 @@ class KnowledgeGraph:
             (re.compile(r'_+'), '_')
         ]
 
-    def _get_node_count(self) -> int:
-        """Get total node count"""
-        try:
-            result = self.graph.query("MATCH (n) RETURN count(n) as count LIMIT 1")
-            return result[0]['count'] if result else 0
-        except Exception as e:
-            print(f"Error getting node count: {e}")
-            return 0
-
     def check_graph_exists(self) -> bool:
         """Check if the graph database contains any data."""
-        return self._get_node_count() > 0
-
-    def load_existing_graph(self, force_reload: bool = False) -> bool:
-        """Load existing graph data and set internal state."""
-        if self._graph_loaded and not force_reload:
-            print("Graph already loaded. Use force_reload=True to reload.")
-            return True
-            
-        if not self.check_graph_exists():
-            print("No existing graph found in the database.")
-            return False
-        
         try:
-            stats = self.get_graph_stats()
-            print(f"Loading existing graph with {stats['nodes']} nodes and {stats['relationships']} relationships")
-            
-            if stats.get('entity_types'):
-                print(f"Entity types: {list(stats['entity_types'].keys())}")
-            if stats.get('relationship_types'):
-                print(f"Relationship types: {list(stats['relationship_types'].keys())}")
-            
-            self._graph_loaded = True
-            print("Graph loaded successfully!")
-            return True
-            
-        except Exception as e:
-            print(f"Error loading existing graph: {e}")
+            result = self.graph.query("MATCH (n) RETURN count(n) as count LIMIT 1")
+            return result[0]['count'] > 0 if result else False
+        except Exception:
             return False
-
-    async def load_or_create_graph(self, documents: Optional[List[Document]] = None, 
-                               method: str = "custom", source_name: str = None) -> bool:
-        """Load existing graph if it exists, otherwise create new one from documents."""
-        if self.load_existing_graph():
-            return True
-        
-        if documents:
-            print("No existing graph found. Creating new graph from documents...")
-            if method == "custom":
-                await self.create_graph_from_documents(documents, source_name)  
-            else:
-                self.create_graph(documents, source_name)  
-            self._graph_loaded = True
-            return True
-        
-        print("No existing graph found and no documents provided for creation.")
-        return False
-
-    def get_graph_summary(self) -> Dict[str, Any]:
-        """Get a detailed summary of the current graph."""
-        if not self.check_graph_exists():
-            return {"status": "empty", "message": "No graph data found"}
-        
-        stats = self.get_graph_stats()
-        
-        # Get sample data in one query
-        samples = self.graph.query("""
-            MATCH (n:__Entity__) 
-            WITH n LIMIT 10
-            OPTIONAL MATCH (n)-[r]->(m)
-            RETURN n.id as node_name, n.type as node_type, 
-                   type(r) as relationship, m.id as target_name
-            LIMIT 10
-        """)
-        
-        sample_nodes = [{"name": s["node_name"], "type": s["node_type"]} 
-                       for s in samples if s["node_name"]]
-        sample_rels = [{"source": s["node_name"], "relationship": s["relationship"], "target": s["target_name"]} 
-                      for s in samples if s["relationship"]]
-        
-        return {
-            "status": "loaded",
-            "statistics": stats,
-            "sample_nodes": sample_nodes,
-            "sample_relationships": sample_rels,
-            "is_loaded": self._graph_loaded
-        }
-
-    def reset_graph_state(self):
-        """Reset the internal graph state"""
-        self._graph_loaded = False
 
     def clear_database(self):
-        """Clear the database and reset internal state."""
+        """Clear the database."""
         self.graph.query("MATCH (n) DETACH DELETE n")
-        self.reset_graph_state()
         print("Database cleared successfully.")
 
     def _clean_relationship_name(self, relation: str) -> str:
@@ -158,80 +64,42 @@ class KnowledgeGraph:
         clean = clean.strip('_')
         return clean if clean and not clean[0].isdigit() else 'RELATED_TO'
 
-    def _execute_batch_query(self, query: str, batch_data: List[Dict], 
-                           batch_size: int, desc: str = "Processing") -> None:
-        """Batch execution with fallback to individual processing."""
-        for i in tqdm(range(0, len(batch_data), batch_size), desc=desc):
-            chunk = batch_data[i:i + batch_size]
+    def _create_entities(self, entities: Set[Tuple[str, str]], doc_id: str):
+        """Create entities one by one to avoid batch issues."""
+        for name, etype in entities:
             try:
-                self.graph.query(query, {"batch_data": chunk})
+                self.graph.query("""
+                    MERGE (e:__Entity__ {id: $name})
+                    SET e.type = $type
+                    WITH e
+                    MATCH (d:Document {id: $doc_id})
+                    MERGE (e)-[:EXTRACTED_FROM]->(d)
+                """, {"name": name, "type": etype, "doc_id": doc_id})
             except Exception as e:
-                print(f"Batch failed ({e}), using individual processing")
-                self._execute_individual_fallback(query, chunk)
+                print(f"Failed to create entity {name}: {e}")
 
-    def _execute_individual_fallback(self, query: str, chunk: List[Dict]):
-        """Fallback to individual query execution."""
-        for item in chunk:
-            try:
-                # Convert query to work with single item
-                single_query = query.replace("UNWIND $batch_data AS", "WITH $batch_data AS")
-                self.graph.query(single_query, {"batch_data": item})
-            except:
-                continue
-
-    def _create_entities_batch(self, entities, docs_id: str = None):
-        """Batch entity creation"""
-        if not entities:
-            return
-            
-        query = """
-        UNWIND $batch_data AS entity_data
-        MERGE (e:__Entity__ {id: entity_data.name})
-        SET e.type = entity_data.type
-        """
-        if doc_id:
-            query += "\nWITH e MATCH (d:Document {id: $doc_id}) MERGE (e)-[:EXTRACTED_FROM]->(d)"
-            batch_data = [{"name": name, "type": etype, "doc_id": doc_id} for name, etype in entities]
-        else:
-            batch_data = [{"name": name, "type": etype} for name, etype in entities]
-        
-        self._execute_batch_query(query, batch_data, 
-                                min(self.entity_batch_size, 1000), "Creating entities")
-
-    def _create_relationships_batch(self, relationships: List[Tuple[str, str, str]], doc_id: str = None):
-        """Batch relationship creation"""
-        if not relationships:
-            return
-        
-        # Group by relationship type
-        rel_groups = defaultdict(list)
+    def _create_relationships(self, relationships: List[Tuple[str, str, str]], doc_id: str):
+        """Create relationships one by one to avoid batch issues."""
         for e1, rel, e2 in relationships:
-            clean_rel = self._clean_relationship_name(rel)
-            rel_groups[clean_rel].append({"e1": e1, "e2": e2})
-        
-        # Process each relationship type
-        for rel_type, pairs in rel_groups.items():
-            query = f"""
-            UNWIND $batch_data AS rel
-            MERGE (e1:__Entity__ {{id: rel.e1}})
-            MERGE (e2:__Entity__ {{id: rel.e2}})
-            MERGE (e1)-[:{rel_type}]->(e2)
-            """
-            if doc_id:
-                query += "\nWITH r MATCH (d:Document {id: $doc_id}) MERGE (r)-[:EXTRACTED_FROM]->(d)"
-                pairs = [{"e1": e1, "e2": e2, "doc_id": doc_id} for e1, e2 in [(p["e1"], p["e2"]) for p in pairs]]
-            else:
-                pairs = [{"e1": e1, "e2": e2} for e1, e2 in [(p["e1"], p["e2"]) for p in pairs]]
-            
-            self._execute_batch_query(query, pairs, 
-                                    min(self.rel_batch_size, 500), f"Creating {rel_type}")
+            try:
+                clean_rel = self._clean_relationship_name(rel)
+                # Fixed query - removed the problematic relationship tracking
+                query = f"""
+                    MERGE (e1:__Entity__ {{id: $e1}})
+                    MERGE (e2:__Entity__ {{id: $e2}})
+                    MERGE (e1)-[:{clean_rel}]->(e2)
+                """
+                self.graph.query(query, {"e1": e1, "e2": e2, "doc_id": doc_id})
+                    
+            except Exception as e:
+                print(f"Failed to create relationship {e1}-{rel}-{e2}: {e}")
 
-    async def create_graph_from_documents(self, documents: List[Document], source_name: str = None):
-        """Async processing with controlled concurrency and automatic source tracking."""
+    async def add_documents(self, documents: List[Document], source_name: str = None):
+        """Add documents to the graph (incremental updates supported)."""
         if not source_name:
             source_name = self._extract_source_name(documents)
         
-        print(f"Processing {len(documents)} documents from source '{source_name}' with max {self.max_concurrent} concurrent calls...")
+        print(f"Processing {len(documents)} documents from source '{source_name}'...")
         
         # Add source metadata to documents
         timestamp = str(pd.Timestamp.now())
@@ -239,47 +107,38 @@ class KnowledgeGraph:
             doc.metadata.update({
                 "source_name": source_name, 
                 "added_timestamp": timestamp,
-                "doc_id": f"{source_name}_{i}"
+                "doc_id": f"{source_name}_{i}_{timestamp}"
             })
         
-        # Create the document nodes
-        self._create_document_nodes(documents, source_name)
+        # Create document nodes
+        self._create_document_nodes(documents)
 
+        # Process documents with semaphore for concurrency control
         semaphore = asyncio.Semaphore(self.max_concurrent)
         
         async def process_doc_with_semaphore(doc):
             async with semaphore:
-                return await self._fast_extract_async(doc.page_content)
+                return await self._extract_entities_relationships(doc.page_content)
         
-        all_entities = set()
-        all_relationships = []
-        
-        # Process in batches to manage memory
-        doc_batches = [documents[i:i+50] for i in range(0, len(documents), 50)]
-        
-        for batch_idx, doc_batch in enumerate(doc_batches):
-            print(f"Processing batch {batch_idx + 1}/{len(doc_batches)}")
+        # Process documents in smaller batches to manage memory
+        for i in range(0, len(documents), 100):
+            batch = documents[i:i+100]
+            print(f"Processing batch {i//100 + 1}/{(len(documents)-1)//100 + 1}")
             
-            tasks = [process_doc_with_semaphore(doc) for doc in doc_batch]
+            tasks = [process_doc_with_semaphore(doc) for doc in batch]
             
-            batch_results = []
-            for coro in tqdm.as_completed(tasks, desc=f"Batch {batch_idx + 1}"):
+            for j, task in enumerate(tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Extracting")):
                 try:
-                    result = await coro
-                    batch_results.append(result)
-                except Exception as e:
-                    print(f"Document processing failed: {e}")
-                    continue
-            
-            # Combine results
-            for i, (entities, relationships) in enumerate(batch_results):
-                if i < len(doc_batch):  # Safety check
-                    doc_id = doc_batch[i].metadata["doc_id"]
+                    entities, relationships = await task
+                    doc_id = batch[j].metadata["doc_id"]
                     
                     if entities:
-                        self._create_entities_batch(entities, doc_id)
+                        self._create_entities(entities, doc_id)
                     if relationships:
-                        self._create_relationships_batch(relationships, doc_id)
+                        self._create_relationships(relationships, doc_id)
+                        
+                except Exception as e:
+                    print(f"Document processing failed: {e}")
         
         print("Processing complete!")
         
@@ -296,59 +155,42 @@ class KnowledgeGraph:
                 source = source.rsplit('.', 1)[0]
             return source
         
-        # Fallback to timestamp-based name
         return f"documents_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}"
 
-    def get_entity_with_sources(self, entity_name: str):
-        return self.graph.query("""
-            MATCH (e:__Entity__ {id: $entity_name})-[:EXTRACTED_FROM]->(d:Document)
-            RETURN e.id as entity, e.type as type, 
-                collect({source: d.source_name, doc_id: d.id, content: d.content[0..200]}) as sources
-        """, {"entity_name": entity_name})
+    async def _extract_entities_relationships(self, text: str) -> Tuple[Set[Tuple[str, str]], List[Tuple[str, str, str]]]:
+        """Extract entities and relationships from text."""
+        if len(text.strip()) < 50:
+            return set(), []
+            
+        # Truncate very long texts
+        if len(text) > 8000:
+            text = text[:8000] + "..."
 
-    def get_relationship_with_sources(self, entity1: str, entity2: str):
-        return self.graph.query("""
-            MATCH (e1:__Entity__ {id: $entity1})-[r]->(e2:__Entity__ {id: $entity2})
-            OPTIONAL MATCH (r)-[:EXTRACTED_FROM]->(d:Document)
-            RETURN type(r) as relationship, 
-                collect({source: d.source_name, doc_id: d.id}) as sources
-        """, {"entity1": entity1, "entity2": entity2})
+        prompt = f"""Extract medical/scientific entities and relationships from text using these examples:
 
+        Example 1:
+        Text: "Dr. Smith from Harvard Medical School published a study on diabetes treatment using metformin in the Journal of Medicine."
+        ENTITIES: Dr. Smith|Researcher, Harvard Medical School|Institution, diabetes|Medical_Condition, metformin|Medication, Journal of Medicine|Journal
+        RELATIONSHIPS: Dr. Smith→affiliated_with→Harvard Medical School, Dr. Smith→published_in→Journal of Medicine, metformin→treats→diabetes
 
-    async def _fast_extract_async(self, text: str) -> Tuple[Set[Tuple[str, str]], List[Tuple[str, str, str]]]:
-            """Fast entity and relationship extraction using few-shot examples."""
-            if len(text.strip()) < 50:
-                return set(), []
-                
-            # Truncate very long texts
-            if len(text) > 8000:
-                text = text[:8000] + "..."
+        Example 2:
+        Text: "The MRI scan revealed lesions in the brain cortex of patients with multiple sclerosis."
+        ENTITIES: MRI scan|Equipment, brain cortex|Anatomy, multiple sclerosis|Medical_Condition, lesions|Medical_Condition
+        RELATIONSHIPS: MRI scan→reveals→lesions, lesions→located_in→brain cortex, lesions→associated_with→multiple sclerosis
 
-            prompt = f"""Extract medical/scientific entities and relationships from text using these examples:
+        Now extract from this text:
+        {text}
 
-            Example 1:
-            Text: "Dr. Smith from Harvard Medical School published a study on diabetes treatment using metformin in the Journal of Medicine."
-            ENTITIES: Dr. Smith|Researcher, Harvard Medical School|Institution, diabetes|Medical_Condition, metformin|Medication, Journal of Medicine|Journal
-            RELATIONSHIPS: Dr. Smith→affiliated_with→Harvard Medical School, Dr. Smith→published_in→Journal of Medicine, metformin→treats→diabetes
+        OUTPUT FORMAT:
+        ENTITIES: Entity1|Type1, Entity2|Type2, Entity3|Type3
+        RELATIONSHIPS: Entity1→relationship→Entity2, Entity3→relationship→Entity4"""
 
-            Example 2:
-            Text: "The MRI scan revealed lesions in the brain cortex of patients with multiple sclerosis."
-            ENTITIES: MRI scan|Equipment, brain cortex|Anatomy, multiple sclerosis|Medical_Condition, lesions|Medical_Condition
-            RELATIONSHIPS: MRI scan→reveals→lesions, lesions→located_in→brain cortex, lesions→associated_with→multiple sclerosis
-
-            Now extract from this text:
-            {text}
-
-            OUTPUT FORMAT:
-            ENTITIES: Entity1|Type1, Entity2|Type2, Entity3|Type3
-            RELATIONSHIPS: Entity1→relationship→Entity2, Entity3→relationship→Entity4"""
-
-            try:
-                result = await self.llm.ainvoke(prompt)
-                return self._parse_extraction_result(result.content.strip())
-            except Exception as e:
-                print(f"Extraction failed: {e}")
-                return set(), []
+        try:
+            result = await self.llm.ainvoke(prompt)
+            return self._parse_extraction_result(result.content.strip())
+        except Exception as e:
+            print(f"Extraction failed: {e}")
+            return set(), []
 
     def _parse_extraction_result(self, content: str):
         entities = set()
@@ -373,77 +215,27 @@ class KnowledgeGraph:
         
         return entities, relationships
 
-    def _create_document_nodes(self, documents: List[Document], source_name: str):
+    def _create_document_nodes(self, documents: List[Document]):
         """Create document nodes for source tracking."""
-        doc_data = [{
-            "doc_id": f"{source_name}_{i}",
-            "source_name": source_name,
-            "content": doc.page_content[:1000],
-            "added_timestamp": doc.metadata.get('added_timestamp', str(pd.Timestamp.now())),
-            "original_metadata": str(doc.metadata)
-        } for i, doc in enumerate(documents)]
-
-        query = """
-        UNWIND $batch_data AS doc
-        CREATE (d:Document {
-            id: doc.doc_id,
-            source_name: doc.source_name,
-            content: doc.content,
-            added_timestamp: doc.added_timestamp,
-            metadata: doc.original_metadata
-        })
-        """
-        
-        self._execute_batch_query(query, doc_data, 100, "Creating document nodes")
-
-    async def incremental_update_with_source_tracking(self, documents: List[Document], source_name: str) -> Dict[str, Any]:
-        """Add documents with source tracking."""
-        print(f"Adding {len(documents)} documents from source: {source_name}")
-
-        # Add metadata
-        timestamp = str(pd.Timestamp.now())
         for doc in documents:
-            doc.metadata.update({"source_name": source_name, "added_timestamp": timestamp})
-
-        # Check for existing source
-        existing_count = self.graph.query(
-            "MATCH (d:Document {source_name: $source_name}) RETURN count(d) as count",
-            {"source_name": source_name}
-        )[0]['count']
-
-        if existing_count > 0:
-            print(f"Warning: Source '{source_name}' already exists with {existing_count} documents.")
-
-        # Get initial stats and process
-        initial_stats = self.get_graph_stats()
-        await self.create_graph_from_documents(documents)
-        self._create_document_nodes(documents, source_name)
-        final_stats = self.get_graph_stats()
-
-        return {
-            "nodes_added": final_stats['nodes'] - initial_stats['nodes'],
-            "relationships_added": final_stats['relationships'] - initial_stats['relationships'],
-            "documents_processed": len(documents),
-            "source_name": source_name,
-            "status": "success"
-        }
-
-    async def replace_source_documents(self, documents: List[Document], source_name: str):
-        """Replace all documents from a source."""
-        print(f"Replacing documents from source: {source_name}")
-
-        # Remove existing documents
-        removed_count = self.graph.query(
-            "MATCH (d:Document {source_name: $source_name}) DETACH DELETE d RETURN count(d) as removed",
-            {"source_name": source_name}
-        )[0]['removed']
-        
-        print(f"Removed {removed_count} existing documents")
-        
-        # Add new documents
-        result = await self.incremental_update_with_source_tracking(documents, source_name)
-        result['documents_replaced'] = removed_count
-        return result
+            try:
+                self.graph.query("""
+                    CREATE (d:Document {
+                        id: $doc_id,
+                        source_name: $source_name,
+                        content: $content,
+                        added_timestamp: $added_timestamp,
+                        metadata: $metadata
+                    })
+                """, {
+                    "doc_id": doc.metadata["doc_id"],
+                    "source_name": doc.metadata["source_name"],
+                    "content": doc.page_content[:1000],
+                    "added_timestamp": doc.metadata["added_timestamp"],
+                    "metadata": str(doc.metadata)
+                })
+            except Exception as e:
+                print(f"Failed to create document node: {e}")
 
     def get_source_info(self, source_name: str = None) -> Dict[str, Any]:
         """Get information about document sources."""
@@ -481,17 +273,26 @@ class KnowledgeGraph:
             RETURN count(d) as docs
         """, {"source_name": source_name})[0]
         
-        # Remove documents
-        self.graph.query("MATCH (d:Document {source_name: $source_name}) DETACH DELETE d", 
-                        {"source_name": source_name})
+        # Remove documents and their relationships
+        self.graph.query("""
+            MATCH (d:Document {source_name: $source_name})
+            DETACH DELETE d
+        """, {"source_name": source_name})
         
-        # Clean up orphaned entities
+        # Clean up orphaned entities and relationship metadata
         orphaned = self.graph.query("""
             MATCH (e:__Entity__)
             WHERE NOT EXISTS((e)-[:EXTRACTED_FROM]-(:Document))
             DETACH DELETE e
             RETURN count(e) as orphaned_removed
         """)[0]
+        
+        # Clean up orphaned relationship metadata
+        self.graph.query("""
+            MATCH (meta:RelationshipMeta)
+            WHERE NOT EXISTS((meta)-[:DOCUMENTS_RELATIONSHIP]-(:Document))
+            DELETE meta
+        """)
         
         return {
             "source_name": source_name,
@@ -500,38 +301,59 @@ class KnowledgeGraph:
             "status": "success"
         }
 
-    def create_graph(self, documents: List[Document], source_name: str = None):
-        """LangChain transformer approach."""
-        if not source_name:
-            source_name = self._extract_source_name(documents)
+    def query(self, query: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Execute a Cypher query on the graph."""
+        return self.graph.query(query, params)
+
+    def get_graph_stats(self) -> Dict[str, Any]:
+        """Get comprehensive statistics about the current graph."""
+        stats = self.graph.query("""
+            MATCH (n) 
+            OPTIONAL MATCH ()-[r]->()
+            RETURN 
+                count(DISTINCT n) as nodes,
+                count(DISTINCT r) as relationships
+        """)[0]
         
-        print(f"Creating graph using LangChain transformer for source '{source_name}'")
+        # Get entity types
+        entity_types = self.graph.query("""
+            MATCH (e:__Entity__)
+            RETURN e.type as type, count(e) as count
+            ORDER BY count DESC
+        """)
         
-        # Add source metadata to documents
-        timestamp = str(pd.Timestamp.now())
-        for doc in documents:
-            doc.metadata.update({"source_name": source_name, "added_timestamp": timestamp})
+        # Get relationship types
+        rel_types = self.graph.query("""
+            MATCH ()-[r]->()
+            RETURN type(r) as type, count(r) as count
+            ORDER BY count DESC
+        """)
         
-        llm_transformer = LLMGraphTransformer(llm=self.llm)
-        batch_size = min(self.batch_size, 20)
+        return {
+            'nodes': stats['nodes'],
+            'relationships': stats['relationships'],
+            'entity_types': {item['type']: item['count'] for item in entity_types if item['type']},
+            'relationship_types': {item['type']: item['count'] for item in rel_types if item['type']}
+        }
+
+    def get_relationship_sources(self, entity1: str, entity2: str, relationship_type: str = None) -> List[Dict[str, Any]]:
+        """Get source documents for specific relationships."""
+        if relationship_type:
+            query = """
+            MATCH (meta:RelationshipMeta {source: $e1, target: $e2, type: $rel_type})
+            MATCH (meta)-[:DOCUMENTS_RELATIONSHIP]->(d:Document)
+            RETURN d.source_name as source, d.id as doc_id, d.added_timestamp as timestamp
+            """
+            params = {"e1": entity1, "e2": entity2, "rel_type": relationship_type}
+        else:
+            query = """
+            MATCH (meta:RelationshipMeta {source: $e1, target: $e2})
+            MATCH (meta)-[:DOCUMENTS_RELATIONSHIP]->(d:Document)
+            RETURN meta.type as relationship_type, d.source_name as source, d.id as doc_id, d.added_timestamp as timestamp
+            """
+            params = {"e1": entity1, "e2": entity2}
         
-        for i in tqdm(range(0, len(documents), batch_size), desc="Processing document batches"):
-            batch = documents[i:i + batch_size]
-            try:
-                graph_documents = llm_transformer.convert_to_graph_documents(batch)
-                self.graph.add_graph_documents(graph_documents, baseEntityLabel=True, include_source=True)
-            except Exception as e:
-                print(f"Batch {i//batch_size + 1} failed: {e}")
-                # Individual fallback
-                for doc in batch:
-                    try:
-                        graph_docs = llm_transformer.convert_to_graph_documents([doc])
-                        self.graph.add_graph_documents(graph_docs, baseEntityLabel=True, include_source=True)
-                    except:
-                        continue
-        
-        # Create document nodes for source tracking
-        self._create_document_nodes(documents, source_name)
+        return self.graph.query(query, params)
 
     def visualize_graph(self, limit: int = 50):
         """Visualize the graph using yfiles."""
@@ -550,48 +372,3 @@ class KnowledgeGraph:
             print("Install required packages: pip install yfiles_jupyter_graphs")
         except Exception as e:
             print(f"Error visualizing graph: {e}")
-
-    def query(self, query: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Execute a Cypher query on the graph."""
-        return self.graph.query(query, params)
-
-    def get_graph_stats(self) -> Dict[str, Any]:
-        """Get comprehensive statistics about the current graph."""
-        # Single query to get all stats
-        stats_query = """
-        MATCH (n) 
-        OPTIONAL MATCH (n)-[r]->()
-        OPTIONAL MATCH (e:__Entity__)
-        RETURN 
-            count(DISTINCT n) as nodes,
-            count(DISTINCT r) as relationships,
-            collect(DISTINCT type(r)) as rel_types,
-            collect(DISTINCT e.type) as entity_types
-        """
-        
-        result = self.graph.query(stats_query)[0]
-        
-        # Get counts
-        rel_type_counts = {}
-        if result['rel_types']:
-            for rel_type in result['rel_types']:
-                if rel_type:  # Skip null values
-                    count = self.graph.query(f"MATCH ()-[r:{rel_type}]->() RETURN count(r) as count")[0]['count']
-                    rel_type_counts[rel_type] = count
-        
-        entity_type_counts = {}
-        if result['entity_types']:
-            for entity_type in result['entity_types']:
-                if entity_type:  # Skip null values
-                    count = self.graph.query(
-                        "MATCH (n:__Entity__ {type: $type}) RETURN count(n) as count", 
-                        {"type": entity_type}
-                    )[0]['count']
-                    entity_type_counts[entity_type] = count
-        
-        return {
-            'nodes': result['nodes'],
-            'relationships': result['relationships'],
-            'relationship_types': rel_type_counts,
-            'entity_types': entity_type_counts
-        }
