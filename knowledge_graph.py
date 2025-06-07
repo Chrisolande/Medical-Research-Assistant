@@ -4,12 +4,13 @@ from langchain_core.documents import Document
 from typing import List, Dict, Any, Optional, Set, Tuple
 from collections import defaultdict
 from dotenv import load_dotenv
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import asyncio
 import os
 import re
 import pandas as pd
 import json
+import time
 
 load_dotenv()
 
@@ -25,7 +26,9 @@ class KnowledgeGraph:
         self.username = NEO4J_USERNAME
         self.password = NEO4J_PASSWORD
         self.model_name = MODEL_NAME
-        
+        self.flush_interval = 30
+        self.last_flush_time = time.time()
+
         self.llm = ChatOpenAI(
             model=self.model_name,
             temperature=0, 
@@ -150,29 +153,37 @@ class KnowledgeGraph:
                         print(f"Failed to create relationship {e1}-{rel_type}-{e2}: {inner_e}")
 
     def _flush_batches(self):
+
+        if not self.entity_batch and not self.relationship_batch:
+            return 
+
         """Flush accumulated batches to database."""
         if self.entity_batch:
-            self._batch_create_entities(self.entity_batch)
-            self.entity_batch.clear()
+            with tqdm(total=1, desc="Flushing entities to database") as pbar:
+                self._batch_create_entities(self.entity_batch)
+                self.entity_batch.clear()
+                pbar.update(1)
             
         if self.relationship_batch:
-            self._batch_create_relationships(self.relationship_batch)
-            self.relationship_batch.clear()
+            with tqdm(total=1, desc="Flushing relationships to database") as pbar:
+                self._batch_create_relationships(self.relationship_batch)
+                self.relationship_batch.clear()
+                pbar.update(1)
+
+        self.last_flush_time = time.time()
 
     async def add_documents(self, documents: List[Document], source_name: str = None):
         """Add documents to the graph with batch processing."""
-        if not source_name:
-            source_name = self._extract_source_name(documents)
-        
-        print(f"Processing {len(documents)} documents from source '{source_name}'...")
-        
+        print(f"Processing {len(documents)} documents...")
         # Add source metadata to documents
         timestamp = str(pd.Timestamp.now())
         for i, doc in enumerate(documents):
+            # Extract individual source name for each document
+            individual_source = source_name or self._extract_source_name([doc])
             doc.metadata.update({
-                "source_name": source_name, 
+                "source_name": individual_source, 
                 "added_timestamp": timestamp,
-                "doc_id": f"{source_name}_{i}_{timestamp}"
+                "doc_id": f"{individual_source}"
             })
         
         # Create document nodes in batch
@@ -185,32 +196,38 @@ class KnowledgeGraph:
                 return await self._extract_entities_relationships(doc.page_content, doc.metadata["doc_id"])
         
         batch_size = 200  
-        for i in range(0, len(documents), batch_size):
-            batch = documents[i:i+batch_size]
-            print(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1}")
-            
-            tasks = [process_doc_with_semaphore(doc) for doc in batch]
-            
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for j, result in enumerate(results):
-                if isinstance(result, Exception):
-                    print(f"Document processing failed: {result}")
-                    continue
+        total_batches = (len(documents) - 1) // batch_size + 1
+        with tqdm(total=total_batches, desc="Processing document batches") as pbar:
+            for i in range(0, len(documents), batch_size):
+                batch = documents[i:i+batch_size]
+                
+                tasks = [process_doc_with_semaphore(doc) for doc in batch]
+                
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                for j, result in tqdm(enumerate(results), desc=f"Processing results batch {pbar.n}", leave=False):
+                    if isinstance(result, Exception):
+                        print(f"Document processing failed: {result}")
+                        continue
+                        
+                    entities, relationships = result
+                    doc_id = batch[j].metadata["doc_id"]
                     
-                entities, relationships = result
-                doc_id = batch[j].metadata["doc_id"]
-                
-                # Add to batch containers   
-                for name, etype in entities:
-                    self.entity_batch.append((name, etype, doc_id))
-                
-                for e1, rel, e2 in relationships:
-                    self.relationship_batch.append((e1, rel, e2, doc_id))
-                
-                # Flush batches when they reach size limit
-                if len(self.entity_batch) >= self.batch_size:
-                    self._flush_batches()
+                    # Add to batch containers   
+                    for name, etype in entities:
+                        self.entity_batch.append((name, etype, doc_id))
+                    
+                    for e1, rel, e2 in relationships:
+                        self.relationship_batch.append((e1, rel, e2, doc_id))
+                    
+                    # Flush batches when they reach size limit OR time interval
+                    current_time = time.time()
+                    if (len(self.entity_batch) >= self.batch_size or 
+                        current_time - self.last_flush_time >= self.flush_interval):
+                        self._flush_batches()
+                        self.last_flush_time = current_time
+
+                pbar.update(1)
         
         # Flush any remaining batches
         self._flush_batches()
@@ -268,16 +285,14 @@ class KnowledgeGraph:
         
     def _extract_source_name(self, documents: List[Document]) -> str:
         """Extract source name from document metadata."""
-        if documents and 'source' in documents[0].metadata:
-            source = documents[0].metadata['source']
-            # Clean up file extensions and paths
-            if '/' in source:
-                source = source.split('/')[-1]
-            if '\\' in source:
-                source = source.split('\\')[-1]
-            if '.' in source:
-                source = source.rsplit('.', 1)[0]
-            return source
+
+        if documents and documents[0].metadata:
+            metadata = documents[0].metadata
+            # Use pmid if available, otherwise use source directly
+            if 'pmid' in metadata:
+                return metadata['pmid']
+            elif 'source' in metadata:
+                return metadata['source']
         
         return f"documents_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -434,7 +449,7 @@ class KnowledgeGraph:
             'relationship_types': {item['type']: item['count'] for item in rel_types if item['type']}
         }
 
-    def visualize_graph(self, limit: int = 50):
+    def visualize_graph(self, limit: int = 100):
         """Visualize the graph using yfiles."""
         try:
             from neo4j import GraphDatabase
@@ -451,3 +466,4 @@ class KnowledgeGraph:
             print("Install required packages: pip install yfiles_jupyter_graphs")
         except Exception as e:
             print(f"Error visualizing graph: {e}")
+            return None
