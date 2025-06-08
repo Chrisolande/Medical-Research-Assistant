@@ -71,6 +71,18 @@ class VectorStore:
                 documents, node_label, text_node_property, embedding_node_property
             )
 
+        self.vector_index = Neo4jVector.from_documents(
+            documents,
+            self.embeddings,
+            url=self.knowledge_graph.url,
+            username=self.knowledge_graph.username,
+            password=self.knowledge_graph.password,
+            index_name="vector",
+            node_label=node_label,
+            text_node_property=text_node_property,
+            embedding_node_property=embedding_node_property
+        )
+
     def _create_vector_index_batched(self,
             documents:List[Document],
             node_label: str,
@@ -128,3 +140,12 @@ class VectorStore:
         if self.vector_index is None:
             raise ValueError("Vector index not initialized. Call create_vector_index or create_hybrid_index first")
         return self.vector_index.similarity_search_with_score(query, k=k)
+
+    def query(self, queries: List[str], k = 4):
+        """Perform similarity search"""
+        if self.vector_index is None:
+            raise ValueError("Vector Index is not initialized")
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = [executor.submit(self.similarity_search, query, k) for query in queries]
+            return [future.result() for future in futures]
