@@ -78,7 +78,7 @@ class VectorStore:
                 )
         # Wrap the synchronous vector index call in an executor to make it async
         loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             self.vector_index = await loop.run_in_executor(
                 executor,
 
@@ -108,7 +108,7 @@ class VectorStore:
 
             # Loop the sync vector index call to make it async as before
             loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers = 3) as executor:
+            with ThreadPoolExecutor(max_workers = self.max_workers) as executor:
                 self.vector_index = await loop.run_in_executor(
                     executor,
                     lambda: Neo4jVector.from_documents(
@@ -126,7 +126,7 @@ class VectorStore:
 
             remaining_batches = []
 
-            # Create the batches list for concurrent processin
+            # Create the batches list for concurrent processing
             for i in range(self.batch_size, len(documents), self.batch_size):
                 batch = documents[i:i + self.batch_size]
                 remaining_batches.append(batch)
@@ -139,7 +139,7 @@ class VectorStore:
             async def process_batch(batch: List[Document]):
                 async with semaphore:
                     loop = asyncio.get_event_loop()
-                    with ThreadPoolExecutor(max_workers=3) as executor:
+                    with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                         await loop.run_in_executor(
                             executor,
                              lambda: self.vector_index.add_documents(batch)
@@ -148,24 +148,30 @@ class VectorStore:
             # Create tasks, run everything asynchronously
             tasks = [process_batch(batch) for batch in remaining_batches]
             await asyncio.gather(*tasks, return_exceptions=True)
-            
-    def create_hybrid_index(
+
+    async def create_hybrid_index(
         self,
-        node_label: str = "Document",
+        node_label: str = "Document Embedding",
         text_node_properties: List[str] = ["text"],
         embedding_node_property:str = "embedding"
     ):
         """Create hybrid index"""
-        self.vector_index = Neo4jVector.from_existing_graph(
-            self.embeddings,
-            url = self.knowledge_graph.url,
-            username = self.knowledge_graph.username,
-            password = self.knowledge_graph.password,
-            search_type = "hybrid", # Combines both semantic and keyword matching
-            node_label = node_label,
-            text_node_properties = text_node_properties,
-            embedding_node_property = embedding_node_property
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers = self.max_workers) as executor:
+            self.vector_index = await loop.run_in_executor(
+                executor,
+                lambda: Neo4jVector.from_existing_graph(
+                self.embeddings,
+                url = self.knowledge_graph.url,
+                username = self.knowledge_graph.username,
+                password = self.knowledge_graph.password,
+                search_type = "hybrid", # Combines both semantic and keyword matching
+                node_label = node_label,
+                text_node_properties = text_node_properties,
+                embedding_node_property = embedding_node_property
+            )
         )
+   
 
     def similarity_search(self, query: str, k: int = 4) -> List[Document]:
         """Perform similarity search on the vector index"""
