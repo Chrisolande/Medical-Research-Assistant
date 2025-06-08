@@ -10,10 +10,39 @@ from typing import List, Optional
 from knowledge_graph import KnowledgeGraph
 import asyncio
 from asyncio import Semaphore
+import time
 import os
 
 EMBEDDING_MODEL = "embed-english-light-v3.0"
 
+class AdaptiveBatcher:
+    def __init__(self, initial_batch_size:int = 48, min_batch_size: int = 16, max_batch_size = 96):
+        self.current_batch_size = initial_batch_size
+        self.min_batch_size = min_batch_size
+        self.max_batch_size = max_batch_size
+        self.latency_history = []
+        self.target_latency = 5.0  # Target 5 seconds per batch
+        self.adjustment_factor = 0.2  # 20pc adjustments
+
+    def adjust_batch_size(self, latency: float):
+        """Adjust based on observed latency"""
+        self.latency_history.append(latency)
+
+        # Keep only the last 5 history
+        if len(self.latency_history) > 5:
+            self.latency_history.pop(0)
+
+        avg_latency = sum(self.latency_history) / len(self.latency_history)
+
+        if avg_latency > self.target_latency * 1.2: # Too slow, reduce batch size
+            new_size = int(self.current_batch_size * (1 - self.adjustment_factor))
+            self.current_batch_size = max(new_size, self.min_batch_size)
+        
+        elif avg_latency < self.target_latency * 0.8:  # Too fast, increase batch size
+            new_size = int(self.current_batch_size * (1 + self.adjustment_factor))
+            self.current_batch_size = min(new_size, self.max_batch_size)
+            
+        return self.current_batch_size
 class VectorStore:
     def __init__(
         self, 
@@ -22,7 +51,8 @@ class VectorStore:
         batch_size: int = 96,
         max_concurrent: int = 15,
         cache_type = "file",
-        cache_dir = "embedding_cache"
+        cache_dir = "embedding_cache",
+        adaptive_batching:bool = True
     ):
         self.knowledge_graph = knowledge_graph
         self.embedding_model = embedding_model or EMBEDDING_MODEL
@@ -30,6 +60,10 @@ class VectorStore:
         self.cache_type = cache_type
         self.cache_dir = cache_dir
         self.max_concurrent = max_concurrent
+        self.adaptive_batching = adaptive_batching
+
+        #Initialize adaptive batching if enabled
+        self.batcher = AdaptiveBatcher(initial_batch_size=self.batch_size) if adaptive_batching else None # Use fixed batching as the fallback
         
         # Cache the embeddings instance
         self._embeddings = None
@@ -60,6 +94,10 @@ class VectorStore:
 
         return self._embeddings
 
+    def _get_current_batch_size(self):
+        """Get the current batch size either adaptive or fixed batching"""
+        return self.batcher.current_batch_size if self.adaptive_batching else self.batch_size
+
     async def create_vector_index(
         self,
         documents: List[Document],
@@ -69,6 +107,8 @@ class VectorStore:
     ):
         """Create vector index from documents with batching"""
         semaphore = Semaphore(self.max_concurrent)
+
+        current_batch_size = self._get_current_batch_size()
 
         if len(documents) > self.batch_size:
             async with semaphore:
@@ -97,8 +137,12 @@ class VectorStore:
         ):
             """Process documents in batches for faster processing"""
             semaphore = Semaphore(self.max_concurrent)
+
+            current_batch_size = self._get_current_batch_size()
+
             # Create the first batch and initialize the vector with it
             first_batch = documents[:self.batch_size]
+            start_time = time.time()
 
             self.vector_index = await Neo4jVector.afrom_documents(
                     first_batch,
@@ -111,6 +155,39 @@ class VectorStore:
                     text_node_property = text_node_property,
                     embedding_node_property = embedding_node_property
                 )
+
+            # Track latency and adjust if need be
+            if self.adaptive_batching:
+                latency = time.time() - start_time
+                current_batch_size = self.batcher.adjust_batch_size(latency)
+            
+            remaining_documents = documents[current_batch_size:]
+            if not remaining_documents:
+                return
+
+            # Process remaining documents with adaptive batching
+            async def process_batch_adaptive(batch: List[Document]):
+                async with semaphore:
+                    start_time = time.time()
+                    await self.vector_index.aadd_documents(batch)
+                    
+                    # Adjust batch size based on latency
+                    if self.adaptive_batching:
+                        latency = time.time() - start_time
+                        self.batcher.adjust_batch_size(latency)
+
+            # Create batches dynamically
+            tasks = []
+            i = 0
+            while i < len(remaining_documents):
+                current_batch_size = self._get_current_batch_size()
+                batch = remaining_documents[i:i + current_batch_size]
+                tasks.append(process_batch_adaptive(batch))
+                i += current_batch_size
+
+            # Run all tasks
+            await asyncio.gather(*tasks, return_exceptions=True)
+
             
             remaining_batches = []
 
@@ -170,11 +247,11 @@ class VectorStore:
         tasks = [self.similarity_search(query, k) for query in queries]
         return await asyncio.gather(*tasks, return_exceptions=True)
 
-    def __enter__(self):
+    async def __aenter__(self):
         """Add a simple context manager"""
         return self
 
-    def __exit__(self):
+    async def __aexit__(self):
         """Clean up resources"""
         if hasattr(self.vector_index, 'close'):
             self.vector_index.close()
