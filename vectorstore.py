@@ -1,8 +1,13 @@
 from langchain_community.vectorstores.neo4j_vector import Neo4jVector
 from langchain_cohere import CohereEmbeddings
 from langchain_core.documents import Document
+from langchain_community.storage import LocalFileStore
+
 from typing import List, Optional
 from knowledge_graph import KnowledgeGraph
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+import os
 
 EMBEDDING_MODEL = "embed-english-light-v3.0"
 
@@ -10,18 +15,50 @@ class VectorStore:
     def __init__(
         self, 
         knowledge_graph: KnowledgeGraph,
-        embedding_model: Optional[str] = None
+        embedding_model: Optional[str] = None,
+        batch_size: int = 96,
+        max_workers = os.cpu_count() - 1,
+        cache_type = "file",
+        cache_dir = "embedding_cache"
     ):
         self.knowledge_graph = knowledge_graph
         self.embedding_model = embedding_model or EMBEDDING_MODEL
+        self.batch_size = batch_size
+        self.max_workers = max_workers
+        self.cache_type = cache_type
+        self.cache_dir = cache_dir
         
-        self.embeddings = CohereEmbeddings(
-            model = self.embedding_model,
-            cohere_api_key = os.getenv("COHERE_API_KEY1")
-        )
+        # Cache the embeddings instance
+        self._embeddings = None
 
         # Initialize the vector index
         self.vector_index = None
+
+    @property
+    def embeddings(self):
+        """Lazy load embeddings with caching to avoid re-computing embeddings"""
+        if self._embeddings is None:
+            # Create base embeddings
+            base_embeddings = CohereEmbeddings(
+                model = self.embedding_model,
+                cohere_api_key = os.getenv("COHERE_API_KEY1")
+            )
+            if self.cache_type == "file":
+                # Set up caching
+                fs = LocalFileStore(self.cache_dir)
+                self._embeddings = CacheBackedEmbeddings.from_bytes_store(
+                    base_embeddings,
+                    fs,
+                    namespace=f"cohere_{self.embedding_model}"
+                )
+            else:
+                # No caching
+                self._embeddings = base_embeddings
+
+        return self._embeddings
+
+    
+
 
     def create_vector_index(
         self,
