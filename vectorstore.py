@@ -1,3 +1,6 @@
+"""Based on this documentation from langchain https://python.langchain.com/api_reference/community/vectorstores/langchain_community.vectorstores.neo4j_vector.Neo4jVector.html
+It turns out neo4j has async method"""
+
 from langchain_community.vectorstores.neo4j_vector import Neo4jVector
 from langchain_cohere import CohereEmbeddings
 from langchain_core.documents import Document
@@ -5,7 +8,6 @@ from langchain_community.storage import LocalFileStore
 
 from typing import List, Optional
 from knowledge_graph import KnowledgeGraph
-from concurrent.futures import ThreadPoolExecutor
 import asyncio
 from asyncio import Semaphore
 import os
@@ -18,7 +20,6 @@ class VectorStore:
         knowledge_graph: KnowledgeGraph,
         embedding_model: Optional[str] = None,
         batch_size: int = 96,
-        max_workers = os.cpu_count() - 1,
         max_concurrent: int = 15,
         cache_type = "file",
         cache_dir = "embedding_cache"
@@ -26,7 +27,6 @@ class VectorStore:
         self.knowledge_graph = knowledge_graph
         self.embedding_model = embedding_model or EMBEDDING_MODEL
         self.batch_size = batch_size
-        self.max_workers = max_workers
         self.cache_type = cache_type
         self.cache_dir = cache_dir
         self.max_concurrent = max_concurrent
@@ -37,7 +37,7 @@ class VectorStore:
         # Initialize the vector index
         self.vector_index = None
 
-    @property
+    @property # ensures that the CohereEmbeddings instance is only created when it's first accessed, rather than during object initialization. "
     def embeddings(self):
         """Lazy load embeddings with caching to avoid re-computing embeddings"""
         if self._embeddings is None:
@@ -76,24 +76,18 @@ class VectorStore:
                 return await self._create_vector_index_batched(
                     documents, node_label, text_node_property, embedding_node_property
                 )
-        # Wrap the synchronous vector index call in an executor to make it async
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            self.vector_index = await loop.run_in_executor(
-                executor,
-
-                lambda: Neo4jVector.from_documents(
-                documents,
-                self.embeddings,
-                url=self.knowledge_graph.url,
-                username=self.knowledge_graph.username,
-                password=self.knowledge_graph.password,
-                index_name="vector",
-                node_label=node_label,
-                text_node_property=text_node_property,
-                embedding_node_property=embedding_node_property
-            )
-            )
+        
+        self.vector_index = await Neo4jVector.afrom_documents(
+            documents,
+            self.embeddings,
+            url=self.knowledge_graph.url,
+            username=self.knowledge_graph.username,
+            password=self.knowledge_graph.password,
+            index_name="vector",
+            node_label=node_label,
+            text_node_property=text_node_property,
+            embedding_node_property=embedding_node_property
+        )
 
     async def _create_vector_index_batched(self,
             documents:List[Document],
@@ -106,24 +100,18 @@ class VectorStore:
             # Create the first batch and initialize the vector with it
             first_batch = documents[:self.batch_size]
 
-            # Loop the sync vector index call to make it async as before
-            loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers = self.max_workers) as executor:
-                self.vector_index = await loop.run_in_executor(
-                    executor,
-                    lambda: Neo4jVector.from_documents(
-                        first_batch,
-                        self.embeddings,
-                        url = self.knowledge_graph.url,
-                        username = self.knowledge_graph.username,
-                        password = self.knowledge_graph.password,
-                        index_name = "vector",
-                        node_label = node_label,
-                        text_node_property = text_node_property,
-                        embedding_node_property = embedding_node_property
-                    )
+            self.vector_index = await Neo4jVector.afrom_documents(
+                    first_batch,
+                    self.embeddings,
+                    url = self.knowledge_graph.url,
+                    username = self.knowledge_graph.username,
+                    password = self.knowledge_graph.password,
+                    index_name = "vector",
+                    node_label = node_label,
+                    text_node_property = text_node_property,
+                    embedding_node_property = embedding_node_property
                 )
-
+            
             remaining_batches = []
 
             # Create the batches list for concurrent processing
@@ -138,12 +126,7 @@ class VectorStore:
             # Process asynchronously
             async def process_batch(batch: List[Document]):
                 async with semaphore:
-                    loop = asyncio.get_event_loop()
-                    with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                        await loop.run_in_executor(
-                            executor,
-                             lambda: self.vector_index.add_documents(batch)
-                        )
+                    await self.vector_index.aadd_documents(batch)
 
             # Create tasks, run everything asynchronously
             tasks = [process_batch(batch) for batch in remaining_batches]
@@ -156,11 +139,7 @@ class VectorStore:
         embedding_node_property:str = "embedding"
     ):
         """Create hybrid index"""
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor(max_workers = self.max_workers) as executor:
-            self.vector_index = await loop.run_in_executor(
-                executor,
-                lambda: Neo4jVector.from_existing_graph(
+        self.vector_index = await Neo4jVector.afrom_existing_graph(
                 self.embeddings,
                 url = self.knowledge_graph.url,
                 username = self.knowledge_graph.username,
@@ -170,29 +149,26 @@ class VectorStore:
                 text_node_properties = text_node_properties,
                 embedding_node_property = embedding_node_property
             )
-        )
    
-
-    def similarity_search(self, query: str, k: int = 4) -> List[Document]:
+    async def similarity_search(self, query: str, k: int = 4) -> List[Document]:
         """Perform similarity search on the vector index"""
         if self.vector_index is None:
             raise ValueError("Vector index not initialized. Call create_vector_index or create_hybrid_index first.")
-        return self.vector_index.similarity_search(query, k=k)
+        return self.vector_index.asimilarity_search(query, k=k)
 
-    def similarity_search_with_score(self, query: str, k: int = 4) -> List[tuple]:
+    async def similarity_search_with_score(self, query: str, k: int = 4) -> List[tuple]:
         """Perform similarity search with scores on the vector index"""
         if self.vector_index is None:
             raise ValueError("Vector index not initialized. Call create_vector_index or create_hybrid_index first")
-        return self.vector_index.similarity_search_with_score(query, k=k)
+        return self.vector_index.asimilarity_search_with_score(query, k=k)
 
-    def query(self, queries: List[str], k = 4):
+    async def query(self, queries: List[str], k = 4):
         """Perform similarity search"""
         if self.vector_index is None:
             raise ValueError("Vector Index is not initialized")
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [executor.submit(self.similarity_search, query, k) for query in queries]
-            return [future.result() for future in futures]
+        tasks = [self.similarity_search(query, k) for query in queries]
+        return await asyncio.gather(*tasks, return_exceptions=True)
 
     def __enter__(self):
         """Add a simple context manager"""
