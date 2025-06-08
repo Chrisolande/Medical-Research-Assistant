@@ -7,6 +7,7 @@ from typing import List, Optional
 from knowledge_graph import KnowledgeGraph
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
+from asyncio import Semaphore
 import os
 
 EMBEDDING_MODEL = "embed-english-light-v3.0"
@@ -18,6 +19,7 @@ class VectorStore:
         embedding_model: Optional[str] = None,
         batch_size: int = 96,
         max_workers = os.cpu_count() - 1,
+        max_concurrent: int = 15,
         cache_type = "file",
         cache_dir = "embedding_cache"
     ):
@@ -27,6 +29,7 @@ class VectorStore:
         self.max_workers = max_workers
         self.cache_type = cache_type
         self.cache_dir = cache_dir
+        self.max_concurrent = max_concurrent
         
         # Cache the embeddings instance
         self._embeddings = None
@@ -57,7 +60,7 @@ class VectorStore:
 
         return self._embeddings
 
-    def create_vector_index(
+    async def create_vector_index(
         self,
         documents: List[Document],
         node_label: str = "Document Embeddings",
@@ -65,52 +68,87 @@ class VectorStore:
         embedding_node_property: str = "embedding"
     ):
         """Create vector index from documents with batching"""
+        semaphore = Semaphore(self.max_concurrent)
 
         if len(documents) > self.batch_size:
-            return self._create_vector_index_batched(
-                documents, node_label, text_node_property, embedding_node_property
+            async with semaphore:
+
+                return await self._create_vector_index_batched(
+                    documents, node_label, text_node_property, embedding_node_property
+                )
+        # Wrap the synchronous vector index call in an executor to make it async
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            self.vector_index = await loop.run_in_executor(
+                executor,
+
+                lambda: Neo4jVector.from_documents(
+                documents,
+                self.embeddings,
+                url=self.knowledge_graph.url,
+                username=self.knowledge_graph.username,
+                password=self.knowledge_graph.password,
+                index_name="vector",
+                node_label=node_label,
+                text_node_property=text_node_property,
+                embedding_node_property=embedding_node_property
+            )
             )
 
-        self.vector_index = Neo4jVector.from_documents(
-            documents,
-            self.embeddings,
-            url=self.knowledge_graph.url,
-            username=self.knowledge_graph.username,
-            password=self.knowledge_graph.password,
-            index_name="vector",
-            node_label=node_label,
-            text_node_property=text_node_property,
-            embedding_node_property=embedding_node_property
-        )
-
-    def _create_vector_index_batched(self,
+    async def _create_vector_index_batched(self,
             documents:List[Document],
             node_label: str,
-            text_node_property:str,
+            text_node_property:list,
             embedding_node_property:str
         ):
             """Process documents in batches for faster processing"""
-
+            semaphore = Semaphore(self.max_concurrent)
             # Create the first batch and initialize the vector with it
             first_batch = documents[:self.batch_size]
 
-            self.vector_index = Neo4jVector.from_documents(
-                first_batch,
-                self.embeddings,
-                url = self.knowledge_graph.url,
-                username = self.knowledge_graph.username,
-                password = self.knowledge_graph.password,
-                index_name = "vector",
-                node_label = node_label,
-                text_node_property = text_node_property,
-                embedding_node_property = embedding_node_property
-            )
+            # Loop the sync vector index call to make it async as before
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers = 3) as executor:
+                self.vector_index = await loop.run_in_executor(
+                    executor,
+                    lambda: Neo4jVector.from_documents(
+                        first_batch,
+                        self.embeddings,
+                        url = self.knowledge_graph.url,
+                        username = self.knowledge_graph.username,
+                        password = self.knowledge_graph.password,
+                        index_name = "vector",
+                        node_label = node_label,
+                        text_node_property = text_node_property,
+                        embedding_node_property = embedding_node_property
+                    )
+                )
 
-            # Add them remaining documents in batches
+            remaining_batches = []
+
+            # Create the batches list for concurrent processin
             for i in range(self.batch_size, len(documents), self.batch_size):
                 batch = documents[i:i + self.batch_size]
-                self.vector_index.add_documents(batch)
+                remaining_batches.append(batch)
 
+            # Return early if no remaining batches
+            if not remaining_batches:
+                return
+
+            # Process asynchronously
+            async def process_batch(batch: List[Document]):
+                async with semaphore:
+                    loop = asyncio.get_event_loop()
+                    with ThreadPoolExecutor(max_workers=3) as executor:
+                        await loop.run_in_executor(
+                            executor,
+                             lambda: self.vector_index.add_documents(batch)
+                        )
+
+            # Create tasks, run everything asynchronously
+            tasks = [process_batch(batch) for batch in remaining_batches]
+            await asyncio.gather(*tasks, return_exceptions=True)
+            
     def create_hybrid_index(
         self,
         node_label: str = "Document",
