@@ -57,9 +57,6 @@ class VectorStore:
 
         return self._embeddings
 
-    
-
-
     def create_vector_index(
         self,
         documents: List[Document],
@@ -67,19 +64,40 @@ class VectorStore:
         text_node_property: list = ["text"],
         embedding_node_property: str = "embedding"
     ):
-        """Create vector index from documents"""
+        """Create vector index from documents with batching"""
 
-        self.vector_index = Neo4jVector.from_documents(
-            documents,
-            self.embeddings,
-            url = self.knowledge_graph.url,
-            username = self.knowledge_graph.username,
-            password = self.knowledge_graph.password,
-            index_name = "vector",
-            node_label = node_label,
-            text_node_property = text_node_property,
-            embedding_node_property = embedding_node_property
-        )
+        if len(documents) > self.batch_size:
+            return self._create_vector_index_batched(
+                documents, node_label, text_node_property, embedding_node_property
+            )
+
+    def _create_vector_index_batched(self,
+            documents:List[Document],
+            node_label: str,
+            text_node_property:str,
+            embedding_node_property:str
+        ):
+            """Process documents in batches for faster processing"""
+
+            # Create the first batch and initialize the vector with it
+            first_batch = documents[:self.batch_size]
+
+            self.vector_index = Neo4jVector.from_documents(
+                first_batch,
+                self.embeddings,
+                url = self.knowledge_graph.url,
+                username = self.knowledge_graph.username,
+                password = self.knowledge_graph.password,
+                index_name = "vector",
+                node_label = node_label,
+                text_node_property = text_node_property,
+                embedding_node_property = embedding_node_property
+            )
+
+            # Add them remaining documents in batches
+            for i in range(self.batch_size, len(documents), self.batch_size):
+                batch = documents[i:i + self.batch_size]
+                self.vector_index.add_documents(batch)
 
     def create_hybrid_index(
         self,
