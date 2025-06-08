@@ -149,3 +149,12 @@ class VectorStore:
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = [executor.submit(self.similarity_search, query, k) for query in queries]
             return [future.result() for future in futures]
+
+    def __enter__(self):
+        """Add a simple context manager"""
+        return self
+
+    def __exit__(self):
+        """Clean up resources"""
+        if hasattr(self.vector_index, 'close'):
+            self.vector_index.close()
