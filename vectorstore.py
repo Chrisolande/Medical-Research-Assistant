@@ -165,6 +165,11 @@ class VectorStore:
                     text_node_property=text_node_property[0]  # Use first property
                 )
                 print("Connected to existing vector index.")
+
+                existing_docs = self.await_get_existing_document_ids()
+                documents = [doc for doc in documents if self._get_doc_id(doc) not in existing_docs]
+                print(f"Found {len(existing_docs)} existing documents. Processing {len(documents)} new documents.")
+
             except:
                 # Create new index if none exists
                 first_batch = documents[:current_batch_size]
@@ -253,6 +258,19 @@ class VectorStore:
                     await f
 
             print("All remaining documents processed.") 
+
+    async def _get_existing_document_ids(self) -> set:
+        """Get IDS of documents already in the vector index"""
+        try: 
+            query = f"MATCH (n: `Document Embeddings`) RETURN n.id as doc_id"
+            result = await self.knowledeg_graph.aquery(query)
+            return {record['doc_id'] for record in result if record['doc_id']}
+        except:
+            return set()
+    
+    def _get_doc_id(self, doc: Document) -> str:
+        """Extract unique ID from document"""
+        return doc.metadata.get("id") or str(hash(doc.page_content[:100]))
 
     async def create_hybrid_index(
         self,
