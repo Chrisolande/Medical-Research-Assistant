@@ -97,5 +97,27 @@ class Retriever:
 
         Unstructured data:
         {"#Document ".join(unstructured_data)}
-"""
+        """
         return final_data
+
+    @classmethod
+    async def create(cls, kg: KnowledgeGraph, vs: VectorStore):
+        """Ensure proper initialization"""
+        # Ensure vector store is properly set up
+        if vs.vector_index is None:
+            raise ValueError("VectorStore must have vector_index initialized before creating retriever")
+        return cls(kg, vs)
+    
+    # batch retrieval for multiple queries
+    # TODO: Evaluate if I will have to remove the batch queries implemented before
+    async def batch_retrieval(self, questions: List[str], k_vector: int = 3) -> List[str]:
+        """Process multiple questions concurrently for maximum throughput."""
+        tasks = [self.hybrid_retrieval(q, k_vector=k_vector) for q in questions]
+        return await asyncio.gather(*tasks, return_exceptions=True)
+
+    def get_system_stats(self):
+        """Get comprehensive stats from both systems"""
+        return {
+            "knowledge_graph": self.knowledge_graph.get_system_stats(),
+            "vector_store": self.vector_store.get_system_stats()
+        }
