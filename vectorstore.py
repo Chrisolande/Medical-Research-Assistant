@@ -14,6 +14,7 @@ from asyncio import Semaphore
 import time
 import os
 from tqdm.asyncio import tqdm
+from math import ceil
 
 EMBEDDING_MODEL = "embed-english-light-v3.0"
 
@@ -51,14 +52,15 @@ class AdaptiveBatcher:
             if self.current_batch_size != old_size:
                 print(f"Batch too fast ({avg_latency:.2f}s). Increasing batch size to {self.current_batch_size}")
             
-        return self.current_batch_size
+        return self.current_batch_size 
+
 class VectorStore:
     def __init__(
-        self, 
+        self,
         knowledge_graph: KnowledgeGraph,
         embedding_model: Optional[str] = None,
         initial_batch_size: int = 96,
-        max_concurrent: int = 15,
+        max_concurrent: int = 10,
         cache_type = "file",
         cache_dir = "embedding_cache",
         adaptive_batching_enabled:bool = True
@@ -73,7 +75,7 @@ class VectorStore:
 
         #Initialize adaptive batching if enabled
         self.batcher = AdaptiveBatcher(initial_batch_size=self.initial_batch_size) if adaptive_batching_enabled else None # Use fixed batching as the fallback
-        
+
         # Cache the embeddings instance
         self._embeddings = None
 
@@ -107,7 +109,7 @@ class VectorStore:
 
     def _get_current_batch_size(self):
         """Get the current batch size either adaptive or fixed batching"""
-        return self.batcher.current_batch_size if self.adaptive_batching_enabled and self.batcher else self.initial_batch_size 
+        return self.batcher.current_batch_size if self.adaptive_batching_enabled and self.batcher else self.initial_batch_size
 
     async def create_vector_index(
         self,
@@ -120,18 +122,26 @@ class VectorStore:
         if not documents:
             print("No documents to process")
             return
+
+        # Filter out documents with empty or None text content
+        valid_documents = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
+        if len(valid_documents) != len(documents):
+            print(f"Filtered out {len(documents) - len(valid_documents)} documents with empty text content")
         
+        if not valid_documents:
+            print("No valid documents to process")
+            return
+
         current_batch_size = self._get_current_batch_size()
 
-        if len(documents) > current_batch_size:
-
+        if len(valid_documents) >= current_batch_size:
             return await self._create_vector_index_batched(
-            documents, node_label, text_node_property, embedding_node_property
-        )
-        
-        print(f"Processing all {len(documents)} documents in a single batch...")
+                valid_documents, node_label, text_node_property, embedding_node_property
+            )
+
+        print(f"Processing all {len(valid_documents)} documents in a single batch...")
         self.vector_index = await Neo4jVector.afrom_documents(
-            documents,
+            valid_documents,
             self.embeddings,
             url=self.knowledge_graph.url,
             username=self.knowledge_graph.username,
@@ -153,10 +163,18 @@ class VectorStore:
 
             current_batch_size = self._get_current_batch_size()
 
+            valid_documents = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
+            if len(valid_documents) != len(documents):
+                print(f"Filtered out {len(documents) - len(valid_documents)} documents with empty text content")
+            
+            if not valid_documents:
+                print("No valid documents to process in batches.")
+                return
+
             # Try to connect to existing index first to avoid duplicates
             try:
                 print("Checking for existing vector index...")
-                self.vector_index = await Neo4jVector.afrom_existing_index(
+                self.vector_index = Neo4jVector.from_existing_index(
                     self.embeddings,
                     url=self.knowledge_graph.url,
                     username=self.knowledge_graph.username,
@@ -167,17 +185,17 @@ class VectorStore:
                 print("Connected to existing vector index.")
 
                 existing_docs = await self._get_existing_document_ids()
-                documents = [doc for doc in documents if self._get_doc_id(doc) not in existing_docs]
-                print(f"Found {len(existing_docs)} existing documents. Processing {len(documents)} new documents.")
+                valid_documents = [doc for doc in valid_documents if self._get_doc_id(doc) not in existing_docs]
+                print(f"Found {len(existing_docs)} existing documents. Processing {len(valid_documents)} new documents.")
 
             except:
                 # Create new index if none exists
                 first_batch = documents[:current_batch_size]
-                
+
                 if not first_batch:
                     print("No documents to process in batches.")
                     return
-                
+
                 print(f"Creating new vector index with the first {len(first_batch)} documents...")
 
                 start_time = time.time()
@@ -221,10 +239,10 @@ class VectorStore:
                     async with self.semaphore:
                         start_time = time.time()
                         await self.vector_index.aadd_documents(batch)
-                        
+
                         latency = time.time() - start_time
                         self.batcher.adjust_batch_size(latency)
-                        
+
                         return len(batch)
 
                 # Create batches dynamically
@@ -238,8 +256,8 @@ class VectorStore:
                         break
                     tasks.append(process_batch_adaptive(batch))
                     i += current_batch_size
-
-                for f in tqdm(asyncio.as_completed(tasks), total=len(remaining_documents), unit="docs", desc="Adding documents to vector index"):
+                
+                for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), unit="batch", desc="Adding documents to vector index"):
                     await f
 
             else:
@@ -254,11 +272,11 @@ class VectorStore:
                 for i in range(0, len(remaining_documents), current_batch_size):
                     batch = remaining_documents[i:i + current_batch_size]
                     tasks.append(process_batch_fixed(batch))
-
-                for f in tqdm(asyncio.as_completed(tasks), total=len(remaining_documents), unit="docs", desc="Adding documents to vector index"):
+                
+                for f in tqdm(asyncio.as_completed(tasks), total=ceil(len(remaining_documents) / current_batch_size), unit="batch", desc="Adding documents to vector index"):
                     await f
 
-            print("All remaining documents processed.") 
+            print("All remaining documents processed.")
 
     async def delete_existing_embeddings(self):
         """ Delete all existing Document Embeddings nodes and vector index"""
@@ -266,34 +284,34 @@ class VectorStore:
             print("Deleting existing Document Embeddings nodes...")
             # Delete all nodes with the label and their relationships
             delete_query = "MATCH (n:`Document Embeddings`) DETACH DELETE n"
-            await self.knowledge_graph.query(delete_query)
-            
+            self.knowledge_graph.query(delete_query)
+
             # Drop the vector index if it exists
             try:
                 drop_index_query = "DROP INDEX vector IF EXISTS"
-                await self.knowledge_graph.query(drop_index_query)
+                self.knowledge_graph.query(drop_index_query)
                 print("Existing vector index and nodes deleted successfully.")
             except:
                 print("No existing vector index to delete.")
-                
+
         except Exception as e:
             print(f"Error deleting existing embeddings: {e}")
 
     async def _get_existing_document_ids(self) -> set:
         """Get IDS of documents already in the vector index"""
         try:
-            
+
             query = f"MATCH (n:`Document Embeddings`) RETURN n.pmid as pmid, n.seq_num as seq_num"
-            result = await self.knowledge_graph.aquery(query)
+            result = self.knowledge_graph.query(query)
             return {f"{record['pmid']}_{record['seq_num']}" for record in result if record['pmid'] and record['seq_num']}
         except:
             return set()
-    
+
     def _get_doc_id(self, doc: Document) -> str:
         """Extract unique ID from document using pmid + seq_num"""
         pmid = doc.metadata.get('pmid', '')
         seq_num = doc.metadata.get('seq_num', '')
-        return f"{pmid}_{seq_num}" 
+        return f"{pmid}_{seq_num}"
 
     async def create_hybrid_index(
         self,
@@ -312,7 +330,7 @@ class VectorStore:
                 text_node_properties = text_node_properties,
                 embedding_node_property = embedding_node_property
             )
-   
+
     async def similarity_search(self, query: str, k: int = 4) -> List[Document]:
         """Perform similarity search on the vector index"""
         if self.vector_index is None:
