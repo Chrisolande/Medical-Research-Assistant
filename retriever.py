@@ -2,6 +2,7 @@ from knowledge_graph import KnowledgeGraph
 from vector_store import VectorStore
 from typing import List
 from langchain_core.documents import Document
+import asyncio
 
 class Retriever: 
     """ Handles retrieval operations for the graph rag system"""
@@ -15,36 +16,49 @@ class Retriever:
         self.knowledge_graph = knowledge_graph
         self.vector_store = vector_store
 
-    def structured_retrieval(self, question: str) -> str:
+    async def structured_retrieval(self, question: str) -> str:
         """ Retrieve information from the knowledge graph using direct graph queries"""
         
-        # Instead of entity extraction, directly query the graph
-        # using the question text for relevant patterns
-        result = ""
-        
-        # directly query the graph for relevant relationships
         try:
             # Execute a simpler Cypher query that doesn't rely on fulltext search
-            response = self.knowledge_graph.query(
+            primary_query = asyncio.to_thread(
+                self.knowledge_graph.query,
                 """
                 MATCH (n:__Entity__)-[r]-(m:__Entity__)
-                WHERE n.id CONTAINS $keyword OR m.id CONTAINS $keyword
+                WHERE toLower(n.id) CONTAINS $keyword OR toLower(m.id) CONTAINS $keyword
                 RETURN n.id + " - " + type(r) + " -> " + m.id AS output
-                LIMIT 20
+                LIMIT 10
                 """,
                 {"keyword": question.lower()}
             )
+
+            secondary_query = asyncio.to_thread(
+                self.knowledge_graph.query,
+                """
+                MATCH (n:__Entity__)-[r1]-(bridge:__Entity__)-[r2]-(m:__Entity__)
+                WHERE toLower(n.id) CONTAINS $keyword
+                RETURN n.id + " - " + type(r1) + " -> " + bridge.id + " - " + type(r2) + " -> " + m.id AS output
+                LIMIT 5
+                """,
+                {"keyword": question.lower()}
+            )
+
+            primary_result, secondary_result = await asyncio.gather(
+                primary_query, secondary_query, return_exceptions=True
+            )
             
-            # If we got results, return them
-            if response:
-                result = "\n".join([el['output'] for el in response])
-            else:
-                result = "No relevant information found in the knowledge graph."
+            # Combine results
+            all_outputs = []
+            for result_set in [primary_result, secondary_result]:
+                if isinstance(result_set, Exception):
+                    continue
+                if result_set:
+                    all_outputs.extend([el['output'] for el in result_set])
+            
+            return "\n".join(all_outputs) if all_outputs else "No relevant information found in the knowledge graph."
                 
         except Exception as e:
-            result = f"Error querying knowledge graph: {str(e)}"
-            
-        return result
+            return f"Error querying knowledge graph: {str(e)}"
 
     def vector_retrieval(self, question: str, k: int = 4) -> List[Document]:
         """Retrieve information using vector similarity search."""
