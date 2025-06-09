@@ -23,7 +23,7 @@ class AdaptiveBatcher:
         self.min_batch_size = min_batch_size
         self.max_batch_size = max_batch_size
         self.latency_history = []
-        self.target_latency = 5.0  # Target 5 seconds per batch
+        self.target_latency = 30.0  # Target 5 seconds per batch
         self.adjustment_factor = 0.2  # 20pc adjustments
         self.max_history_length = 5
         
@@ -107,7 +107,7 @@ class VectorStore:
 
     def _get_current_batch_size(self):
         """Get the current batch size either adaptive or fixed batching"""
-        return self.batcher.current_batch_size if self.adaptive_batching_enabled else self.initial_batch_size
+        return self.batcher.current_batch_size if self.adaptive_batching_enabled and self.batcher else self.initial_batch_size 
 
     async def create_vector_index(
         self,
@@ -126,8 +126,8 @@ class VectorStore:
         if len(documents) > current_batch_size:
 
             return await self._create_vector_index_batched(
-                documents, node_label, text_node_property, embedding_node_property
-            )
+            documents, node_label, text_node_property, embedding_node_property
+        )
         
         print(f"Processing all {len(documents)} documents in a single batch...")
         self.vector_index = await Neo4jVector.afrom_documents(
@@ -153,64 +153,104 @@ class VectorStore:
 
             current_batch_size = self._get_current_batch_size()
 
-            # Create the first batch and initialize the vector with it
-            first_batch = documents[:current_batch_size]
-            start_time = time.time()
-
-            print(f"Initializing vector index with the first {len(first_batch)} documents...")
-
-            self.vector_index = await Neo4jVector.afrom_documents(
-                    first_batch,
+            # Try to connect to existing index first to avoid duplicates
+            try:
+                print("Checking for existing vector index...")
+                self.vector_index = await Neo4jVector.afrom_existing_index(
                     self.embeddings,
-                    url = self.knowledge_graph.url,
-                    username = self.knowledge_graph.username,
-                    password = self.knowledge_graph.password,
-                    index_name = "vector",
-                    node_label = node_label,
-                    text_node_property = text_node_property,
-                    embedding_node_property = embedding_node_property
+                    url=self.knowledge_graph.url,
+                    username=self.knowledge_graph.username,
+                    password=self.knowledge_graph.password,
+                    index_name="vector",
+                    text_node_property=text_node_property[0]  # Use first property
                 )
+                print("Connected to existing vector index.")
+            except:
+                # Create new index if none exists
+                first_batch = documents[:current_batch_size]
+                
+                if not first_batch:
+                    print("No documents to process in batches.")
+                    return
+                
+                print(f"Creating new vector index with the first {len(first_batch)} documents...")
 
-            # Track latency and adjust if need be
-            if self.adaptive_batching_enabled:
-                latency = time.time() - start_time
-                current_batch_size = self.batcher.adjust_batch_size(latency)
-                print(f"Initial batch ({len(first_batch)} docs) processed in {latency:.2f}s. New batch size: {self.batcher.current_batch_size}")
+                start_time = time.time()
 
-            remaining_documents = documents[current_batch_size:]
+                self.vector_index = await Neo4jVector.afrom_documents(
+                        first_batch,
+                        self.embeddings,
+                        url = self.knowledge_graph.url,
+                        username = self.knowledge_graph.username,
+                        password = self.knowledge_graph.password,
+                        index_name = "vector",
+                        node_label = node_label,
+                        text_node_property = text_node_property,
+                        embedding_node_property = embedding_node_property
+                    )
+
+                # Track latency and adjust if need be
+                if self.adaptive_batching_enabled:
+                    latency = time.time() - start_time
+                    current_batch_size = self.batcher.adjust_batch_size(latency)
+                    print(f"Initial batch ({len(first_batch)} docs) processed in {latency:.2f}s. Next batch size: {self._get_current_batch_size()}")
+                else:
+                    print(f"Initial batch ({len(first_batch)} docs) processed in {time.time() - start_time:.2f}s.")
+
+                # Only process remaining documents if we created a new index
+                remaining_documents = documents[current_batch_size:]
+            else:
+                # If index exists, process all documents as remaining
+                remaining_documents = documents
             if not remaining_documents:
                 print("All documents processed in the initial batch.")
                 return
 
             print(f"Processing remaining {len(remaining_documents)} documents in batches...")
 
-            # Process remaining documents with adaptive batching
-            async def process_batch_adaptive(batch: List[Document]):
-                async with self.semaphore:
-                    start_time = time.time()
-                    await self.vector_index.aadd_documents(batch)
-                    
-                    # Adjust batch size based on latency
-                    if self.adaptive_batching_enabled:
+            # Process remaining documents with batching (adaptive or fixed)
+            if self.adaptive_batching_enabled:
+                # Adaptive batching with dynamic batch sizes
+                async def process_batch_adaptive(batch: List[Document]):
+                    async with self.semaphore:
+                        start_time = time.time()
+                        await self.vector_index.aadd_documents(batch)
+                        
                         latency = time.time() - start_time
                         self.batcher.adjust_batch_size(latency)
-                    
-                    return len(batch) # Return the number of documents processed for tqdm
+                        
+                        return len(batch)
 
-            # Create batches dynamically
-            tasks = []
-            i = 0
-            while i < len(remaining_documents):
-                # Always get the latest batch size from the batcher
-                current_batch_size = self._get_current_batch_size()
-                batch = remaining_documents[i:i + current_batch_size]
-                if not batch: # Handle case where remaining_documents is empty or very small
-                    break
-                tasks.append(process_batch_adaptive(batch))
-                i += current_batch_size
+                # Create batches dynamically
+                tasks = []
+                i = 0
+                while i < len(remaining_documents):
+                    # Always get the latest batch size from the batcher
+                    current_batch_size = self._get_current_batch_size()
+                    batch = remaining_documents[i:i + current_batch_size]
+                    if not batch:
+                        break
+                    tasks.append(process_batch_adaptive(batch))
+                    i += current_batch_size
 
-            for f in tqdm(asyncio.as_completed(tasks), total=len(remaining_documents), unit="docs", desc="Adding documents to vector index"):
-                await f # Await each completed future to ensure exceptions are raised
+                for f in tqdm(asyncio.as_completed(tasks), total=len(remaining_documents), unit="docs", desc="Adding documents to vector index"):
+                    await f
+
+            else:
+                # Fixed batching with tqdm
+                async def process_batch_fixed(batch: List[Document]):
+                    async with self.semaphore:
+                        await self.vector_index.aadd_documents(batch)
+                        return len(batch)
+
+                # Create all batches upfront since batch size is fixed
+                tasks = []
+                for i in range(0, len(remaining_documents), current_batch_size):
+                    batch = remaining_documents[i:i + current_batch_size]
+                    tasks.append(process_batch_fixed(batch))
+
+                for f in tqdm(asyncio.as_completed(tasks), total=len(remaining_documents), unit="docs", desc="Adding documents to vector index"):
+                    await f
 
             print("All remaining documents processed.") 
 
