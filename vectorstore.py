@@ -4,8 +4,8 @@ It turns out neo4j has async method"""
 from langchain_community.vectorstores.neo4j_vector import Neo4jVector
 from langchain_cohere import CohereEmbeddings
 from langchain_core.documents import Document
-from langchain_community.storage import LocalFileStore
-from langchain_community.embeddings import CacheBackedEmbeddings
+from langchain.storage import LocalFileStore
+from langchain.embeddings import CacheBackedEmbeddings
 
 from typing import List, Optional
 from knowledge_graph import KnowledgeGraph
@@ -13,6 +13,7 @@ import asyncio
 from asyncio import Semaphore
 import time
 import os
+from tqdm.asyncio import tqdm
 
 EMBEDDING_MODEL = "embed-english-light-v3.0"
 
@@ -37,14 +38,18 @@ class AdaptiveBatcher:
         avg_latency = sum(self.latency_history) / len(self.latency_history)
 
         if avg_latency > self.target_latency * 1.2: # Too slow, reduce batch size
+            old_size = self.current_batch_size
             new_size = int(self.current_batch_size * (1 - self.adjustment_factor))
             self.current_batch_size = max(new_size, self.min_batch_size)
-            print(f"Batch too slow ({avg_latency:.2f}s). Reducing batch size to {self.current_batch_size}")
+            if self.current_batch_size != old_size:
+                print(f"Batch too slow ({avg_latency:.2f}s). Reducing batch size to {self.current_batch_size}")
         
         elif avg_latency < self.target_latency * 0.8:  # Too fast, increase batch size
+            old_size = self.current_batch_size
             new_size = int(self.current_batch_size * (1 + self.adjustment_factor))
             self.current_batch_size = min(new_size, self.max_batch_size)
-            print(f"Batch too fast ({avg_latency:.2f}s). Increasing batch size to {self.current_batch_size}")
+            if self.current_batch_size != old_size:
+                print(f"Batch too fast ({avg_latency:.2f}s). Increasing batch size to {self.current_batch_size}")
             
         return self.current_batch_size
 class VectorStore:
@@ -67,7 +72,7 @@ class VectorStore:
         self.adaptive_batching_enabled = adaptive_batching_enabled
 
         #Initialize adaptive batching if enabled
-        self.batcher = AdaptiveBatcher(initial_batch_size=self.batch_size) if adaptive_batching else None # Use fixed batching as the fallback
+        self.batcher = AdaptiveBatcher(initial_batch_size=self.initial_batch_size) if adaptive_batching_enabled else None # Use fixed batching as the fallback
         
         # Cache the embeddings instance
         self._embeddings = None
@@ -116,16 +121,15 @@ class VectorStore:
             print("No documents to process")
             return
         
-        
         current_batch_size = self._get_current_batch_size()
 
         if len(documents) > current_batch_size:
-            async with semaphore:
 
-                return await self._create_vector_index_batched(
-                    documents, node_label, text_node_property, embedding_node_property
-                )
+            return await self._create_vector_index_batched(
+                documents, node_label, text_node_property, embedding_node_property
+            )
         
+        print(f"Processing all {len(documents)} documents in a single batch...")
         self.vector_index = await Neo4jVector.afrom_documents(
             documents,
             self.embeddings,
@@ -137,6 +141,7 @@ class VectorStore:
             text_node_property=text_node_property,
             embedding_node_property=embedding_node_property
         )
+        print("Single batch processing complete.")
 
     async def _create_vector_index_batched(self,
             documents:List[Document],
@@ -144,14 +149,15 @@ class VectorStore:
             text_node_property:list,
             embedding_node_property:str
         ):
-            """Process documents in batches for faster processing"""
-            semaphore = self.semaphore
+            """Process documents in batches for faster processing with tqdm progress bar"""
 
             current_batch_size = self._get_current_batch_size()
 
             # Create the first batch and initialize the vector with it
             first_batch = documents[:current_batch_size]
             start_time = time.time()
+
+            print(f"Initializing vector index with the first {len(first_batch)} documents...")
 
             self.vector_index = await Neo4jVector.afrom_documents(
                     first_batch,
@@ -166,7 +172,7 @@ class VectorStore:
                 )
 
             # Track latency and adjust if need be
-            if self.adaptive_batching:
+            if self.adaptive_batching_enabled:
                 latency = time.time() - start_time
                 current_batch_size = self.batcher.adjust_batch_size(latency)
                 print(f"Initial batch ({len(first_batch)} docs) processed in {latency:.2f}s. New batch size: {self.batcher.current_batch_size}")
@@ -176,49 +182,37 @@ class VectorStore:
                 print("All documents processed in the initial batch.")
                 return
 
+            print(f"Processing remaining {len(remaining_documents)} documents in batches...")
+
             # Process remaining documents with adaptive batching
             async def process_batch_adaptive(batch: List[Document]):
-                async with semaphore:
+                async with self.semaphore:
                     start_time = time.time()
                     await self.vector_index.aadd_documents(batch)
                     
                     # Adjust batch size based on latency
-                    if self.adaptive_batching:
+                    if self.adaptive_batching_enabled:
                         latency = time.time() - start_time
                         self.batcher.adjust_batch_size(latency)
+                    
+                    return len(batch) # Return the number of documents processed for tqdm
 
             # Create batches dynamically
             tasks = []
             i = 0
             while i < len(remaining_documents):
+                # Always get the latest batch size from the batcher
                 current_batch_size = self._get_current_batch_size()
                 batch = remaining_documents[i:i + current_batch_size]
+                if not batch: # Handle case where remaining_documents is empty or very small
+                    break
                 tasks.append(process_batch_adaptive(batch))
                 i += current_batch_size
 
-            # Run all tasks
-            await asyncio.gather(*tasks, return_exceptions=True)
+            for f in tqdm(asyncio.as_completed(tasks), total=len(remaining_documents), unit="docs", desc="Adding documents to vector index"):
+                await f # Await each completed future to ensure exceptions are raised
 
-            
-            remaining_batches = []
-
-            # Create the batches list for concurrent processing
-            for i in range(current_batch_size, len(documents), current_batch_size):
-                batch = documents[i:i + current_batch_size]
-                remaining_batches.append(batch)
-
-            # Return early if no remaining batches
-            if not remaining_batches:
-                return
-
-            # Process asynchronously
-            async def process_batch(batch: List[Document]):
-                async with semaphore:
-                    await self.vector_index.aadd_documents(batch)
-
-            # Create tasks, run everything asynchronously
-            tasks = [process_batch(batch) for batch in remaining_batches]
-            await asyncio.gather(*tasks, return_exceptions=True)
+            print("All remaining documents processed.") 
 
     async def create_hybrid_index(
         self,
@@ -262,7 +256,7 @@ class VectorStore:
         """Add a simple context manager"""
         return self
 
-    async def __aexit__(self):
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Clean up resources"""
         if hasattr(self.vector_index, 'close'):
             self.vector_index.close()
