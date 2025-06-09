@@ -1,5 +1,5 @@
 from knowledge_graph import KnowledgeGraph
-from vector_store import VectorStore
+from vectorstore import VectorStore
 from typing import List
 from langchain_core.documents import Document
 import asyncio
