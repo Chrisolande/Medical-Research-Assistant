@@ -115,9 +115,4 @@ class Retriever:
         tasks = [self.hybrid_retrieval(q, k_vector=k_vector) for q in questions]
         return await asyncio.gather(*tasks, return_exceptions=True)
 
-    def get_system_stats(self):
-        """Get comprehensive stats from both systems"""
-        return {
-            "knowledge_graph": self.knowledge_graph.get_system_stats(),
-            "vector_store": self.vector_store.get_system_stats()
-        }
+    
