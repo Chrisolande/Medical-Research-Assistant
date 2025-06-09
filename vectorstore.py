@@ -166,7 +166,7 @@ class VectorStore:
                 )
                 print("Connected to existing vector index.")
 
-                existing_docs = self.await_get_existing_document_ids()
+                existing_docs = await self._get_existing_document_ids()
                 documents = [doc for doc in documents if self._get_doc_id(doc) not in existing_docs]
                 print(f"Found {len(existing_docs)} existing documents. Processing {len(documents)} new documents.")
 
@@ -202,11 +202,12 @@ class VectorStore:
                 else:
                     print(f"Initial batch ({len(first_batch)} docs) processed in {time.time() - start_time:.2f}s.")
 
-                # Only process remaining documents if we created a new index
+                # Set remaining documents after processing first batch
                 remaining_documents = documents[current_batch_size:]
             else:
-                # If index exists, process all documents as remaining
+                # If index exists, all filtered documents need processing
                 remaining_documents = documents
+
             if not remaining_documents:
                 print("All documents processed in the initial batch.")
                 return
@@ -258,6 +259,25 @@ class VectorStore:
                     await f
 
             print("All remaining documents processed.") 
+
+    async def delete_existing_embeddings(self):
+        """ Delete all existing Document Embeddings nodes and vector index"""
+        try:
+            print("Deleting existing Document Embeddings nodes...")
+            # Delete all nodes with the label and their relationships
+            delete_query = "MATCH (n:`Document Embeddings`) DETACH DELETE n"
+            await self.knowledge_graph.query(delete_query)
+            
+            # Drop the vector index if it exists
+            try:
+                drop_index_query = "DROP INDEX vector IF EXISTS"
+                await self.knowledge_graph.query(drop_index_query)
+                print("Existing vector index and nodes deleted successfully.")
+            except:
+                print("No existing vector index to delete.")
+                
+        except Exception as e:
+            print(f"Error deleting existing embeddings: {e}")
 
     async def _get_existing_document_ids(self) -> set:
         """Get IDS of documents already in the vector index"""
