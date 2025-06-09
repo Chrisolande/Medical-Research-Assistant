@@ -63,7 +63,9 @@ class VectorStore:
         max_concurrent: int = 10,
         cache_type = "file",
         cache_dir = "embedding_cache",
-        adaptive_batching_enabled:bool = True
+        adaptive_batching_enabled:bool = True,
+        max_retries: int = 3,
+        retry_delay: float = 1.0
     ):
         self.knowledge_graph = knowledge_graph
         self.embedding_model = embedding_model or EMBEDDING_MODEL
@@ -72,6 +74,8 @@ class VectorStore:
         self.cache_dir = cache_dir
         self.max_concurrent = max_concurrent
         self.adaptive_batching_enabled = adaptive_batching_enabled
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
         #Initialize adaptive batching if enabled
         self.batcher = AdaptiveBatcher(initial_batch_size=self.initial_batch_size) if adaptive_batching_enabled else None # Use fixed batching as the fallback
@@ -110,6 +114,21 @@ class VectorStore:
     def _get_current_batch_size(self):
         """Get the current batch size either adaptive or fixed batching"""
         return self.batcher.current_batch_size if self.adaptive_batching_enabled and self.batcher else self.initial_batch_size
+
+    async def _retry_operation(self, operation, *args, **kwargs):
+        """Retry database operations with exponential backoff"""
+        for attempt in range(self.max_retries):
+            try:
+                return await operation(*args, **kwargs)
+            except Exception as e:
+                if "SessionExpired" in str(e) or "TimeoutError" in str(e) or "ConnectionError" in str(e):
+                    if attempt < self.max_retries - 1:
+                        delay = self.retry_delay * (2 ** attempt) + random.uniform(0, 1)
+                        print(f"Connection failed (attempt {attempt + 1}/{self.max_retries}). Retrying in {delay:.1f}s...")
+                        await asyncio.sleep(delay)
+                        continue
+                raise e
+        raise Exception(f"Operation failed after {self.max_retries} attempts")
 
     async def create_vector_index(
         self,
@@ -238,11 +257,15 @@ class VectorStore:
                 async def process_batch_adaptive(batch: List[Document]):
                     async with self.semaphore:
                         start_time = time.time()
-                        await self.vector_index.aadd_documents(batch)
+                        
+                        async def add_batch():
+                            await self.vector_index.aadd_documents(batch)
+        
+                        # Add retry logic for adaptive batch processing
+                        await self._retry_operation(add_batch)
 
                         latency = time.time() - start_time
                         self.batcher.adjust_batch_size(latency)
-
                         return len(batch)
 
                 # Create batches dynamically
@@ -261,11 +284,15 @@ class VectorStore:
                     await f
 
             else:
-                # Fixed batching with tqdm
+                # Fix batching with tqdm
                 async def process_batch_fixed(batch: List[Document]):
                     async with self.semaphore:
-                        await self.vector_index.aadd_documents(batch)
-                        return len(batch)
+                        async def add_batch():
+                            await self.vector_index.aadd_documents(batch)
+                        
+                        # Add retry logic for batch processing
+                        await self._retry_operation(add_batch)
+                    return len(batch)
 
                 # Create all batches upfront since batch size is fixed
                 tasks = []
