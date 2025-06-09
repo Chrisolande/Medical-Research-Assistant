@@ -60,27 +60,42 @@ class Retriever:
         except Exception as e:
             return f"Error querying knowledge graph: {str(e)}"
 
-    def vector_retrieval(self, question: str, k: int = 4) -> List[Document]:
+    async def vector_retrieval(self, question: str, k: int = 4) -> List[Document]:
         """Retrieve information using vector similarity search."""
-        return self.vector_store.similarity_search(question)
+        if self.vector_store.vector_index is None:
+            raise ValueError("Vector index not initialized. Call create_vector_index or create_hybrid_index first.")
+        return await self.vector_store.similarity_search(question, k=k)
 
-    def hybrid_retrieval(self, question: str, k_graph: int = 1, k_vector: int = 3) -> str:
+    async def hybrid_retrieval(self, question: str, k_graph: int = 1, k_vector: int = 3) -> str:
         """
         Perform hybrid retrieval combining graph and vector search.
         
         """
         # Get structured data from knowledge graph
-        structured_data = self.structured_retrieval(question)
+        structured_task = self.structured_retrieval(question)
+        vector_task = self.vector_retrieval(question, k=k_vector)
+
+        # Run both searches concurrently
+        structured_data, unstructured_docs = await asyncio.gather(
+            structured_task,
+            vector_task,
+            return_exceptions=True # Skips exceptions whenever its running them asynchronously returns them as part of the result
+        )
+
+        # Handle exceptions
+        if isinstance(structured_data, Exception):
+            structured_data = f"Graph search error: {str(structured_data)}"
         
-        # Get unstructured data from vector store
-        unstructured_docs = self.vector_retrieval(question, k=k_vector)
-        unstructured_data = [doc.page_content for doc in unstructured_docs]
-        
+        if isinstance(unstructured_docs, Exception):
+            unstructured_data = [f"Vector search error: {str(unstructured_docs)}"]
+        else:
+            unstructured_data = [doc.page_content for doc in unstructured_docs]
+
         # Combine results
         final_data = f"""Structured data:
-            {structured_data}
+        {structured_data}
 
-            Unstructured data:
-            {"#Document ".join(unstructured_data)}
-            """
+        Unstructured data:
+        {"#Document ".join(unstructured_data)}
+"""
         return final_data
