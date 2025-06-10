@@ -66,39 +66,49 @@ class Retriever:
             raise ValueError("Vector index not initialized. Call create_vector_index or create_hybrid_index first.")
         return await self.vector_store.similarity_search(question, k=k)
 
-    async def hybrid_retrieval(self, question: str, k_graph: int = 1, k_vector: int = 3) -> str:
-        """
-        Perform hybrid retrieval combining graph and vector search.
+    async def hybrid_retrieval(self, question: str, k_vector: int = 3) -> str:
+        """Perform hybrid retrieval"""
         
-        """
-        # Get structured data from knowledge graph
-        structured_task = self.structured_retrieval(question)
-        vector_task = self.vector_retrieval(question, k=k_vector)
-
-        # Run both searches concurrently
-        structured_data, unstructured_docs = await asyncio.gather(
-            structured_task,
-            vector_task,
-            return_exceptions=True # Skips exceptions whenever its running them asynchronously returns them as part of the result
-        )
-
-        # Handle exceptions
-        if isinstance(structured_data, Exception):
-            structured_data = f"Graph search error: {str(structured_data)}"
-        
-        if isinstance(unstructured_docs, Exception):
-            unstructured_data = [f"Vector search error: {str(unstructured_docs)}"]
+        if hasattr(self.vector_store.vector_index, 'search_type') and self.vector_store.vector_index.search_type == "hybrid":
+            
+            try:
+                docs = await self.vector_store.similarity_search(question, k=k_vector)
+                unstructured_data = [doc.page_content for doc in docs]
+            except Exception as e:
+                unstructured_data = [f"Hybrid search error: {str(e)}"]
         else:
-            unstructured_data = [doc.page_content for doc in unstructured_docs]
+            # Fallback to separate graph + vector search
+            structured_task = asyncio.create_task(self.structured_retrieval(question))
+            vector_task = asyncio.create_task(self.vector_retrieval(question, k=k_vector))
 
-        # Combine results
-        final_data = f"""Structured data:
-        {structured_data}
+            structured_data, unstructured_docs = await asyncio.gather(
+                structured_task, vector_task, return_exceptions=True
+            )
 
-        Unstructured data:
-        {"#Document ".join(unstructured_data)}
-        """
-        return final_data
+            if isinstance(structured_data, Exception):
+                structured_data = f"Graph search error: {str(structured_data)}"
+            
+            if isinstance(unstructured_docs, Exception):
+                unstructured_data = [f"Vector search error: {str(unstructured_docs)}"]
+            else:
+                unstructured_data = [doc.page_content for doc in unstructured_docs]
+
+            # Include structured data in the response
+            final_data = f"""Structured data:
+            {structured_data}
+
+            Unstructured data:
+            {"#Document ".join(unstructured_data)}
+            """
+            return final_data
+
+        # For hybrid search, return only unstructured data
+        return f"""Structured data:
+            Using hybrid search (vector + keyword combined)
+
+            Unstructured data:
+            {"#Document ".join(unstructured_data)}
+            """
 
     @classmethod
     async def create(cls, kg: KnowledgeGraph, vs: VectorStore):

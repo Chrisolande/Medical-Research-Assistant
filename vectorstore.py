@@ -470,20 +470,23 @@ class VectorStore:
         self,
         node_label: str = "Document Embedding",
         text_node_properties: List[str] = ["text"],
-        embedding_node_property:str = "embedding"
+        embedding_node_property:str = "embedding",
+        keyword_index_name: str = "keyword"
     ):
         """Create hybrid index"""
-        self.vector_index = await Neo4jVector.afrom_existing_graph(
-                self.embeddings,
-                url = self.knowledge_graph.url,
-                username = self.knowledge_graph.username,
-                password = self.knowledge_graph.password,
-                search_type = "hybrid", # Combines both semantic and keyword matching
-                node_label = node_label,
-                text_node_properties = text_node_properties,
-                embedding_node_property = embedding_node_property
-            )
-
+        self.vector_index = Neo4jVector.from_existing_index(
+            self.embeddings,
+            url=self.knowledge_graph.url,
+            username=self.knowledge_graph.username,
+            password=self.knowledge_graph.password,
+            index_name="vector",
+            node_label=node_label,
+            text_node_property=text_node_properties[0],
+            embedding_node_property=embedding_node_property,
+            search_type="hybrid",
+            keyword_index_name=keyword_index_name,
+        )
+        print("Hybrid index created successfully")
     async def similarity_search(self, query: str, k: int = 4) -> List[Document]:
         """Perform similarity search on the vector index"""
         if self.vector_index is None:
