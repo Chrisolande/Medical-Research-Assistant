@@ -18,6 +18,7 @@ from math import ceil
 
 EMBEDDING_MODEL = "embed-english-light-v3.0"
 
+# TODO: Implement the reranking using cohere
 class AdaptiveBatcher:
     def __init__(self, initial_batch_size:int = 96, min_batch_size: int = 16, max_batch_size:int = 96):
         self.current_batch_size = initial_batch_size
@@ -190,8 +191,9 @@ class VectorStore:
                 print("No valid documents to process in batches.")
                 return
 
-            # Try to connect to existing index first to avoid duplicates
+            index_exists = False
             try:
+                # Try to connect to existing index
                 print("Checking for existing vector index...")
                 self.vector_index = Neo4jVector.from_existing_index(
                     self.embeddings,
@@ -202,17 +204,27 @@ class VectorStore:
                     text_node_property=text_node_property[0]  # Use first property
                 )
                 print("Connected to existing vector index.")
+                index_exists = True
+            except Exception as e:
+                print(f"Vector index does not exist or connection failed: {e}")
+                index_exists = False
 
+            if index_exists:
                 existing_docs = await self._get_existing_document_ids()
-                valid_documents = [doc for doc in valid_documents if self._get_doc_id(doc) not in existing_docs]
-                print(f"Found {len(existing_docs)} existing documents. Processing {len(valid_documents)} new documents.")
-
-            except:
+                valid_new_documents = [doc for doc in valid_documents if self._get_doc_id(doc) not in existing_docs]
+                print(f"Found {len(existing_docs)} existing documents. Processing {len(valid_new_documents)} new documents.")
+                
+                if len(valid_new_documents) == 0:
+                    print("No new documents to add to the existing index. Loading complete.")
+                    return
+                
+                remaining_documents = valid_new_documents
+            else:
                 # Create new index if none exists
-                first_batch = documents[:current_batch_size]
+                first_batch = valid_documents[:current_batch_size]
 
                 if not first_batch:
-                    print("No documents to process in batches.")
+                    print("No documents to process in the initial batch for new index creation.")
                     return
 
                 print(f"Creating new vector index with the first {len(first_batch)} documents...")
@@ -240,10 +252,7 @@ class VectorStore:
                     print(f"Initial batch ({len(first_batch)} docs) processed in {time.time() - start_time:.2f}s.")
 
                 # Set remaining documents after processing first batch
-                remaining_documents = documents[current_batch_size:]
-            else:
-                # If index exists, all filtered documents need processing
-                remaining_documents = documents
+                remaining_documents = valid_documents[current_batch_size:]
 
             if not remaining_documents:
                 print("All documents processed in the initial batch.")
