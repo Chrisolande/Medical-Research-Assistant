@@ -381,7 +381,7 @@ class VectorStore:
     async def __aenter__(self):
         """Add a simple context manager"""
         return self
-
+# Determine whether to pass or not, tge vector index doesn't have a close() 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Clean up resources"""
         if hasattr(self.vector_index, 'close'):
