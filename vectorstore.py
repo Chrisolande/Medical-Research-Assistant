@@ -163,7 +163,7 @@ class VectorStore:
             )
 
         print(f"Processing all {len(valid_documents)} documents in a single batch...")
-        
+
         self.vector_index = await Neo4jVector.afrom_documents(
             valid_documents,
             self.embeddings,
@@ -181,10 +181,10 @@ class VectorStore:
         """Identify and return document IDs that need reprocessing due to empty text"""
         try:
             recovery_query = """
-                    MATCH (n:`Document Embeddings`) 
-                    WHERE n.text IS NULL OR n.text = '' OR trim(n.text) = ''
-                    RETURN n.pmid as pmid, n.seq_num as seq_num
-                    """
+            MATCH (n:`Document Embeddings`) 
+            WHERE n.text IS NULL OR n.text = '' OR trim(n.text) = ''
+            RETURN n.pmid as pmid, n.seq_num as seq_num
+            """
             result = self.knowledge_graph.query(recovery_query)
             corrupted_ids = {f"{record['pmid']}_{record['seq_num']}" for record in result if record['pmid'] and record['seq_num']}
 
@@ -197,9 +197,11 @@ class VectorStore:
                 """
                 self.knowledge_graph.query(delete_query)
                 print(f"Deleted {len(corrupted_ids)} corrupted nodes")
+            else:
+                print("No corrupted nodes found")
 
             return corrupted_ids
-        
+            
         except Exception as e:
             print(f"Error during recovery: {str(e)}")
             return set()
@@ -377,7 +379,11 @@ class VectorStore:
         """Get IDS of documents already in the vector index"""
         try:
 
-            query = f"MATCH (n:`Document Embeddings`) RETURN n.pmid as pmid, n.seq_num as seq_num"
+            query = """
+            MATCH (n:`Document Embeddings`) 
+            WHERE n.text IS NOT NULL AND n.text <> '' AND trim(n.text) <> ''
+            RETURN n.pmid as pmid, n.seq_num as seq_num
+            """
             result = self.knowledge_graph.query(query)
             return {f"{record['pmid']}_{record['seq_num']}" for record in result if record['pmid'] and record['seq_num']}
         except:
