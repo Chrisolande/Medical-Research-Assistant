@@ -144,7 +144,10 @@ class VectorStore:
             return
 
         # Filter out documents with empty or None text content
-        valid_documents = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
+        valid_documents = [
+            doc for doc in documents 
+            if doc.page_content and doc.page_content.strip() and len(doc.page_content.strip()) > 0
+        ]
         if len(valid_documents) != len(documents):
             print(f"Filtered out {len(documents) - len(valid_documents)} documents with empty text content")
         
@@ -173,6 +176,19 @@ class VectorStore:
         )
         print("Single batch processing complete.")
 
+    async def cleanup_empty_nodes(self):
+        """Remove nodes with empty or null text properties"""
+        try:
+            cleanup_query = """
+            MATCH (n:`Document Embeddings`) 
+            WHERE n.text IS NULL OR n.text = '' OR trim(n.text) = ''
+            DETACH DELETE n
+            """
+            result = self.knowledge_graph.query(cleanup_query)
+            print(f"Cleaned up nodes with empty text properties")
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+
     async def _create_vector_index_batched(self,
             documents:List[Document],
             node_label: str,
@@ -183,7 +199,10 @@ class VectorStore:
 
             current_batch_size = self._get_current_batch_size()
 
-            valid_documents = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
+            valid_documents = [
+                doc for doc in documents 
+                if doc.page_content and doc.page_content.strip() and len(doc.page_content.strip()) > 0
+            ]
             if len(valid_documents) != len(documents):
                 print(f"Filtered out {len(documents) - len(valid_documents)} documents with empty text content")
             
