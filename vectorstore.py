@@ -163,6 +163,7 @@ class VectorStore:
             )
 
         print(f"Processing all {len(valid_documents)} documents in a single batch...")
+        
         self.vector_index = await Neo4jVector.afrom_documents(
             valid_documents,
             self.embeddings,
@@ -176,18 +177,32 @@ class VectorStore:
         )
         print("Single batch processing complete.")
 
-    async def cleanup_empty_nodes(self):
-        """Remove nodes with empty or null text properties"""
+    async def recover_empty_nodes(self):
+        """Identify and return document IDs that need reprocessing due to empty text"""
         try:
-            cleanup_query = """
-            MATCH (n:`Document Embeddings`) 
-            WHERE n.text IS NULL OR n.text = '' OR trim(n.text) = ''
-            DETACH DELETE n
-            """
-            result = self.knowledge_graph.query(cleanup_query)
-            print(f"Cleaned up nodes with empty text properties")
+            recovery_query = """
+                    MATCH (n:`Document Embeddings`) 
+                    WHERE n.text IS NULL OR n.text = '' OR trim(n.text) = ''
+                    RETURN n.pmid as pmid, n.seq_num as seq_num
+                    """
+            result = self.knowledge_graph.query(recovery_query)
+            corrupted_ids = {f"{record['pmid']}_{record['seq_num']}" for record in result if record['pmid'] and record['seq_num']}
+
+            if corrupted_ids:
+                print(f"Found {len(corrupted_ids)} corrupted nodes that need reprocessing")
+                delete_query = """
+                MATCH (n:`Document Embeddings`) 
+                WHERE n.text IS NULL OR n.text = '' OR trim(n.text) = ''
+                DETACH DELETE n
+                """
+                self.knowledge_graph.query(delete_query)
+                print(f"Deleted {len(corrupted_ids)} corrupted nodes")
+
+            return corrupted_ids
+        
         except Exception as e:
-            print(f"Error during cleanup: {e}")
+            print(f"Error during recovery: {str(e)}")
+            return set()
 
     async def _create_vector_index_batched(self,
             documents:List[Document],
@@ -229,9 +244,14 @@ class VectorStore:
                 index_exists = False
 
             if index_exists:
+                # Recover the corrupted ids
+                corrupted_ids = await self.recover_empty_nodes()
+
                 existing_docs = await self._get_existing_document_ids()
-                valid_new_documents = [doc for doc in valid_documents if self._get_doc_id(doc) not in existing_docs]
-                print(f"Found {len(existing_docs)} existing documents. Processing {len(valid_new_documents)} new documents.")
+
+                valid_new_documents = [doc for doc in valid_documents 
+                          if self._get_doc_id(doc) not in existing_docs or self._get_doc_id(doc) in corrupted_ids]
+                print(f"Found {len(existing_docs)} existing documents, {len(corrupted_ids)} corrupted. Processing {len(valid_new_documents)} documents.")
                 
                 if len(valid_new_documents) == 0:
                     print("No new documents to add to the existing index. Loading complete.")
@@ -247,6 +267,7 @@ class VectorStore:
                     return
 
                 print(f"Creating new vector index with the first {len(first_batch)} documents...")
+
 
                 start_time = time.time()
 
