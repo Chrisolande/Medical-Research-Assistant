@@ -15,6 +15,7 @@ import time
 import os
 from tqdm.asyncio import tqdm
 from math import ceil
+from collections import defaultdict, Counter
 
 EMBEDDING_MODEL = "embed-english-light-v3.0"
 
@@ -89,6 +90,7 @@ class VectorStore:
 
         self.semaphore = Semaphore(self.max_concurrent)  # For concurrency
 
+
     @property # ensures that the CohereEmbeddings instance is only created when it's first accessed, rather than during object initialization. "
     def embeddings(self):
         """Lazy load embeddings with caching to avoid re-computing embeddings"""
@@ -142,6 +144,17 @@ class VectorStore:
         if not documents:
             print("No documents to process")
             return
+
+        print("Attempting to fix sequential numbering for documents...")
+        documents = self.fix_seq_numbering(documents)
+
+        # DEBUG PRINT: Check if any duplicates exist after fix
+        duplicates_after_fix, _ = self.check_duplicates(documents)
+        if duplicates_after_fix:
+            print(f"WARNING: Found {len(duplicates_after_fix)} pmid_seq_num duplicates after fixing numbering.")
+            
+        else:
+            print("No pmid_seq_num duplicates found after fixing numbering.")
 
         # Filter out documents with empty or None text content
         valid_documents = [
@@ -356,6 +369,61 @@ class VectorStore:
 
             print("All remaining documents processed.")
 
+    def check_duplicates(self, documents):
+        """Check for duplicate pmid_seq_num in documents and fix numbering"""
+        
+        # Group by pmid to see the seq_num pattern
+        pmid_groups = defaultdict(list)
+        doc_ids = []
+        
+        for doc in documents:
+            pmid = doc.metadata.get('pmid', '')
+            seq_num = doc.metadata.get('seq_num', '')
+            doc_id = f"{pmid}_{seq_num}"
+            
+            pmid_groups[pmid].append(seq_num)
+            doc_ids.append(doc_id)
+        
+        # Check for duplicates
+        id_counts = Counter(doc_ids)
+        duplicates = {doc_id: count for doc_id, count in id_counts.items() if count > 1}
+        
+        # print(f"Total documents: {len(documents)}")
+        # print(f"Unique PMIDs: {len(pmid_groups)}")
+        # print(f"Duplicate pmid_seq_num combinations: {len(duplicates)}")
+        
+        # if duplicates:
+            # print("Duplicate combinations:")
+            # for doc_id, count in list(duplicates.items())[:10]:
+            #     print(f"  {doc_id}: appears {count} times")
+        
+        return duplicates, pmid_groups
+
+    def fix_seq_numbering(self, documents):
+        """Fix seq_num to ensure unique pmid_seq_num combinations"""
+        
+        # Group documents by pmid
+        pmid_groups = defaultdict(list)
+        for i, doc in enumerate(documents):
+            pmid = doc.metadata.get('pmid', '')
+            pmid_groups[pmid].append((i, doc))
+        
+        # Fix seq_num for each pmid group
+        fixed_count = 0
+        for pmid, doc_list in pmid_groups.items():
+            # Sort by original index to maintain order
+            doc_list.sort(key=lambda x: x[0])
+            
+            # Reassign seq_num starting from 0
+            for new_seq, (original_idx, doc) in enumerate(doc_list):
+                old_seq = doc.metadata.get('seq_num', '')
+                if str(old_seq) != str(new_seq):
+                    doc.metadata['seq_num'] = new_seq
+                    fixed_count += 1
+        
+        #print(f"Fixed seq_num for {fixed_count} documents")
+        return documents
+
     async def delete_existing_embeddings(self):
         """ Delete all existing Document Embeddings nodes and vector index"""
         try:
@@ -378,15 +446,18 @@ class VectorStore:
     async def _get_existing_document_ids(self) -> set:
         """Get IDS of documents already in the vector index"""
         try:
-
+            # Only get documents with valid text content
             query = """
             MATCH (n:`Document Embeddings`) 
             WHERE n.text IS NOT NULL AND n.text <> '' AND trim(n.text) <> ''
             RETURN n.pmid as pmid, n.seq_num as seq_num
             """
             result = self.knowledge_graph.query(query)
-            return {f"{record['pmid']}_{record['seq_num']}" for record in result if record['pmid'] and record['seq_num']}
-        except:
+            doc_ids = {f"{record['pmid']}_{record['seq_num']}" for record in result if record['pmid'] and record['seq_num']}
+            
+            return doc_ids
+        except Exception as e:
+            print(f"Error in _get_existing_document_ids: {e}")
             return set()
 
     def _get_doc_id(self, doc: Document) -> str:
