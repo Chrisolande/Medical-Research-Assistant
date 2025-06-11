@@ -27,4 +27,20 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
     self.vector_store: Optional[FAISSStore] = None
     self._init_semantic_store()
 
+    def _init_semantic_store(self):
+        if os.path.exists(self.faiss_index_path) and os.path.isdir(self.faiss_index_path):
+            try:
+                self.vector_store = FAISSStore.from_local(self.faiss_index_path, self.embeddings, allow_dangerous_deserialization=True)
+                print(f"Loaded existing FAISS index from {self.faiss_index_path}")
+
+            except Exception as e:
+                print(f"Warning: Could not load FAISS index from {self.faiss_index_path}: {e}")
+                print("Creating new vector index")
+                self._create_new_faiss_index()
+        else:
+            print(f"FAISS index path {self.faiss_index_path} not found or not a directory. Creating a new index.")
+            self._create_new_faiss_index()
+
+        
+
     
