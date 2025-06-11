@@ -41,6 +41,16 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
             print(f"FAISS index path {self.faiss_index_path} not found or not a directory. Creating a new index.")
             self._create_new_faiss_index()
 
-        
+    def _create_new_faiss_index(self):
+        try:
+            self.vector_store = FAISSStore.from_texts(
+                [DUMMY_DOC_CONTENT], self.embeddings, metadatas=[{"type": "initializer", "is_dummy": True}]
+            )
 
+            print("Created a new FAISS index.")
+        except Exception as e:
+            print(f"Error: Failed to initialize FAISS vector store: {e}")
+            self.vector_store = None
+
+    
     
