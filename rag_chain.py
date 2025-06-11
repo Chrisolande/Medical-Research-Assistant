@@ -1,106 +1,96 @@
-from langchain_openai import ChatOpenAI
+from typing import List, Dict, Any
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from typing import List, Dict, Any, Optional, Tuple
-from retrieval import Retriever
-from config import OPENROUTER_API_KEY, MODEL_NAME
+from langchain_core.output_parsers import StrOutputParser
+import asyncio
 
-class RagChain:
-    """Handle RAG Pipeline for the Graph RAG System"""
-
-    def __init__(
-        self, 
-        retriever: Retriever,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None
-    ):
-
-        """Initialize RAG Chain"""
+class RAGChain:
+    """RAG chain with conversation memory using the existing retriever."""
+    
+    def __init__(self, retriever, llm, max_memory: int = 10):
         self.retriever = retriever
-        self.model_name = model or MODEL_NAME
-        self.api_key = api_key or OPENROUTER_API_KEY
-
-        self.llm = ChatOpenAI(model = self.model_name,
-                                api_key = self.api_key,
-                                openai_api_base = "https://openrouter.ai/api/v1",
-                                temperature = 0,
-                                streaming = True)
-
-        self._condense_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question,
-                in its original language.
-
-                Chat History:
-                {chat_history}
-                Follow Up Input: {question}
-                Standalone question:
-                """
+        self.llm = llm
+        self.memory: List[Dict[str, str]] = []
+        self.max_memory = max_memory
         
-        self.CONDENSE_QUESTION_PROMPT = ChatPromptTemplate.from_template(self._condense_template)
-        
-        # Create RAG prompt
-        self._rag_template = """Answer the question based on the following context.
-        If you don't know the answer, just say you don't know. DO NOT make up an answer.
-        If the context doesn't contain the answer, just say the context doesn't contain the answer. DO NOT make up an answer.
+        self.prompt = ChatPromptTemplate.from_template("""
+        **Your Goal:** Provide a concise, accurate, and helpful answer to the user's question based *only* on the provided context and previous conversation.
 
-        Context:
+        **Instructions:**
+        1.  **Prioritize Context:** Use the **Context** provided below to formulate your answer.
+        2.  **Refer to History:** Consider the **Previous conversation** for continuity and to understand the user's intent if the current question is ambiguous.
+        3.  **Directly Answer:** Formulate a direct answer to the **Current question**.
+        4.  **No Outside Knowledge:** Do NOT use any information outside of the given Context and Previous conversation.
+        5.  **Uncertainty:** If the answer is not found in the Context or Previous conversation, state clearly: "I cannot find the answer to your question in the provided information." Do NOT make up an answer.
+
+        ---
+        **Context:**
         {context}
 
-        Question: {question}
+        ---
+        **Previous conversation:**
+        {history}
 
-        Answer:"""
+        ---
+        **Current question:**
+        {question}
 
-        self.RAG_PROMPT = ChatPromptTemplate.from_template(self._rag_template)
+        **Answer:**
+        """)
 
-        # Create the chain
-        self._create_chain()
-
-    def _format_chat_history(self, chat_history: List[Tuple[str, str]]) -> str:
-        """ Format the chat history for the condense question prompt"""
+    def _format_history(self) -> str:
+        """Format conversation history."""
+        if not self.memory:
+            return "No previous conversation."
         
-        formatted_history = ""
-        for human, ai in chat_history:
-            formatted_history += f"Human: {human}\nAI: {ai}\n"
-        return formatted_history
+        formatted = []
+        for turn in self.memory[-self.max_memory:]:
+            formatted.append(f"Human: {turn['question']}")
+            formatted.append(f"Assistant: {turn['answer']}")
+        return "\n".join(formatted)
 
-    def _create_chain(self):
-        """Create the RAG Chain"""
-        self.condense_question_chain = (
-            {
-                "question": lambda x: x["question"],
-                "chat_history": lambda x: x["chat_history"],
-            }
-            | RunnablePassthrough.assign(
-                chat_history=lambda x: self._format_chat_history(x["chat_history"])
-            )
-            | self.CONDENSE_QUESTION_PROMPT
-            | self.llm
-            | StrOutputParser()
-        )
+    def _add_to_memory(self, question: str, answer: str):
+        """Add Q&A pair to memory with size limit."""
+        self.memory.append({"question": question, "answer": answer})
+        if len(self.memory) > self.max_memory:
+            self.memory.pop(0)
 
-        # Crete the qa chain
-        self.qa_chain = (
-            {
-                "context": lambda x: self.retriever.hybrid_retrieval(x["question"]),
-                "question": lambda x: x["question"],
-            }
-            | self.RAG_PROMPT
-            | self.llm
-            | StrOutputParser()
+    async def invoke(self, question: str, k_vector: int = 3) -> str:
+        """Process question with retrieval and memory context."""
+        
+        # Retrieve context
+        context = await self.retriever.hybrid_retrieval(question, k_vector=k_vector)
+        
+        # Format prompt with context and history
+        formatted_prompt = self.prompt.format(
+            context=context,
+            history=self._format_history(),
+            question=question
         )
         
-        # Create the full chain
-        self.chain = (
-            RunnablePassthrough.assign(
-                question=lambda x: (
-                    self.condense_question_chain.invoke(x)
-                    if x.get("chat_history")
-                    else x["question"]
-                )
-            )
-            | self.qa_chain
-        )
+        # Generate response
+        response = await asyncio.to_thread(self.llm.invoke, formatted_prompt)
+        answer = response.content if hasattr(response, 'content') else str(response)
+        
+        # Update memory
+        self._add_to_memory(question, answer)
+        
+        return answer
 
-    def invoke(self, inputs: Dict[str, Any]) -> str:
-        """Invoke the RAG Chain"""
-        return self.chain.invoke(inputs)
+    async def batch_invoke(self, questions: List[str], k_vector: int = 3) -> List[str]:
+        """Process multiple questions with shared memory context."""
+        results = []
+        for question in questions:
+            result = await self.invoke(question, k_vector=k_vector)
+            results.append(result)
+        return results
+
+    def clear_memory(self):
+        """Clear conversation history."""
+        self.memory.clear()
+
+    @classmethod
+    async def create(cls, retriever, llm, max_memory: int = 10):
+        """Factory method for async initialization."""
+        return cls(retriever, llm, max_memory)
