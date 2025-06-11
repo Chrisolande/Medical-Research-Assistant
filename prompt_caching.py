@@ -39,16 +39,6 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
             print(f"FAISS index path {self.faiss_index_path} not found or not a directory. Creating a new index.")
             self._create_new_faiss_index()
 
-    def _create_new_faiss_index(self):
-        try:
-            self.vector_store = FAISS.from_texts(
-                [DUMMY_DOC_CONTENT], self.embeddings, metadatas=[{"type": "initializer", "is_dummy": True}]
-            )
-
-            print("Created a new FAISS index.")
-        except Exception as e:
-            print(f"Error: Failed to initialize FAISS vector store: {e}")
-            self.vector_store = None
 
     def _create_new_faiss_index(self):
         try:
@@ -60,53 +50,73 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
             print(f"ERROR: Failed to initialize the new vector store {str(e)}")
             self.vector_store = None
 
-    def lookup(self, prompt: str, llm_string: str)-> Optional[List[Generation]]: # From langchain official documentation
+    def lookup(self, prompt: str, llm_string: str) -> Optional[List[Generation]]:
+        # Try exact match first
         result = super().lookup(prompt, llm_string)
-
         if result:
             print("Exact match found in SQLite cache.")
             return result
+        
+        # Try semantic search
+        return self._semantic_lookup(prompt)
 
-        if self.vector_store is None:
-            print("Semantic vector store not initialized. Skipping semantic search.")
+    def _semantic_lookup(self, prompt: str) -> Optional[List[Generation]]:
+        if not self._is_semantic_search_available():
             return None
-
+        
         try:
-            # If the index is NOT dummy-only (i.e., contains actual cached data), proceed with semantic search.
-            is_dummy_only = True
-            if len(self.vector_store.docstore._dict) > 0:
-                for doc_id, doc in self.vector_store.docstore._dict.items():
-                    if doc.page_content != DUMMY_DOC_CONTENT:
-                        is_dummy_only = False
-                        break
-
-            if is_dummy_only:
-                print("FAISS index contains only initializer doc. Skipping semantic search.")
-                return None
-
-            docs_with_score = self.vector_store.similarity_search_with_score(
-                prompt, k=1
-            )
-            
-            if docs_with_score:
-                doc, score = docs_with_score[0]
-                if doc.page_content == DUMMY_DOC_CONTENT and doc.metadata.get("is_dummy"):
-                    print("Semantic search returned dummy document. Skipping.")
-                    return None
-
-            if score <= self.similarity_threshold:
-                cached_llm_string = doc.metadata.get("llm_string_key")
-                original_cached_prompt = doc.page_content
-
-                if cached_llm_string and original_cached_prompt:
-                        print(f"Semantic match found with score {score:.4f}. Retrieving from SQLite cache.")
-                        return super().lookup(original_cached_prompt, cached_llm_string)
-
-                else:
-                    print(f"Semantic match found with score {score:.4f}, but it's above the threshold ({self.similarity_threshold}). Not using cache.")
-
+            return self._perform_semantic_search(prompt)
         except Exception as e:
             print(f"Error during semantic lookup: {e}")
+            return None
+
+    def _is_semantic_search_available(self) -> bool:
+        if self.vector_store is None:
+            print("Semantic vector store not initialized. Skipping semantic search.")
+            return False
+        
+        if self._has_only_dummy_docs():
+            print("FAISS index contains only initializer doc. Skipping semantic search.")
+            return False
+        
+        return True
+
+    def _has_only_dummy_docs(self) -> bool:
+        if len(self.vector_store.docstore._dict) == 0:
+            return True
+        
+        return all(
+            doc.page_content == DUMMY_DOC_CONTENT 
+            for doc in self.vector_store.docstore._dict.values()
+        )
+
+    def _perform_semantic_search(self, prompt: str) -> Optional[List[Generation]]:
+        docs_with_score = self.vector_store.similarity_search_with_score(prompt, k=1)
+        
+        if not docs_with_score:
+            return None
+        
+        doc, score = docs_with_score[0]
+        
+        if self._is_dummy_result(doc):
+            print("Semantic search returned dummy document. Skipping.")
+            return None
+        
+        return self._handle_semantic_match(doc, score)
+
+    def _is_dummy_result(self, doc) -> bool:
+        return doc.page_content == DUMMY_DOC_CONTENT and doc.metadata.get("is_dummy")
+
+    def _handle_semantic_match(self, doc, score) -> Optional[List[Generation]]:
+        if score <= self.similarity_threshold:
+            cached_llm_string = doc.metadata.get('llm_string_key')
+            original_cached_prompt = doc.page_content
+            
+            if cached_llm_string and original_cached_prompt:
+                print(f"Semantic match found with score {score:.4f}. Retrieving from SQLite cache.")
+                return super().lookup(original_cached_prompt, cached_llm_string)
+        else:
+            print(f"Semantic match found with score {score:.4f}, but it's above the threshold ({self.similarity_threshold}). Not using cache.")
         
         return None
 
@@ -140,9 +150,3 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
             
         except Exception as e:
             print(f"Error during semantic index update or save: {e}")
-        
-
-            
-
-
-    
