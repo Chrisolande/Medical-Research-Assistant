@@ -1,3 +1,6 @@
+"""main logic comes from here https://api.python.langchain.com/en/latest/cache/langchain_community.cache.SQLiteCache.html"""
+
+
 import os
 import hashlib
 import json
@@ -6,8 +9,6 @@ import shutil
 
 from langchain.cache import SQLiteCache
 from langchain_community.vectorstores import FAISS
-from langchain_community.vectorstores.faiss import FAISS as FAISSStore
-# from langchain_community.embeddings import HuggingFaceEmbeddings 
 from langchain.schema import Generation
 from langchain_cohere import CohereEmbeddings
 
@@ -24,13 +25,13 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
             raise ValueError("COHERE_API_KEY1 environment variable not set. Please set it to use CohereEmbeddings.")
 
     self.embeddings = CohereEmbeddings(cohere_api_key=cohere_api_key, model="embed-english-light-v3.0")
-    self.vector_store: Optional[FAISSStore] = None
+    self.vector_store: Optional[FAISS] = None
     self._init_semantic_store()
 
     def _init_semantic_store(self):
         if os.path.exists(self.faiss_index_path) and os.path.isdir(self.faiss_index_path):
             try:
-                self.vector_store = FAISSStore.from_local(self.faiss_index_path, self.embeddings, allow_dangerous_deserialization=True)
+                self.vector_store = FAISS.load_local(self.faiss_index_path, self.embeddings, allow_dangerous_deserialization=True)
                 print(f"Loaded existing FAISS index from {self.faiss_index_path}")
 
             except Exception as e:
@@ -43,7 +44,7 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
 
     def _create_new_faiss_index(self):
         try:
-            self.vector_store = FAISSStore.from_texts(
+            self.vector_store = FAISS.from_texts(
                 [DUMMY_DOC_CONTENT], self.embeddings, metadatas=[{"type": "initializer", "is_dummy": True}]
             )
 
@@ -52,5 +53,66 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
             print(f"Error: Failed to initialize FAISS vector store: {e}")
             self.vector_store = None
 
-    
+    def _create_new_faiss_index(self):
+        try:
+            self.vector_store = FAISS.from_texts(
+                [DUMMY_DOC_CONTENT], self.embeddings, metadatas=[{"type": "initializer", "is_dummy": True}]
+            )
+            print("Created a new FAISS index.")
+        except Exception as e:
+            print(f"ERROR: Failed to initialize the new vector store {str(e)}")
+            self.vector_store = None
+
+    def lookup(self, prompt: str, llm_string: st)-> Optional[List[Generation]]: # From langchain official documentation
+        result = super().lookup(prompt, llm_string)
+
+        if result:
+            print("Exact match found in the SQLite Cache!")
+            return result
+
+        if self.vector_store is None:
+            print("Semantic vector store not initialized. Skipping semantic search.")
+            return None
+
+        try:
+            # Access the metadata, if is_dummy_only is False then
+            is_dummy_only = True
+            if len(self.vector_store.docstore._dict) > 0:
+                for doc_id, doc in self.vector_store.docstore._dict.items():
+                    if doc.page_content != DUMMY_DOC_CONTENT:
+                        is_dummy_only = False
+                        break
+
+            if is_dummy_only:
+                print("FAISS index contains only initializer doc. Skipping semantic search.")
+                return None
+
+            docs_with_score = self.vector_store.similarity_search_with_score(
+                prompt, k=1
+            )
+            
+            if docs_with_score:
+                doc, score = docs_with_score[0]
+                if doc.page_content == DUMMY_DOC_CONTENT and doc.metadata.get("is_dummy"):
+                    print("Semantic search returned dummy document. Skipping.")
+                    return None
+
+            if score <= self.similarity_threshold:
+                cached_llm_string = doc.metadata.get("llm_string_key")
+                original_cached_prompt = doc.page_content
+
+                if cached_llm_string and original_cached_prompt:
+                        print(f"Semantic match found with score {score:.4f}. Retrieving from SQLite cache.")
+                        return super().lookup(original_cached_prompt, cached_llm_string)
+
+                else:
+                    print(f"Semantic match found with score {score:.4f}, but it's above the threshold ({self.similarity_threshold}). Not using cache.")
+                    
+        except Exception as e:
+            print(f"Error during semantic lookup: {e}")
+        
+        return None
+            
+
+
     
