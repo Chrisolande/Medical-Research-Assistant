@@ -6,6 +6,13 @@ from langchain_core.output_parsers import StrOutputParser
 import asyncio
 from langchain_community.tools.pubmed.tool import PubmedQueryRun
 from langchain_core.runnables.base import RunnableLambda 
+import os
+from langsmith import traceable
+from langchain.callbacks.manager import trace_as_chain_group
+from langsmith import Client
+
+os.environ["LANGCHAIN_PROJECT"] = "simple-rag-demo"
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
 
 
 class RAGChain:
@@ -16,7 +23,7 @@ class RAGChain:
         self.llm = llm
         self.memory: List[Dict[str, str]] = []
         self.max_memory = max_memory
-
+        self.client = Client()
         # Initialize the PubMed tool
         self.pubmed_tool = PubmedQueryRun()
 
@@ -69,11 +76,14 @@ class RAGChain:
         if len(self.memory) > self.max_memory:
             self.memory.pop(0)
 
+    @traceable(run_type = "chain", name = "RAGChain.invoke", project_name = "simple-rag-demo")
     async def invoke(self, question: str, k_vector: int = 3) -> str:
         """Process question with retrieval and memory context, with PubMed fallback."""
 
         # Retrieve context from internal RAG
-        context = await self.retriever.hybrid_retrieval(question, k_vector=k_vector)
+
+        with trace_as_chain_group("Retrieval"):
+            context = await self.retriever.hybrid_retrieval(question, k_vector=k_vector)
 
         # Format prompt for the LLM
         formatted_prompt = self.prompt.format(
@@ -83,11 +93,11 @@ class RAGChain:
         )
 
         # Initial LLM call
-        response = await asyncio.to_thread(self.llm.invoke, formatted_prompt)
+        response = await asyncio.to_thread(self.llm.with_config(tags=["initial_llm_call"]).invoke, formatted_prompt)
         initial_answer = response.content if hasattr(response, 'content') else str(response)
 
         # Check for tool use signal
-        if initial_answer.strip().startswith("TOOL_USE:"):
+        if "TOOL_USE:" in initial_answer:
             try:
                 # Extract the tool call
                 tool_call_str = initial_answer.strip().replace("TOOL_USE:", "").strip()
