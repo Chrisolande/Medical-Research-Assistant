@@ -101,13 +101,23 @@ class RAGChain:
             try:
                 # Extract the tool call
                 tool_call_str = initial_answer.strip().replace("TOOL_USE:", "").strip()
+
+                # Extract the tool call in the response
+                tool_use_start = initial_answer.find("TOOL_USE:")
+                tool_call_str = initial_answer[tool_use_start + len("TOOL_USE:"):].strip()
+
+                if "pubmed_tool.run(" in tool_call_str:
+                    start_idx = tool_call_str.find('("') + 2
+                    end_idx = tool_call_str.find('")', start_idx)
+                    if end_idx != -1:
+                        search_query = tool_call_str[start_idx:end_idx]
+                    else:
+                        # Fallback if the format is different
+                        search_query = question
                 
-                # Safely parse the tool call
-                if tool_call_str.startswith("pubmed_tool.run("):
-                    search_query = tool_call_str[len("pubmed_tool.run("):-1].strip('"')
                     print(f"DEBUG: Attempting PubMed search with query: '{search_query}'")
                     # Execute the PubMed tool asynchronously
-                    pubmed_results = await asyncio.to_thread(self.pubmed_tool.run, search_query) 
+                    pubmed_results = await asyncio.to_thread(self.pubmed_tool.run, search_query)
                     print(f"DEBUG: PubMed results received. Length: {len(pubmed_results)}")
 
                     # Re-prompt the LLM with PubMed results
@@ -152,6 +162,7 @@ class RAGChain:
 
         return answer
 
+    @traceable(run_type="chain", name="RAGChain.batch_invoke", project_name = "simple-rag-demo")
     async def batch_invoke(self, questions: List[str], k_vector: int = 3) -> List[str]:
         """Process multiple questions with shared memory context."""
         results = []
