@@ -2,6 +2,7 @@
 
 
 import os
+import shutil
 from typing import Optional, List
 
 from langchain_community.cache import SQLiteCache
@@ -150,3 +151,18 @@ class SemanticSQLiteCache(SQLiteCache): # Inherit from sqlitecache
             
         except Exception as e:
             print(f"Error during semantic index update or save: {e}")
+
+    def clear(self):
+        """Clear the database and the vector index"""
+        super().clear() # Remove the sqlite cache
+
+        try:
+            shutil.rmtree(self.faiss_index_path)
+            print(f"FAISS Index {self.faiss_index_path} removed successfully")
+        except FileNotFoundError:
+            print(f"FAISS index directory not found, skipping removal: {self.faiss_index_path}")
+        except Exception as e:
+            print(f"Error removing FAISS index directory {self.faiss_index_path}: {e}")
+        self.vector_store = None
+
+
