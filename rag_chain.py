@@ -32,17 +32,10 @@ class RAGChain:
         **Your Goal:** Provide a concise, accurate, and helpful answer to the user's question.
 
         **Instructions:**
-        1.  **Prioritize Context:** First, attempt to answer the **Current question** using *only* the **Context** provided below.
-        2.  **Refer to History:** Consider the **Previous conversation** for continuity and to understand the user's intent.
-        3.  **Directly Answer:** Formulate a direct answer to the **Current question**.
-        4.  **No Outside Knowledge (Initial Pass):** Do NOT use any information outside of the given Context and Previous conversation *in your initial attempt*.
-        5.  **Tool Usage (Fallback):**
-            * If you **cannot find a relevant answer** in the provided Context or Previous conversation, then indicate this and state that you will attempt to use the PubMed tool.
-            * When using the tool, specify the search query clearly. **Format your tool use response like this:
-                `TOOL_USE: pubmed_tool.run("<search query>")`**
-                Replace `<search query>` with a concise, effective query based on the user's original question.
-            * After receiving the tool output, provide an answer based on the tool's results. If the tool also fails to provide a direct answer, state that explicitly.
-        6.  **Uncertainty (Final Fallback):** If, even after attempting tool use, you still cannot find the answer, state clearly: "I cannot find the answer to your question in any of the provided information or tools."
+        1. **Prioritize Context:** First, attempt to answer using the **Context** provided below.
+        2. **Refer to History:** Consider the **Previous conversation** for continuity.
+        3. **Tool Usage:** If you cannot find a relevant answer in the Context or conversation history, simply respond with "TOOL_USE: Need PubMed search" and I will search PubMed for you.
+        4. **Direct Answer:** Otherwise, provide a direct answer based on the available information.
 
         ---
         **Context:**
@@ -57,6 +50,7 @@ class RAGChain:
         {question}
 
         **Answer:**
+        Summary::
         """)
 
     def _format_history(self) -> str:
@@ -99,63 +93,46 @@ class RAGChain:
         # Check for tool use signal
         if "TOOL_USE:" in initial_answer:
             try:
-                # Extract the tool call
-                tool_call_str = initial_answer.strip().replace("TOOL_USE:", "").strip()
+                print(f"DEBUG: Attempting PubMed search with query: '{question}'")
+                # Simply use the original question as the search query
+                pubmed_results = await asyncio.to_thread(self.pubmed_tool.invoke, question)
+                print(f"DEBUG: PubMed results received. Length: {len(pubmed_results)}")
 
-                # Extract the tool call in the response
-                tool_use_start = initial_answer.find("TOOL_USE:")
-                tool_call_str = initial_answer[tool_use_start + len("TOOL_USE:"):].strip()
+                # Re-prompt the LLM with PubMed results
+                reprompt_template = ChatPromptTemplate.from_template("""
+                You previously tried to answer a question but needed to use the PubMed tool. Here are the results from your PubMed search:
 
-                if "pubmed_tool.run(" in tool_call_str:
-                    start_idx = tool_call_str.find('("') + 2
-                    end_idx = tool_call_str.find('")', start_idx)
-                    if end_idx != -1:
-                        search_query = tool_call_str[start_idx:end_idx]
-                    else:
-                        # Fallback if the format is different
-                        search_query = question
+                **PubMed Search Results:**
+                {pubmed_results}
+
+                **Original Context:**
+                {context}
+
+                **Previous conversation:**
+                {history}
+
+                **Original question:**
+                {question}
+
+                Based on these PubMed search results, the original context, and the previous conversation, provide a concise and accurate answer. If the PubMed results also do not contain the answer, state that you cannot find the answer.
+
+                **Answer:**
+                Summary::
+                """)
+                final_prompt_with_pubmed = reprompt_template.format(
+                    pubmed_results=pubmed_results,
+                    context=context,
+                    history=self._format_history(),
+                    question=question
+                )
+                final_response = await asyncio.to_thread(self.llm.invoke, final_prompt_with_pubmed)
+                answer = final_response.content if hasattr(final_response, 'content') else str(final_response)
                 
-                    print(f"DEBUG: Attempting PubMed search with query: '{search_query}'")
-                    # Execute the PubMed tool asynchronously
-                    pubmed_results = await asyncio.to_thread(self.pubmed_tool.run, search_query)
-                    print(f"DEBUG: PubMed results received. Length: {len(pubmed_results)}")
-
-                    # Re-prompt the LLM with PubMed results
-                    reprompt_template = ChatPromptTemplate.from_template("""
-                    You previously tried to answer a question but needed to use the PubMed tool. Here are the results from your PubMed search:
-
-                    **PubMed Search Results:**
-                    {pubmed_results}
-
-                    **Original Context:**
-                    {context}
-
-                    **Previous conversation:**
-                    {history}
-
-                    **Original question:**
-                    {question}
-
-                    Based on these PubMed search results, the original context, and the previous conversation, provide a concise and accurate answer. If the PubMed results also do not contain the answer, state that you cannot find the answer.
-
-                    **Answer:**
-                    """)
-                    final_prompt_with_pubmed = reprompt_template.format(
-                        pubmed_results=pubmed_results,
-                        context=context,
-                        history=self._format_history(),
-                        question=question
-                    )
-                    final_response = await asyncio.to_thread(self.llm.invoke, final_prompt_with_pubmed)
-                    answer = final_response.content if hasattr(final_response, 'content') else str(final_response)
-                else:
-                    # If tool call format is unexpected, treat initial answer as final
-                    answer = initial_answer
             except Exception as e:
                 print(f"ERROR: Failed to use PubMed tool: {e}")
                 answer = f"An error occurred while trying to use the PubMed tool: {e}\nOriginal attempt: {initial_answer}"
         else:
-            answer = initial_answer # No tool use needed, initial answer is final
+            answer = initial_answer
 
         # Update memory
         self._add_to_memory(question, answer)
