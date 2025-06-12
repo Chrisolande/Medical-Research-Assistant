@@ -12,21 +12,20 @@ from langchain_cohere import CohereEmbeddings
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import time
 DUMMY_DOC_CONTENT = "Langchain Document Initializer"
 
 @dataclass
 class SemanticCache(SQLiteCache):
-    database_path: str = ".langchain.db",
-    faiss_index_path: str = "./faiss_index",
-    similarity_threshold: float = 0.5,
-    max_cache_size: int = 1000, 
-    memory_cache_size: int = 100,
-    batch_size: int = 10,
+    database_path: str = ".langchain.db"
+    faiss_index_path: str = "./faiss_index"
+    similarity_threshold: float = 0.5
+    max_cache_size: int = 1000
+    memory_cache_size: int = 100
+    batch_size: int = 10
     enable_quantization: bool = False
 
     def __post_init__(self):
-        if not os.path.exists(self.database_path):
-            os.makedirs(self.database_path, exist_ok = True)
         super().__init__(self.database_path)
         self.embedding_cache = dict()
         self.memory_cache = dict()
@@ -49,7 +48,7 @@ class SemanticCache(SQLiteCache):
     def _lazy_load_vector_store(self):
         """Only load FAISS when needed"""
         if not self._lazy_loaded:
-            with self.lock():
+            with self.lock:
                 if not self._lazy_loaded:
                     self._init_semantic_store()
                     self._lazy_loaded = True
@@ -58,7 +57,7 @@ class SemanticCache(SQLiteCache):
         # Check if the path exists
         if os.path.exists(self.faiss_index_path) and os.path.isdir(self.faiss_index_path):
             try:
-                self.vector_store = self._load_faiss_index
+                self.vector_store = self._load_faiss_index()
                 print(f"Loaded FAISS indec from {self.faiss_index_path}")
             except Exception as e:
                 print(f"Error loading the faiss index: {str(e)}")
@@ -72,7 +71,7 @@ class SemanticCache(SQLiteCache):
             try:
                 #Wrap the blocking function in an event loop
                 self.vector_store = await asyncio.get_event_loop().run_in_executor(
-                    self.executor, self._load_faiss_index
+                    self.executor, self._load_faiss_index()
                 )
                 print(f"Loaded existing FAISS index from {self.faiss_index_path}")
             
@@ -87,7 +86,7 @@ class SemanticCache(SQLiteCache):
     
     def _create_new_faiss_index(self):
         try:
-            self.vector_store = self._create_index_from_texts([DUMMY_DOC_CONTENT], [{"type": "initializer", "is_dummy": True}])
+            self.vector_store = self._create_faiss_from_texts([DUMMY_DOC_CONTENT], [{"type": "initializer", "is_dummy": True}])
             print("Created new FAISS index")
         
         except Exception as e:
@@ -96,7 +95,7 @@ class SemanticCache(SQLiteCache):
 
     async def _create_new_faiss_index_async(self):
         try:
-            self.vector_store = await asyncio.get_event_loop().run_in_executor(self.executor, self._create_index_from_texts([DUMMY_DOC_CONTENT], [{"type": "initializer", "is_dummy": True}]))
+            self.vector_store = await asyncio.get_event_loop().run_in_executor(self.executor, self._create_faiss_from_texts([DUMMY_DOC_CONTENT], [{"type": "initializer", "is_dummy": True}]))
             print("Created new FAISS index successfully")
         
         except Exception as e:
@@ -105,7 +104,7 @@ class SemanticCache(SQLiteCache):
 
     def _create_faiss_from_texts(self, texts:List[str], metadatas: List[Dict]):
         
-        faiss_store = FAISS.from_texts(texts, self.embedding, metadata = metadatas)
+        faiss_store = FAISS.from_texts(texts, self.embeddings, metadatas = metadatas)
 
         if self.enable_quantization and len(texts) > 100:
             try:
@@ -135,13 +134,13 @@ class SemanticCache(SQLiteCache):
 
         self.embedding_cache[text] = embedding
     
-    def _get_embedding_with_cache(self, text: List[str]):
+    def _get_embedding_with_cache(self, text: str):
         cached = self._get_cached_embedding(text)
         if cached:
             return cached
         
         start_time = time.time()
-        embedding = self.embedding.embed_query(text)
+        embedding = self.embeddings.embed_query(text)
         self.metrics['embedding_time'] += time.time() - start_time
 
         self._cache_embedding(text, embedding)
@@ -202,7 +201,7 @@ class SemanticCache(SQLiteCache):
                             result = super().lookup(original_cached_prompt, cached_llm_string)
                             if result:
                                 self.metrics['semantic_hits'] += 1
-                                # CHANGE: Add to memory cache - caching strategy
+                                #Add to memory cache
                                 self._add_to_memory_cache(cache_key, result)
                                 return result
                     else:
@@ -229,7 +228,7 @@ class SemanticCache(SQLiteCache):
         
         return True
 
-    def _add_memory_to_cache(self, key: str, value: List[Generation]):
+    def _add_to_memory_cache(self, key: str, value: List[Generation]):
         if len(self.memory_cache) >= self.memory_cache_size:
             first_item = next(iter(self.memory_cache))
             self.memory_cache.pop(first_item)
@@ -241,7 +240,7 @@ class SemanticCache(SQLiteCache):
 
         # Add to memory cache
         cache_key = f"{prompt}:{llm_string}"
-        self._add_to_memory_cache(cache_key, llm_string)
+        self._add_to_memory_cache(cache_key, return_val)
 
         self._lazy_load_vector_store()
 
@@ -269,7 +268,7 @@ class SemanticCache(SQLiteCache):
 
         # Add to memory cache
         cache_key = f"{prompt}:{llm_string}"
-        self._add_to_memory_cache(cache_key, llm_string)
+        self._add_to_memory_cache(cache_key, return_val)
 
         self._lazy_load_vector_store()
 
@@ -301,7 +300,7 @@ class SemanticCache(SQLiteCache):
 
         # Add to memory cache
         cache_key = f"{prompt}:{llm_string}"
-        self._add_to_memory_cache(cache_key, llm_string)
+        self._add_to_memory_cache(cache_key, return_val)
 
         self._lazy_load_vector_store()
 
@@ -350,13 +349,13 @@ class SemanticCache(SQLiteCache):
 
     async def _evict_oldest_entries_async(self):
         await asyncio.get_event_loop().run_in_executor(
-            sel.executor, self._evict_oldest_entries
+            self.executor, self._evict_oldest_entries
         )
 
     def _add_to_vector_store(self, prompt: str, metadata: Dict):
         self.vector_store.add_texts([prompt], metadatas=[metadata])
 
-    def _save_to_vector_store(self):
+    def _save_vector_store(self):
         os.makedirs(self.faiss_index_path, exist_ok = True)
         self.vector_store.save_local(self.faiss_index_path)
         print(f"Updated FAISS index and saved to {self.faiss_index_path}")
