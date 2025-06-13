@@ -10,6 +10,7 @@ from langchain_core.documents import Document
 from threading import Semaphore
 import math
 from typing import Optional
+
 @dataclass
 class PMCBatchProcessor:
     document_processor: "DocumentProcessor"
@@ -23,7 +24,6 @@ class PMCBatchProcessor:
         self.logger = logging.getLogger(__name__)
         self.processing_semaphore = Semaphore(self.max_concurrent_batches)
 
-    
     def load_pmc_data(self, file_path:str, max_docs: Optional[int] = None):
         try:
             with open(file_path, "r", encoding = "utf-8") as f:
@@ -35,12 +35,12 @@ class PMCBatchProcessor:
             if max_docs and max_docs > 0:
                 pmc_docs = pmc_docs[:max_docs]
                 self.logger.info(f"Limited to first {max_docs} documents")
-        
+            
             self.logger.info(f"Loaded {len(pmc_docs)} PMC documents from {file_path}")
 
             # Make sure that the documents(all of them have abstracts)  
             valid_docs = [doc for doc in pmc_docs if doc.get('abstract', '').strip()]
-                        
+                            
             self.logger.info(f"Found {len(valid_docs)} documents with valid abstracts")
             return valid_docs
         
@@ -74,24 +74,25 @@ class PMCBatchProcessor:
                 )
                 documents.append(langchain_doc)
         
-        return documents
-    
-    async def _process_batch_async(self, batch, batch_num, total_batches):
+        processed_documents = self.document_processor.process_documents(documents)
+        return processed_documents
+            
+    async def _process_batch_async(self, batch, batch_num):
         for attempt in range(self.retry_attempts):
             try:
-                self.logger.info(f"Processing batch {batch_num}/{total_batches} "
-                               f"({len(batch)} documents, attempt {attempt + 1})")
+                self.logger.info(f"Processing batch {batch_num} "
+                                 f"({len(batch)} documents, attempt {attempt + 1})")
                 
                 documents = await asyncio.get_event_loop().run_in_executor(None, self._process_batch_documents, batch)
                 return {
                     "batch_num": batch_num,
                     "success": True,
-                    "documents": documents,
+                    "documents": documents, 
                     "original_count": len(batch),
                     "chunk_count": len(documents),
                     "error": None,
                     "attempt": attempt + 1
-                }   
+                }    
             except Exception as e:
                 self.logger.warning(f"Batch {batch_num} attempt {attempt + 1} failed: {str(e)}")
                 if attempt < self.retry_attempts - 1:
@@ -105,8 +106,8 @@ class PMCBatchProcessor:
                         "chunk_count": 0,
                         "error": str(e),
                         "attempt": attempt + 1
-                    }   
-    
+                    }    
+            
     async def process_pmc_file_async(
         self,
         file_path: str,
@@ -139,10 +140,10 @@ class PMCBatchProcessor:
 
         async def process_with_semaphore(batch, batch_num):
             async with semaphore:
-                result = await self._process_batch_async(batch, batch_num, total_batches)
+                result = await self._process_batch_async(batch, batch_num) # total_batches no longer needed here
                 if self.inter_batch_delay > 0:
                     await asyncio.sleep(self.inter_batch_delay)
-                    return result
+                return result
             
         tasks = [process_with_semaphore(batch, i + 1) for i, batch in enumerate(batches)] 
         
@@ -151,12 +152,12 @@ class PMCBatchProcessor:
         for coro in asyncio.as_completed(tasks):
             result = await coro
             completed_batches += 1
- 
+    
             if result["success"]:
                 results["successful_batches"].append(result)
                 results["all_documents"].extend(result["documents"])
                 self.logger.info(f" Batch {result['batch_num']} completed: "
-                                f"{result['original_count']} docs → {result['chunk_count']} chunks")
+                                 f"{result['original_count']} docs → {result['chunk_count']} chunks")
             else:
                 results["failed_batches"].append(result)
                 self.logger.error(f" Batch {result['batch_num']} failed: {result['error']}")
@@ -164,7 +165,7 @@ class PMCBatchProcessor:
             # Progress callback
             if progress_callback:
                 progress_callback(completed_batches, total_batches, result)
-                    
+                        
         # Generate final statistics
         processing_time = time.time() - start_time
         results["processing_summary"] = {
@@ -173,9 +174,9 @@ class PMCBatchProcessor:
             "successful_batches": len(results["successful_batches"]),
             "failed_batches": len(results["failed_batches"]),
             "total_chunks": len(results["all_documents"]),
-            "success_rate": len(results["successful_batches"]) / total_batches * 100,
+            "success_rate": len(results["successful_batches"]) / total_batches * 100 if total_batches > 0 else 0.0, # Added check for total_batches > 0
             "processing_time": processing_time,
-            "avg_time_per_batch": processing_time / total_batches,
+            "avg_time_per_batch": processing_time / total_batches if total_batches > 0 else 0.0, # Added check for total_batches > 0
             "docs_per_second": len(pmc_docs) / processing_time if processing_time > 0 else 0
         }
         
@@ -183,7 +184,7 @@ class PMCBatchProcessor:
         self.logger.info(f"Success rate: {results['processing_summary']['success_rate']:.1f}%")
         
         return results
-    
+            
     async def process_pmc_file(self, *args, **kwargs):
         """Sync wrapper for async method"""
         return await self.process_pmc_file_async(*args, **kwargs)
@@ -207,7 +208,7 @@ class PMCBatchProcessor:
         }
 
     def save_results(self, results: Dict[str, Any], output_dir: str, 
-                    save_batch_details: bool = False) -> None:
+                     save_batch_details: bool = False) -> None:
         """Save results to file"""
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -233,7 +234,7 @@ class PMCBatchProcessor:
         }
         
         # Save main results
-        main_path = output_path / "pmc_semantic_chunks.json"
+        main_path = output_path / "pmc_chunks.json"
         with open(main_path, 'w', encoding='utf-8') as f:
             json.dump(main_output, f, indent=2, ensure_ascii=False)
         
@@ -263,5 +264,3 @@ class PMCBatchProcessor:
                 }
                 with open(batch_file, 'w', encoding='utf-8') as f:
                     json.dump(batch_data, f, indent=2, ensure_ascii=False)
-                    
-
