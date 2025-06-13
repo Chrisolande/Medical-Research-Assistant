@@ -53,14 +53,6 @@ class KnowledgeGraph:
         self.relationship_batch = []
         self.batch_size = 1000  
 
-    def check_graph_exists(self) -> bool:
-        """Check if the graph database contains any data."""
-        try:
-            result = self.graph.query("MATCH (n) RETURN count(n) as count LIMIT 1")
-            return result[0]['count'] > 0 if result else False
-        except Exception:
-            return False
-
     def clear_database(self):
         """Clear the database."""
         self.graph.query("MATCH (n) DETACH DELETE n")
@@ -79,106 +71,60 @@ class KnowledgeGraph:
         if not entities_batch:
             return
             
-        try:
-            query = """
-            UNWIND $entities as entity
-            MERGE (e:__Entity__ {id: entity.name})
-            SET e.type = entity.type
-            WITH e, entity
-            MATCH (d:Document {id: entity.doc_id})
-            MERGE (e)-[:EXTRACTED_FROM]->(d)
-            """
-            
-            batch_data = [
-                {"name": name, "type": etype, "doc_id": doc_id}
-                for name, etype, doc_id in entities_batch
-            ]
-            
-            self.graph.query(query, {"entities": batch_data})
-            
-        except Exception as e:
-            print(f"Failed to create entity batch: {e}")
-            # Fallback to individual creation for failed batch
-            for name, etype, doc_id in entities_batch:
-                try:
-                    self.graph.query("""
-                        MERGE (e:__Entity__ {id: $name})
-                        SET e.type = $type
-                        WITH e
-                        MATCH (d:Document {id: $doc_id})
-                        MERGE (e)-[:EXTRACTED_FROM]->(d)
-                    """, {"name": name, "type": etype, "doc_id": doc_id})
-                except Exception as inner_e:
-                    print(f"Failed to create entity {name}: {inner_e}")
+        query = """
+        UNWIND $entities as entity
+        MERGE (e:__Entity__ {id: entity.name})
+        SET e.type = entity.type
+        WITH e, entity
+        MATCH (d:Document {id: entity.doc_id})
+        MERGE (e)-[:EXTRACTED_FROM]->(d)
+        """
+        
+        batch_data = [
+            {"name": name, "type": etype, "doc_id": doc_id}
+            for name, etype, doc_id in entities_batch
+        ]
+        
+        self.graph.query(query, {"entities": batch_data})
 
     def _batch_create_relationships(self, relationships_batch):
         """Create relationships in batches."""
         if not relationships_batch:
             return
             
-        # Group by relationship type 
         rel_groups = defaultdict(list)
         for e1, rel, e2, doc_id in relationships_batch:
             clean_rel = self._clean_relationship_name(rel)
             rel_groups[clean_rel].append((e1, e2, doc_id))
         
         for rel_type, relations in rel_groups.items():
-            try:
-                query = f"""
-                UNWIND $relations as rel
-                MERGE (e1:__Entity__ {{id: rel.e1}})
-                MERGE (e2:__Entity__ {{id: rel.e2}})
-                MERGE (e1)-[:{rel_type}]->(e2)
-                """
-                
-                batch_data = [
-                    {"e1": e1, "e2": e2, "doc_id": doc_id}
-                    for e1, e2, doc_id in relations
-                ]
-                
-                self.graph.query(query, {"relations": batch_data})
-                
-            except Exception as e:
-                print(f"Failed to create relationship batch for {rel_type}: {e}")
-                # Fallback to individual creation
-                for e1, e2, doc_id in relations:
-                    try:
-                        fallback_query = f"""
-                        MERGE (e1:__Entity__ {{id: $e1}})
-                        MERGE (e2:__Entity__ {{id: $e2}})
-                        MERGE (e1)-[:{rel_type}]->(e2)
-                        """
-                        self.graph.query(fallback_query, {"e1": e1, "e2": e2, "doc_id": doc_id})
-                    except Exception as inner_e:
-                        print(f"Failed to create relationship {e1}-{rel_type}-{e2}: {inner_e}")
+            query = f"""
+            UNWIND $relations as rel
+            MERGE (e1:__Entity__ {{id: rel.e1}})
+            MERGE (e2:__Entity__ {{id: rel.e2}})
+            MERGE (e1)-[:{rel_type}]->(e2)
+            """
+            
+            batch_data = [{"e1": e1, "e2": e2, "doc_id": doc_id} for e1, e2, doc_id in relations]
+            self.graph.query(query, {"relations": batch_data})
 
     def _flush_batches(self):
-
-        if not self.entity_batch and not self.relationship_batch:
-            return 
-
-        """Flush accumulated batches to database."""
+        """Flush accumulated batches to database."""        
         if self.entity_batch:
-            with tqdm(total=1, desc="Flushing entities to database") as pbar:
-                self._batch_create_entities(self.entity_batch)
-                self.entity_batch.clear()
-                pbar.update(1)
+            self._batch_create_entities(self.entity_batch)
+            self.entity_batch.clear()
             
         if self.relationship_batch:
-            with tqdm(total=1, desc="Flushing relationships to database") as pbar:
-                self._batch_create_relationships(self.relationship_batch)
-                self.relationship_batch.clear()
-                pbar.update(1)
+            self._batch_create_relationships(self.relationship_batch)
+            self.relationship_batch.clear()
 
         self.last_flush_time = time.time()
 
     async def add_documents(self, documents: List[Document], source_name: str = None):
         """Add documents to the graph with batch processing."""
         print(f"Processing {len(documents)} documents...")
-        # Add source metadata to documents
         timestamp = str(pd.Timestamp.now())
         for i, doc in enumerate(documents):
-            # Extract individual source name for each document
             individual_source = source_name or self._extract_source_name([doc])
             doc.metadata.update({
                 "source_name": individual_source, 
@@ -186,9 +132,7 @@ class KnowledgeGraph:
                 "doc_id": f"{individual_source}"
             })
         
-        # Create document nodes in batch
         self._batch_create_document_nodes(documents)
-
         semaphore = asyncio.Semaphore(self.max_concurrent)
         
         async def process_doc_with_semaphore(doc):
@@ -197,91 +141,57 @@ class KnowledgeGraph:
         
         batch_size = 200  
         total_batches = (len(documents) - 1) // batch_size + 1
-        with tqdm(total=total_batches, desc="Processing document batches") as pbar:
-            for i in range(0, len(documents), batch_size):
-                batch = documents[i:i+batch_size]
-                
-                tasks = [process_doc_with_semaphore(doc) for doc in batch]
-                
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                for j, result in tqdm(enumerate(results), desc=f"Processing results batch {pbar.n}", leave=False):
-                    if isinstance(result, Exception):
-                        print(f"Document processing failed: {result}")
-                        continue
-                        
-                    entities, relationships = result
-                    doc_id = batch[j].metadata["doc_id"]
-                    
-                    # Add to batch containers   
-                    for name, etype in entities:
-                        self.entity_batch.append((name, etype, doc_id))
-                    
-                    for e1, rel, e2 in relationships:
-                        self.relationship_batch.append((e1, rel, e2, doc_id))
-                    
-                    # Flush batches when they reach size limit OR time interval
-                    current_time = time.time()
-                    if (len(self.entity_batch) >= self.batch_size or 
-                        current_time - self.last_flush_time >= self.flush_interval):
-                        self._flush_batches()
-                        self.last_flush_time = current_time
-
-                pbar.update(1)
         
-        # Flush any remaining batches
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i+batch_size]
+            tasks = [process_doc_with_semaphore(doc) for doc in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for j, result in enumerate(results):
+                if isinstance(result, Exception):
+                    continue
+                    
+                entities, relationships = result
+                doc_id = batch[j].metadata["doc_id"]
+                
+                for name, etype in entities:
+                    self.entity_batch.append((name, etype, doc_id))
+                
+                for e1, rel, e2 in relationships:
+                    self.relationship_batch.append((e1, rel, e2, doc_id))
+                
+                if (len(self.entity_batch) >= self.batch_size or 
+                    time.time() - self.last_flush_time >= self.flush_interval):
+                    self._flush_batches()
+
         self._flush_batches()
         print("Processing complete!")
 
     def _batch_create_document_nodes(self, documents: List[Document]):
         """Create document nodes in batch."""
-        try:
-            query = """
-            UNWIND $docs as doc
-            CREATE (d:Document {
-                id: doc.doc_id,
-                source_name: doc.source_name,
-                content: doc.content,
-                added_timestamp: doc.added_timestamp,
-                metadata: doc.metadata
-            })
-            """
-            
-            batch_data = [
-                {
-                    "doc_id": doc.metadata["doc_id"],
-                    "source_name": doc.metadata["source_name"],
-                    "content": doc.page_content[:1000],
-                    "added_timestamp": doc.metadata["added_timestamp"],
-                    "metadata": json.dumps(doc.metadata)  
-                }
-                for doc in documents
-            ]
-            
-            self.graph.query(query, {"docs": batch_data})
-            
-        except Exception as e:
-            print(f"Failed to create document nodes in batch: {e}")
-            # Fallback to individual creation
-            for doc in documents:
-                try:
-                    self.graph.query("""
-                        CREATE (d:Document {
-                            id: $doc_id,
-                            source_name: $source_name,
-                            content: $content,
-                            added_timestamp: $added_timestamp,
-                            metadata: $metadata
-                        })
-                    """, {
-                        "doc_id": doc.metadata["doc_id"],
-                        "source_name": doc.metadata["source_name"],
-                        "content": doc.page_content[:1000],
-                        "added_timestamp": doc.metadata["added_timestamp"],
-                        "metadata": json.dumps(doc.metadata)
-                    })
-                except Exception as inner_e:
-                    print(f"Failed to create document node: {inner_e}")
+        query = """
+        UNWIND $docs as doc
+        CREATE (d:Document {
+            id: doc.doc_id,
+            source_name: doc.source_name,
+            content: doc.content,
+            added_timestamp: doc.added_timestamp,
+            metadata: doc.metadata
+        })
+        """
+        
+        batch_data = [
+            {
+                "doc_id": doc.metadata["doc_id"],
+                "source_name": doc.metadata["source_name"],
+                "content": doc.page_content[:1000],
+                "added_timestamp": doc.metadata["added_timestamp"],
+                "metadata": json.dumps(doc.metadata)  
+            }
+            for doc in documents
+        ]
+        
+        self.graph.query(query, {"docs": batch_data})
         
     def _extract_source_name(self, documents: List[Document]) -> str:
         """Extract source name from document metadata."""
