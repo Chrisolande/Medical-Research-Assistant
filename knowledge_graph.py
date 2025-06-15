@@ -1,379 +1,312 @@
-from langchain_neo4j import Neo4jGraph
-from langchain_openai import ChatOpenAI
-from langchain_core.documents import Document
-from typing import List, Dict, Any, Optional, Set, Tuple
-from collections import defaultdict
-from dotenv import load_dotenv
-from tqdm import tqdm
-import asyncio
+from dataclasses import dataclass
+import networkx as nx
+from langchain.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.prompts import PromptTemplate
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import LLMChainExtractor
+from langchain.callbacks import get_openai_callback
+from langchain_huggingface import HuggingFaceEmbeddings
+
+from sklearn.metrics.pairwise import cosine_similarity
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import os
-import re
-import pandas as pd
+import sys
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from typing import List, Tuple, Dict
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
+import nltk
+import spacy
+import heapq
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
+import numpy as np
+
+from spacy.cli import download
+from spacy.lang.en import English
+
 import json
-import time
+import pickle
+import hashlib
+from pathlib import Path
 
-load_dotenv()
-
-MODEL_NAME = "meta-llama/llama-3.3-70b-instruct"
-NEO4J_URI = os.getenv("NEO4J_URI")
-NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+@dataclass
+class Concepts:
+    concepts_list: List[str]
 
 class KnowledgeGraph:
-    def __init__(self, max_concurrent: int = 50):  
-        self.max_concurrent = max_concurrent
-        self.url = NEO4J_URI
-        self.username = NEO4J_USERNAME
-        self.password = NEO4J_PASSWORD
-        self.model_name = MODEL_NAME
-        self.flush_interval = 60
-        self.last_flush_time = time.time()
+    def __init__(self,  cache_dir="./cache", batch_size: int = 100):
+        self.graph = nx.Graph()
+        self.lemmatizer = WordNetLemmatizer()
+        self.concept_cache = {}
+        self.nlp = self._load_spacy_model()
+        self.edges_threshold = 0.8
 
-        self.llm = ChatOpenAI(
-            model=self.model_name,
-            temperature=0, 
-            openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-            openai_api_base="https://openrouter.ai/api/v1",
-            streaming=False,
-            max_retries=1,  
-            request_timeout=15, 
-            max_tokens=1000  
-        )
-        self.graph = Neo4jGraph()
-        
-        # Compiled regex patterns for relationship cleaning
-        self._relation_patterns = [
-            (re.compile(r'[\s\-\.]+'), '_'),
-            (re.compile(r'[^A-Z0-9_]'), ''),
-            (re.compile(r'_+'), '_')
-        ]
-        
-        # Batch processing
-        self.entity_batch = []
-        self.relationship_batch = []
-        self.batch_size = 1000  
+        # Caching and batch processing
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(exist_ok=True)
+        self.embeddings_cache = {}
+        self.batch_size = batch_size
+        self._load_cache()
 
-    def clear_database(self):
-        """Clear the database."""
-        self.graph.query("MATCH (n) DETACH DELETE n")
-        print("Database cleared successfully.")
-
-    def _clean_relationship_name(self, relation: str) -> str:
-        """Clean relationship name using compiled regex patterns."""
-        clean = relation.upper()
-        for pattern, replacement in self._relation_patterns:
-            clean = pattern.sub(replacement, clean)
-        clean = clean.strip('_')
-        return clean if clean and not clean[0].isdigit() else 'RELATED_TO'
-
-    def _batch_create_entities(self, entities_batch):
-        """Create entities in batches."""
-        if not entities_batch:
-            return
-            
-        query = """
-        UNWIND $entities as entity
-        MERGE (e:__Entity__ {id: entity.name})
-        SET e.type = entity.type
-        WITH e, entity
-        MATCH (d:Document {id: entity.doc_id})
-        MERGE (e)-[:EXTRACTED_FROM]->(d)
-        """
-        
-        batch_data = [
-            {"name": name, "type": etype, "doc_id": doc_id}
-            for name, etype, doc_id in entities_batch
-        ]
-        
-        self.graph.query(query, {"entities": batch_data})
-
-    def _batch_create_relationships(self, relationships_batch):
-        """Create relationships in batches."""
-        if not relationships_batch:
-            return
-            
-        rel_groups = defaultdict(list)
-        for e1, rel, e2, doc_id in relationships_batch:
-            clean_rel = self._clean_relationship_name(rel)
-            rel_groups[clean_rel].append((e1, e2, doc_id))
-        
-        for rel_type, relations in rel_groups.items():
-            query = f"""
-            UNWIND $relations as rel
-            MERGE (e1:__Entity__ {{id: rel.e1}})
-            MERGE (e2:__Entity__ {{id: rel.e2}})
-            MERGE (e1)-[:{rel_type}]->(e2)
-            """
-            
-            batch_data = [{"e1": e1, "e2": e2, "doc_id": doc_id} for e1, e2, doc_id in relations]
-            self.graph.query(query, {"relations": batch_data})
-
-    def _flush_batches(self):
-        """Flush accumulated batches to database."""        
-        if self.entity_batch:
-            self._batch_create_entities(self.entity_batch)
-            self.entity_batch.clear()
-            
-        if self.relationship_batch:
-            self._batch_create_relationships(self.relationship_batch)
-            self.relationship_batch.clear()
-
-        self.last_flush_time = time.time()
-
-    async def add_documents(self, documents: List[Document], source_name: str = None):
-        """Add documents to the graph with batch processing."""
-        print(f"Processing {len(documents)} documents...")
-        timestamp = str(pd.Timestamp.now())
-        for i, doc in enumerate(documents):
-            individual_source = source_name or self._extract_source_name([doc])
-            doc.metadata.update({
-                "source_name": individual_source, 
-                "added_timestamp": timestamp,
-                "doc_id": f"{individual_source}"
-            })
-        
-        self._batch_create_document_nodes(documents)
-        semaphore = asyncio.Semaphore(self.max_concurrent)
-        
-        async def process_doc_with_semaphore(doc):
-            async with semaphore:
-                return await self._extract_entities_relationships(doc.page_content, doc.metadata["doc_id"])
-        
-        batch_size = 200  
-        total_batches = (len(documents) - 1) // batch_size + 1
-        
-        for i in range(0, len(documents), batch_size):
-            batch = documents[i:i+batch_size]
-            tasks = [process_doc_with_semaphore(doc) for doc in batch]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            for j, result in enumerate(results):
-                if isinstance(result, Exception):
-                    continue
-                    
-                entities, relationships = result
-                doc_id = batch[j].metadata["doc_id"]
-                
-                for name, etype in entities:
-                    self.entity_batch.append((name, etype, doc_id))
-                
-                for e1, rel, e2 in relationships:
-                    self.relationship_batch.append((e1, rel, e2, doc_id))
-                
-                if (len(self.entity_batch) >= self.batch_size or 
-                    time.time() - self.last_flush_time >= self.flush_interval):
-                    self._flush_batches()
-
-        self._flush_batches()
-        print("Processing complete!")
-
-    def _batch_create_document_nodes(self, documents: List[Document]):
-        """Create document nodes in batch."""
-        query = """
-        UNWIND $docs as doc
-        CREATE (d:Document {
-            id: doc.doc_id,
-            source_name: doc.source_name,
-            content: doc.content,
-            added_timestamp: doc.added_timestamp,
-            metadata: doc.metadata
-        })
-        """
-        
-        batch_data = [
-            {
-                "doc_id": doc.metadata["doc_id"],
-                "source_name": doc.metadata["source_name"],
-                "content": doc.page_content[:1000],
-                "added_timestamp": doc.metadata["added_timestamp"],
-                "metadata": json.dumps(doc.metadata)  
-            }
-            for doc in documents
-        ]
-        
-        self.graph.query(query, {"docs": batch_data})
-        
-    def _extract_source_name(self, documents: List[Document]) -> str:
-        """Extract source name from document metadata."""
-
-        if documents and documents[0].metadata:
-            metadata = documents[0].metadata
-            # Use pmid if available, otherwise use source directly
-            if 'pmid' in metadata:
-                return metadata['pmid']
-            elif 'source' in metadata:
-                return metadata['source']
-        
-        return f"documents_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}"
-
-    async def _extract_entities_relationships(self, text: str, doc_id: str):
-        """Extract entities and relationships from text."""
-        if len(text.strip()) < 100: 
-            return set(), []
-            
-        if len(text) > 4000: 
-            text = text[:4000] + "..."
-
-        prompt = f"""Extract key medical/scientific entities and relationships. Be concise.
-
-        Text: {text}
-
-        Format:
-        ENTITIES: Name1|Type1, Name2|Type2
-        RELATIONSHIPS: Entity1→relation→Entity2
-
-        Types: Person, Institution, Medical_Condition, Medication, Equipment, Anatomy, Journal, Procedure
-        Relations: treats, causes, located_in, published_in, affiliated_with, associated_with, reveals"""
-
-        try:
-            result = await self.llm.ainvoke(prompt)
-            return self._parse_extraction_result(result.content.strip())
-        except Exception as e:
-            print(f"Extraction failed for doc {doc_id}: {e}")
-            return set(), []
-
-    def _parse_extraction_result(self, content: str):
-        """Parse extraction result."""
-        entities = set()
-        relationships = []
-        
-        try:
-            lines = content.split('\n')
-            for line in lines:
-                line = line.strip()
-                if line.startswith('ENTITIES:'):
-                    entity_text = line[9:].strip()
-                    if entity_text:
-                        for item in entity_text.split(','):
-                            item = item.strip()
-                            if '|' in item and len(item.split('|')) == 2:
-                                name, etype = item.split('|', 1)
-                                name, etype = name.strip(), etype.strip()
-                                if name and etype:
-                                    entities.add((name, etype))
-                
-                elif line.startswith('RELATIONSHIPS:'):
-                    rel_text = line[14:].strip()
-                    if rel_text:
-                        for rel_item in rel_text.split(','):
-                            rel_item = rel_item.strip()
-                            if '→' in rel_item:
-                                parts = [p.strip() for p in rel_item.split('→')]
-                                if len(parts) == 3 and all(parts):
-                                    relationships.append(tuple(parts))
-        
-        except Exception as e:
-            print(f"Parsing error: {e}")
-        
-        return entities, relationships
-
-    def get_source_info(self, source_name: str = None):
-        """Get information about document sources."""
-        if source_name:
-            result = self.graph.query("""
-                MATCH (d:Document {source_name: $source_name})
-                RETURN 
-                    d.source_name as source,
-                    count(d) as document_count,
-                    min(d.added_timestamp) as first_added,
-                    max(d.added_timestamp) as last_added
-            """, {"source_name": source_name})
-            
-            return result[0] if result else {"error": f"Source '{source_name}' not found"}
+    def _load_cache(self):
+        cache_file = self.cache_dir / "cache.pkl"
+        if cache_file.exists():
+            with open(cache_file, 'rb') as f:
+                data = pickle.load(f)
+                self.concept_cache = data.get('concepts', {})
+                self.embeddings_cache = data.get('embeddings', {})
+                self.extraction_progress = data.get('extraction_progress', {})  # Track which docs are processed
         else:
-            all_sources = self.graph.query("""
-                MATCH (d:Document)
-                RETURN 
-                    d.source_name as source,
-                    count(d) as document_count,
-                    min(d.added_timestamp) as first_added,
-                    max(d.added_timestamp) as last_added
-                ORDER BY last_added DESC
-            """)
-            
-            return {"sources": all_sources, "total_sources": len(all_sources)}
+            self.extraction_progress = {}
 
-    def remove_source(self, source_name: str) -> Dict[str, Any]:
-        """Remove all documents and related data from a specific source."""
-        print(f"Removing all data from source: {source_name}")
-        
-        # Get stats before removal
-        stats = self.graph.query("""
-            MATCH (d:Document {source_name: $source_name})
-            RETURN count(d) as docs
-        """, {"source_name": source_name})[0]
-        
-        # Remove documents and their relationships
-        self.graph.query("""
-            MATCH (d:Document {source_name: $source_name})
-            DETACH DELETE d
-        """, {"source_name": source_name})
-        
-        # Clean up orphaned entities
-        orphaned = self.graph.query("""
-            MATCH (e:__Entity__)
-            WHERE NOT EXISTS((e)-[:EXTRACTED_FROM]-(:Document))
-            DETACH DELETE e
-            RETURN count(e) as orphaned_removed
-        """)[0]
-        
-        return {
-            "source_name": source_name,
-            "documents_removed": stats["docs"],
-            "orphaned_entities_cleaned": orphaned["orphaned_removed"],
-            "status": "success"
-        }
-
-    def query(self, query: str, params: Optional[Dict[str, Any]] = None):
-        """Execute a Cypher query on the graph."""
-        return self.graph.query(query, params)
-
-    def get_graph_stats(self):
-        """Get comprehensive statistics about the current graph."""
-        stats = self.graph.query("""
-            MATCH (n) 
-            OPTIONAL MATCH ()-[r]->()
-            RETURN 
-                count(DISTINCT n) as nodes,
-                count(DISTINCT r) as relationships
-        """)[0]
-        
-        # Get entity types
-        entity_types = self.graph.query("""
-            MATCH (e:__Entity__)
-            RETURN e.type as type, count(e) as count
-            ORDER BY count DESC
-        """)
-        
-        # Get relationship types
-        rel_types = self.graph.query("""
-            MATCH ()-[r]->()
-            RETURN type(r) as type, count(r) as count
-            ORDER BY count DESC
-        """)
-        
-        return {
-            'nodes': stats['nodes'],
-            'relationships': stats['relationships'],
-            'entity_types': {item['type']: item['count'] for item in entity_types if item['type']},
-            'relationship_types': {item['type']: item['count'] for item in rel_types if item['type']}
-        }
-
-    def visualize_graph(self, limit: int = 100):
-        """Visualize the graph using yfiles."""
+    def _save_cache(self):
+        with open(self.cache_dir / "cache.pkl", 'wb') as f:
+            pickle.dump({
+                'concepts': self.concept_cache, 
+                'embeddings': self.embeddings_cache,
+                'extraction_progress': self.extraction_progress
+            }, f)  
+    
+    def _compute_similarities(self, embeddings):
+        return cosine_similarity(np.array(embeddings))
+    
+    def _load_spacy_model(self):
         try:
-            from neo4j import GraphDatabase
-            from yfiles_jupyter_graphs import GraphWidget
+            return spacy.load("en_core_web_sm")
+        except OSError:
+            print("Downloading the spacy model...")
+            download("en_core_web_sm")
+            return spacy.load("en_core_web_sm")
+    
+    def _lemmatize_concept(self, concept):
+        return ' '.join([self.lemmatizer.lemmatize(word) for word in concept.lower().split()])
+
+    def _calculate_edge_weight(self, node1, node2, similarity_score, shared_concepts):
+        max_shared = min(len(self.graph.nodes[node1]['concepts']), 
+                        len(self.graph.nodes[node2]['concepts']))
+        concept_score = len(shared_concepts) / max_shared if max_shared > 0 else 0
+        return 0.7 * similarity_score + 0.3 * concept_score 
+
+    def _create_embeddings(self, splits: List[str], embedding_model = "sentence-transformers/all-MiniLM-L6-v2"):
+        texts = [split.page_content for split in splits]
+        embeddings = [None] * len(splits)
+        uncached = []
+
+        for i, text in tqdm(enumerate(texts), desc="Checking Embedding Cache", total=len(texts)):
+            h = hashlib.md5(text.encode()).hexdigest()
+            if h in self.embeddings_cache:
+                embeddings[i] = self.embeddings_cache[h]
+            else:
+                uncached.append((i, text, h))
+
+        if uncached:
+            print(f"Computing {len(uncached)} new embeddings...")
+            model = HuggingFaceEmbeddings(model_name=embedding_model)
             
-            driver = GraphDatabase.driver(self.url, auth=(self.username, self.password))
-            session = driver.session()
+            total_batches = (len(uncached) + self.batch_size - 1) // self.batch_size
+            with tqdm(total=total_batches, desc="Embedding Batches") as pbar:
+                for i in range(0, len(uncached), self.batch_size):
+                    batch = uncached[i: i + self.batch_size]
+                    batch_texts = [t[1] for t in batch]
+                    batch_embs = model.embed_documents(batch_texts)
+                    
+                    for (idx, text, h), emb in zip(batch, batch_embs):
+                        self.embeddings_cache[h] = emb
+                        embeddings[idx] = emb
+                    
+                    self._save_cache()
+                    pbar.update(1)
+        else:
+            print("All embeddings found in cache!")
+
+        return embeddings
+
+    def _extract_concepts(self, splits, llm):
+        uncached_splits = [(i, s) for i, s in enumerate(splits) if s.page_content not in self.concept_cache]
+
+        if not uncached_splits:
+            for i, split in enumerate(splits):
+                self.graph.nodes[i]['concepts'] = self.concept_cache[split.page_content]
+            return
+
+        # Spacy Entities
+        all_entities = {}
+        uncached_spacy = []
+        
+        for i, split in uncached_splits:
+            spacy_key = f"spacy_{hashlib.md5(split.page_content.encode()).hexdigest()}"
+            if spacy_key in self.embeddings_cache:
+                all_entities[i] = self.embeddings_cache[spacy_key]
+            else:
+                uncached_spacy.append((i, split, spacy_key))
+        
+        # Only process uncached spaCy
+        for i, split, spacy_key in tqdm(uncached_spacy, desc="Spacy Entities"):
+            doc = self.nlp(split.page_content)
+            entities = [e.text for e in doc.ents if e.label_ in ["PERSON", "ORG", "GPE", "WORK_OF_ART"]]
+            self.embeddings_cache[spacy_key] = entities
+            all_entities[i] = entities
             
-            query = f"MATCH (s)-[r]->(t) RETURN s,r,t LIMIT {limit}"
-            widget = GraphWidget(graph=session.run(query).graph())
-            widget.node_label_mapping = 'id'
-            return widget
-        except ImportError:
-            print("Install required packages: pip install yfiles_jupyter_graphs")
-        except Exception as e:
-            print(f"Error visualizing graph: {e}")
-            return None
+            if len(all_entities) % 100 == 0:
+                self._save_cache()
+
+            
+        # LLM concepts in batches
+        total_batches = (len(uncached_splits) + self.batch_size - 1) // self.batch_size
+        with tqdm(total=total_batches, desc="LLM Concept Batches") as pbar:
+            for i in range(0, len(uncached_splits), self.batch_size):
+                batch = uncached_splits[i: i + self.batch_size]
+
+                # Process the batch with a single LLM Call
+                batch_texts = [f"Doc {idx}: {split.page_content}" for idx, (_, split) in enumerate(batch)]
+                prompt = f"""Extract key concepts from each document. Return JSON format:
+
+                {chr(10).join(batch_texts)}
+
+                Return: {{"doc_0": ["concept1", "concept2"], "doc_1": ["concept1", "concept2"], ...}}"""
+
+                try:
+                    result = llm.invoke(prompt)
+                    result_text = result.content if hasattr(result, "content") else str(result)
+                    json_str = result_text[result_text.find('{'):result_text.rfind('}') + 1]
+                    batch_concepts = json.loads(json_str)
+
+                    for idx, (i, split) in enumerate(batch):
+                        entities = all_entities.get(i, [])
+                        llm_concepts = batch_concepts.get(f"doc_{idx}", [])
+                        self.concept_cache[split.page_content] = list(set(entities + llm_concepts))
+                
+                except:
+                    for i, split in batch:
+                        try:
+                            result = llm.invoke(f"Extract key concepts from {split.page_content} \nConcepts: ")
+                            concepts = [c.strip() for c in str(result).split(',')[:10]]
+                            self.concept_cache[split.page_content] = all_entities.get(i, []) + concepts
+                        except:
+                            self.concept_cache[split.page_content] = all_entities.get(i, [])
+                
+                self._save_cache()
+                pbar.update(1)
+
+        for i, split in enumerate(splits):
+            self.graph.nodes[i]['concepts'] = self.concept_cache[split.page_content]
+
+    def _add_edges(self, embeddings):
+        print("Computing similarity matrix...")
+        sim_matrix = self._compute_similarities(embeddings)
+        indices = np.where(np.triu(sim_matrix > self.edges_threshold, k=1))
+
+        print(f"Found {len(indices[0])} potential edges above threshold {self.edges_threshold}")
+        edges_added = 0
+
+        for i, j in tqdm(zip(indices[0], indices[1]), desc="Adding edges", total=len(indices[0])):
+            shared = set(self.graph.nodes[i]['concepts']) & set(self.graph.nodes[j]['concepts'])
+            if shared:
+                weight = self._calculate_edge_weight(i, j, sim_matrix[i, j], shared)
+                self.graph.add_edge(i, j, weight=weight, 
+                                  similarity=sim_matrix[i, j], 
+                                  shared_concepts=list(shared))
+                edges_added += 1
+        
+        print(f"Added {edges_added} edges with shared concepts")
+        
+    def _add_nodes(self, splits):
+        for i, split in enumerate(splits):
+            self.graph.add_node(i, content=split.page_content)
+
+    def get_stats(self):
+        """Get knowledge graph statistics"""
+        stats = {
+            'nodes': self.graph.number_of_nodes(),
+            'edges': self.graph.number_of_edges(),
+            'density': nx.density(self.graph),
+            'components': nx.number_connected_components(self.graph),
+            'avg_degree': sum(dict(self.graph.degree()).values()) / self.graph.number_of_nodes() if self.graph.nodes else 0
+        }
+        
+        if self.graph.edges:
+            weights = [d['weight'] for _, _, d in self.graph.edges(data=True)]
+            stats['avg_edge_weight'] = np.mean(weights)
+            stats['max_edge_weight'] = max(weights)
+        
+        return stats
+
+    def visualize(self, figsize=(16, 12), sample_nodes=200, show_concepts=True):
+        """Visualize knowledge graph with sampling and concept labels"""
+        if self.graph.number_of_nodes() > sample_nodes:
+            # Sample largest connected components
+            components = list(nx.connected_components(self.graph))
+            components.sort(key=len, reverse=True)
+            
+            sampled_nodes = set()
+            for comp in components[:min(10, len(components))]:
+                sampled_nodes.update(list(comp)[:sample_nodes//10])
+                if len(sampled_nodes) >= sample_nodes:
+                    break
+            
+            subgraph = self.graph.subgraph(sampled_nodes)
+            print(f"Showing {len(sampled_nodes)} nodes from largest components")
+        else:
+            subgraph = self.graph
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        pos = nx.spring_layout(subgraph, k=2, iterations=30)
+        
+        # Draw edges with weight-based coloring
+        edges = list(subgraph.edges(data=True))
+        edge_weights = [d.get('weight', 0.5) for _, _, d in edges]
+        
+        nx.draw_networkx_edges(subgraph, pos, 
+                            edge_color=edge_weights,
+                            edge_cmap=plt.cm.Blues,
+                            width=1.5, alpha=0.6, ax=ax)
+        
+        # Draw nodes
+        nx.draw_networkx_nodes(subgraph, pos, 
+                            node_color='lightblue',
+                            node_size=100, alpha=0.8, ax=ax)
+        
+        # Add concept labels if requested
+        if show_concepts:
+            labels = {}
+            for node in subgraph.nodes():
+                concepts = self.graph.nodes[node].get('concepts', [])
+                labels[node] = concepts[0][:15] + '...' if concepts and len(concepts[0]) > 15 else (concepts[0] if concepts else str(node))
+            
+            nx.draw_networkx_labels(subgraph, pos, labels, font_size=6, ax=ax)
+        
+        # Add colorbar
+        if edge_weights:
+            sm = plt.cm.ScalarMappable(cmap=plt.cm.Blues, norm=plt.Normalize(vmin=min(edge_weights), vmax=max(edge_weights)))
+            sm.set_array([])
+            cbar = fig.colorbar(sm, ax=ax, fraction=0.046, pad=0.04)
+            cbar.set_label('Edge Weight', rotation=270, labelpad=15)
+        
+        ax.set_title(f"Knowledge Graph ({subgraph.number_of_nodes()} nodes, {subgraph.number_of_edges()} edges)")
+        ax.axis('off')
+        plt.tight_layout()
+        plt.show()
+            
+    def build_knowledge_graph(self, splits, llm):
+        """Build knowledge graph with optimized batch processing"""
+        print("Adding nodes...")
+        self._add_nodes(splits)
+        
+        print("Creating embeddings...")
+        embeddings = self._create_embeddings(splits)
+        
+        print("Extracting concepts...")
+        self._extract_concepts(splits, llm)
+        
+        print("Adding edges...")
+        self._add_edges(embeddings)
+        
+        print("Final cache save...")
+        self._save_cache()
+        
+        return self.graph
