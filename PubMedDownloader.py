@@ -2,11 +2,11 @@ from Bio import Entrez
 import pandas as pd
 import time
 import json
-from datetime import datetime
-import xml.etree.ElementTree as ET
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Optional
-
+from tqdm.asyncio import tqdm
 @dataclass
 class PubMedEntrezDownloader:
     email: str
@@ -17,8 +17,42 @@ class PubMedEntrezDownloader:
         if self.api_key:
             Entrez.api_key = self.api_key   
 
-    def search_pubmed(self, query, max_results=500, date_from=None, date_to=None, sort_order="relevance", publication_types=None):
-        search_term = query
+    async def search_pubmed(self, query, max_results=500, date_from=None, date_to=None, sort_order="relevance", publication_types=None):
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, self._sync_search_pubmed, query, max_results, date_from, date_to, sort_order, publication_types)
+        print(f"Found {len(result)} PMIDs")
+        return result
+
+    async def fetch_article_details(self, pmids, batch_size=100):
+        if not pmids:
+            print("No PMIDs to fetch")
+            return []
+            
+        print(f"Fetching details for {len(pmids)} articles")
+        loop = asyncio.get_event_loop()
+        
+        tasks = []
+        for i in range(0, len(pmids), batch_size):
+            batch_pmids = pmids[i:i + batch_size]
+            task = loop.run_in_executor(None, self._sync_fetch_batch, batch_pmids)
+            tasks.append(task)
+        
+        batch_results = await tqdm.gather(*tasks, desc="Fetching articles")
+        
+        articles = []
+        for result in batch_results:
+            if isinstance(result, list):
+                articles.extend(result)
+        
+        print(f"Successfully fetched {len(articles)} articles")
+        return articles
+
+    def _sync_search_pubmed(self, query, max_results, date_from, date_to, sort_order, publication_types):
+        # Handle case where no specific query is provided - use a broad search instead of "*"
+        if not query or query.strip() == "":
+            search_term = "research[Title/Abstract]"  # Broad but valid search
+        else:
+            search_term = query
 
         if date_from or date_to:
             if date_from and date_to:
@@ -32,38 +66,38 @@ class PubMedEntrezDownloader:
             pub_filter = ' OR '.join([f'"{pt}"[Publication Type]' for pt in publication_types])
             search_term += f' AND ({pub_filter})'
 
+        # For diverse papers, sort by date to get recent papers first
+        if not query or query.strip() == "":
+            sort_order = "pub_date"
+
+        print(f"Search term: {search_term}")
         handle = Entrez.esearch(db="pmc", term=search_term, retmax=max_results, sort=sort_order)
         search_results = Entrez.read(handle)
         handle.close()
 
         return search_results["IdList"]
 
-    def fetch_article_details(self, pmids, batch_size=100):
-        articles = []
+    def _sync_fetch_batch(self, batch_pmids):
+        try:
+            handle = Entrez.esummary(db="pmc", id=",".join(batch_pmids))
+            summaries = Entrez.read(handle)
+            handle.close()
 
-        for i in range(0, len(pmids), batch_size):
-            batch_pmids = pmids[i:i + batch_size]
+            handle = Entrez.efetch(db="pmc", id=",".join(batch_pmids), rettype="medline", retmode="xml")
+            records = Entrez.read(handle)
+            handle.close()
 
-            try:
-                handle = Entrez.esummary(db="pmc", id=",".join(batch_pmids))
-                summaries = Entrez.read(handle)
-                handle.close()
+            articles = []
+            for summary, record in zip(summaries, records['PubmedArticle']):
+                article_data = self._parse_article(summary, record)
+                if article_data:
+                    articles.append(article_data)
+            
+            time.sleep(0.34)
+            return articles
 
-                handle = Entrez.efetch(db="pmc", id=",".join(batch_pmids), rettype="medline", retmode="xml")
-                records = Entrez.read(handle)
-                handle.close()
-
-                for summary, record in zip(summaries, records['PubmedArticle']):
-                    article_data = self._parse_article(summary, record)
-                    if article_data:
-                        articles.append(article_data)
-                
-                time.sleep(0.34)
-
-            except Exception:
-                continue
-        
-        return articles
+        except Exception:
+            return []
 
     def _parse_article(self, summary, record):
         """Parse article summary and record into structured data"""
@@ -123,67 +157,6 @@ class PubMedEntrezDownloader:
             'pubmed_url': f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
             'doi_url': f"https://doi.org/{doi}" if doi else ''
         }
-
-    def advanced_search(self, **kwargs):
-        """
-        Perform advanced search with multiple parameters
-        
-        Available parameters:
-        - query: Main search terms
-        - author: Author name
-        - journal: Journal name
-        - mesh_terms: MeSH terms list
-        - title_words: Words that must appear in title
-        - abstract_words: Words that must appear in abstract
-        - date_from/date_to: Date range
-        - publication_types: List of publication types
-        - languages: List of languages
-        - max_results: Maximum results
-        """
-
-        search_parts = []
-        # Main query
-        if "query" in kwargs:
-            search_parts.append(kwargs["query"])
-
-        # Author
-        if "author" in kwargs:
-            search_parts.append(f'"{kwargs["author"]}"[Author]')
-        
-        # Journal
-        if "journal" in kwargs:
-            search_parts.append(f'"{kwargs["journal"]}"[Journal]')
-
-        # Mesh terms
-        if "mesh_terms" in kwargs:
-            mesh_queries = [f'"{term}"[MeSH Terms]' for term in kwargs['mesh_terms']]
-            search_parts.append(f'({" OR ".join(mesh_queries)})')
-
-        # Title words
-        if 'title_words' in kwargs:
-            title_queries = [f'"{word}"[Title]' for word in kwargs['title_words']]
-            search_parts.append(f'({" AND ".join(title_queries)})')
-        
-        # Abstract words
-        if 'abstract_words' in kwargs:
-            abstract_queries = [f'"{word}"[Abstract]' for word in kwargs['abstract_words']]
-            search_parts.append(f'({" AND ".join(abstract_queries)})')
-        
-        # Languages
-        if 'languages' in kwargs:
-            lang_queries = [f'"{lang}"[Language]' for lang in kwargs['languages']]
-            search_parts.append(f'({" OR ".join(lang_queries)})')
-        
-        # Combine all parts
-        full_query = ' AND '.join(search_parts)
-
-        return self.search_pubmed(
-                query=full_query,
-                max_results=kwargs.get('max_results', 500),
-                date_from=kwargs.get('date_from'),
-                date_to=kwargs.get('date_to'),
-                publication_types=kwargs.get('publication_types')
-            )
 
     def save_to_csv(self, articles, filename):
         if articles:
