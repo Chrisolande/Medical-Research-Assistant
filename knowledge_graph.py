@@ -1,35 +1,19 @@
 from dataclasses import dataclass
 import networkx as nx
-from langchain.vectorstores import FAISS
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.prompts import PromptTemplate
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
-from langchain.callbacks import get_openai_callback
 from langchain_huggingface import HuggingFaceEmbeddings
 
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import os
-import sys
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-from typing import List, Tuple, Dict
+from typing import List
 from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import word_tokenize
-import nltk
 import spacy
-import heapq
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import numpy as np
 
 from spacy.cli import download
-from spacy.lang.en import English
 
-import json
 import pickle
 import hashlib
 from pathlib import Path
