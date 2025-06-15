@@ -6,6 +6,7 @@ from asyncio import Semaphore
 from dataclasses import dataclass, field
 from typing import List, Optional
 from tqdm import tqdm
+import shutil
 
 from knowledge_graph import KnowledgeGraph
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -43,6 +44,7 @@ class VectorStore:
         self._load_local_index()
         self._setup_reranker()
 
+    # Reranker setup
     def _setup_reranker(self):
         if not self.use_reranker or not self.vector_index:
             return
@@ -60,9 +62,29 @@ class VectorStore:
             logger.error(f"Failed to initialize reranker: {e}")
             self.use_reranker = False
 
+    async def perform_reranked_search(self, query: str, k: int = 4) -> List[Document]:
+        if self.use_reranker and self.compression_retriever:
+            self.compression_retriever.base_compressor.top_n = k
+            return await self.compression_retriever.ainvoke(query)
+        return []
+
+    # Document hashing operations
     def _get_document_hash(self, doc: Document) -> str:
         return hashlib.md5(doc.page_content.encode("utf-8")).hexdigest() if doc.page_content else ""
 
+    def _update_doc_hashes(self, batch: List[Document]):
+        for doc in batch:
+            self.added_doc_hashes.add(self._get_document_hash(doc))
+
+    def _reconstruct_hashes(self):
+        for doc_id, doc in self.vector_index.docstore._dict.items():
+            if isinstance(doc, Document):
+                self.added_doc_hashes.add(self._get_document_hash(doc))
+
+    def _is_new_document(self, doc: Document) -> bool:
+        return (doc_hash := self._get_document_hash(doc)) and doc_hash not in self.added_doc_hashes
+
+    # Document filtering and validation
     def _filter_valid_docs(self, documents: List[Document]) -> List[Document]:
         valid_docs = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
         num_filtered = len(documents) - len(valid_docs)
@@ -70,6 +92,7 @@ class VectorStore:
             logger.info(f"Filtered out {num_filtered} documents due to empty or whitespace-only content.")
         return valid_docs
 
+    # Index persistence 
     def _load_local_index(self):
         if not os.path.exists(self.persist_directory):
             logger.info(f"No existing FAISS index found at {self.persist_directory}. A new one will be created upon first addition.")
@@ -87,11 +110,6 @@ class VectorStore:
             self.vector_index = None
             self.added_doc_hashes.clear()
 
-    def _reconstruct_hashes(self):
-        for doc_id, doc in self.vector_index.docstore._dict.items():
-            if isinstance(doc, Document):
-                self.added_doc_hashes.add(self._get_document_hash(doc))
-
     def _save_local_index(self):
         if not self.vector_index:
             logger.info("No FAISS index initialized or loaded; skipping save operation.")
@@ -103,6 +121,24 @@ class VectorStore:
             logger.info("FAISS index saved successfully.")
         except Exception as e:
             logger.error(f"Error saving FAISS index: {e}", exc_info=True)
+
+    async def delete_index(self) -> None:
+        if not os.path.exists(self.persist_directory):
+            logger.info("No vector index directory to delete!")
+            return
+
+        try:
+            shutil.rmtree(self.persist_directory)
+            logger.info("Deleted the FAISS index directory.")
+        except Exception as e:
+            logger.error(f"Error deleting FAISS index directory: {e}", exc_info=True)
+
+        self.vector_index = None
+        self.added_doc_hashes.clear()
+
+    # Batch processing 
+    def _create_batches(self, documents: List[Document]) -> List[List[Document]]:
+        return [documents[i: i + self.batch_size] for i in range(0, len(documents), self.batch_size)]
 
     async def _add_batch_and_persist(self, batch: List[Document]):
         if not batch:
@@ -124,10 +160,6 @@ class VectorStore:
                 logger.error(f"Error processing batch of {len(batch)} documents: {e}", exc_info=True)
                 return 0
 
-    def _update_doc_hashes(self, batch: List[Document]):
-        for doc in batch:
-            self.added_doc_hashes.add(self._get_document_hash(doc))
-
     async def _create_vector_index(self, documents: List[Document]):
         if not documents:
             logger.info("No documents provided to create/update vector index.")
@@ -148,18 +180,7 @@ class VectorStore:
         logger.info(f"Processing {len(new_documents)} new documents in {len(new_documents) // self.batch_size + 1} batches.")
         await asyncio.gather(*(self._add_batch_and_persist(batch) for batch in self._create_batches(new_documents)))
 
-    def _is_new_document(self, doc: Document) -> bool:
-        return (doc_hash := self._get_document_hash(doc)) and doc_hash not in self.added_doc_hashes
-
-    def _create_batches(self, documents: List[Document]) -> List[List[Document]]:
-        return [documents[i: i + self.batch_size] for i in range(0, len(documents), self.batch_size)]
-
-    async def perform_reranked_search(self, query: str, k: int = 4) -> List[Document]:
-        if self.use_reranker and self.compression_retriever:
-            self.compression_retriever.base_compressor.top_n = k
-            return await self.compression_retriever.ainvoke(query)
-        return []
-
+    # Vector index search
     async def similarity_search(self, query: str, k: int = 4):
         if not self.vector_index:
             logger.warning("Vector index is not initialized. Cannot perform similarity search.")
@@ -189,17 +210,3 @@ class VectorStore:
             return [[] for _ in queries]
 
         return await asyncio.gather(*(self.similarity_search(query, k=k) for query in queries))
-
-    async def delete_index(self) -> None:
-        if not os.path.exists(self.persist_directory):
-            logger.info("No vector index directory to delete!")
-            return
-
-        try:
-            shutil.rmtree(self.persist_directory)
-            logger.info("Deleted the FAISS index directory.")
-        except Exception as e:
-            logger.error(f"Error deleting FAISS index directory: {e}", exc_info=True)
-
-        self.vector_index = None
-        self.added_doc_hashes.clear()
