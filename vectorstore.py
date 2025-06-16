@@ -5,94 +5,65 @@ import asyncio
 from asyncio import Semaphore
 from dataclasses import dataclass, field
 from typing import List, Optional
-from tqdm import tqdm
 import shutil
 
 from knowledge_graph import KnowledgeGraph
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
-
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+from langchain_community.document_transformers import EmbeddingsRedundantFilter
+from langchain_community.document_compressors import FlashrankRerank
+from langchain.retrievers.document_compressors import (
+    LLMChainExtractor,
+    EmbeddingsFilter,
+    DocumentCompressorPipeline    
+)
+from langchain_openai import ChatOpenAI
+
+from utils import pretty_print_docs
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 @dataclass
 class VectorStore:
+    # Configuration
     knowledge_graph: KnowledgeGraph
     batch_size: int = 200
     persist_directory: str = "faiss_index"
     max_concurrent: int = 10
+    model_name: str = "meta-llama/llama-3.3-70b-instruct"
+    
+    # Reranker settings
     use_reranker: bool = True
     reranker_model: str = "jinaai/jina-reranker-v1-turbo-en"
     reranker_top_n: Optional[int] = 4
+    
+    # Internal state
     vector_index: Optional[FAISS] = None
-    added_doc_hashes: set = field(default_factory=set)
     compression_retriever: Optional[ContextualCompressionRetriever] = None
-
+    added_doc_hashes: set = field(default_factory=set)
+    semaphore: Semaphore = None
+    
     embeddings: HuggingFaceEmbeddings = field(
         default_factory=lambda: HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     )
 
-    semaphore: Semaphore = None
-
     def __post_init__(self):
         self.semaphore = Semaphore(self.max_concurrent)
+        self.llm = ChatOpenAI(
+            model=self.model_name,
+            max_tokens=4000,
+            openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+            openai_api_base="https://openrouter.ai/api/v1",
+            temperature=0
+        )
         self._load_local_index()
-        self._setup_reranker()
 
-    # Reranker setup
-    def _setup_reranker(self):
-        if not self.use_reranker or not self.vector_index:
-            return
-
-        try:
-            model = HuggingFaceCrossEncoder(model_name=self.reranker_model)
-            compressor = CrossEncoderReranker(model=model, top_n=self.reranker_top_n)
-            self.compression_retriever = ContextualCompressionRetriever(
-                base_compressor=compressor,
-                base_retriever=self.vector_index.as_retriever(search_kwargs={"k": 20}),
-            )
-            logger.info(f"Reranker initialized with model: {self.reranker_model}")
-
-        except Exception as e:
-            logger.error(f"Failed to initialize reranker: {e}")
-            self.use_reranker = False
-
-    async def perform_reranked_search(self, query: str, k: int = 4) -> List[Document]:
-        if self.use_reranker and self.compression_retriever:
-            self.compression_retriever.base_compressor.top_n = k
-            return await self.compression_retriever.ainvoke(query)
-        return []
-
-    # Document hashing operations
-    def _get_document_hash(self, doc: Document) -> str:
-        return hashlib.md5(doc.page_content.encode("utf-8")).hexdigest() if doc.page_content else ""
-
-    def _update_doc_hashes(self, batch: List[Document]):
-        for doc in batch:
-            self.added_doc_hashes.add(self._get_document_hash(doc))
-
-    def _reconstruct_hashes(self):
-        for doc_id, doc in self.vector_index.docstore._dict.items():
-            if isinstance(doc, Document):
-                self.added_doc_hashes.add(self._get_document_hash(doc))
-
-    def _is_new_document(self, doc: Document) -> bool:
-        return (doc_hash := self._get_document_hash(doc)) and doc_hash not in self.added_doc_hashes
-
-    # Document filtering and validation
-    def _filter_valid_docs(self, documents: List[Document]) -> List[Document]:
-        valid_docs = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
-        num_filtered = len(documents) - len(valid_docs)
-        if num_filtered > 0:
-            logger.info(f"Filtered out {num_filtered} documents due to empty or whitespace-only content.")
-        return valid_docs
-
-    # Index persistence 
+    # ============ INDEX PERSISTENCE ============
     def _load_local_index(self):
         if not os.path.exists(self.persist_directory):
             logger.info(f"No existing FAISS index found at {self.persist_directory}. A new one will be created upon first addition.")
@@ -104,7 +75,6 @@ class VectorStore:
             self._reconstruct_hashes()
             logger.info(f"Successfully loaded FAISS index with {len(self.vector_index.docstore._dict)} documents.")
             self._setup_reranker()
-
         except Exception as e:
             logger.error(f"Failed to load vector index: {e}", exc_info=True)
             self.vector_index = None
@@ -136,7 +106,29 @@ class VectorStore:
         self.vector_index = None
         self.added_doc_hashes.clear()
 
-    # Batch processing 
+    # ============ DOCUMENT HASHING ============
+    def _get_document_hash(self, doc: Document) -> str:
+        return hashlib.md5(doc.page_content.encode("utf-8")).hexdigest() if doc.page_content else ""
+
+    def _update_doc_hashes(self, batch: List[Document]):
+        for doc in batch:
+            self.added_doc_hashes.add(self._get_document_hash(doc))
+
+    def _reconstruct_hashes(self):
+        for doc in self.vector_index.docstore._dict.values():
+            if isinstance(doc, Document):
+                self.added_doc_hashes.add(self._get_document_hash(doc))
+
+    def _is_new_document(self, doc: Document) -> bool:
+        return (doc_hash := self._get_document_hash(doc)) and doc_hash not in self.added_doc_hashes
+
+    # ============ DOCUMENT PROCESSING ============
+    def _filter_valid_docs(self, documents: List[Document]) -> List[Document]:
+        valid_docs = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
+        if num_filtered := len(documents) - len(valid_docs):
+            logger.info(f"Filtered out {num_filtered} documents due to empty or whitespace-only content.")
+        return valid_docs
+
     def _create_batches(self, documents: List[Document]) -> List[List[Document]]:
         return [documents[i: i + self.batch_size] for i in range(0, len(documents), self.batch_size)]
 
@@ -149,13 +141,13 @@ class VectorStore:
             try:
                 if not self.vector_index:
                     self.vector_index = FAISS.from_documents(batch, self.embeddings)
+                    self._setup_reranker()
                 else:
                     self.vector_index.add_documents(batch)
 
                 self._save_local_index()
                 self._update_doc_hashes(batch)
                 return len(batch)
-
             except Exception as e:
                 logger.error(f"Error processing batch of {len(batch)} documents: {e}", exc_info=True)
                 return 0
@@ -166,13 +158,11 @@ class VectorStore:
             return
 
         valid_documents = self._filter_valid_docs(documents)
-
         if not valid_documents:
             logger.info("No valid documents after filtering; skipping vector index update.")
             return
 
         new_documents = [doc for doc in valid_documents if self._is_new_document(doc)]
-
         if not new_documents:
             logger.info("No new documents to add to the vector index.")
             return
@@ -180,15 +170,37 @@ class VectorStore:
         logger.info(f"Processing {len(new_documents)} new documents in {len(new_documents) // self.batch_size + 1} batches.")
         await asyncio.gather(*(self._add_batch_and_persist(batch) for batch in self._create_batches(new_documents)))
 
-    # Vector index search
+    # ============ RERANKER SETUP ============
+    def _setup_reranker(self):
+        if not self.use_reranker or not self.vector_index:
+            return
+
+        try:
+            model = HuggingFaceCrossEncoder(model_name=self.reranker_model)
+            compressor = CrossEncoderReranker(model=model, top_n=self.reranker_top_n)
+            self.compression_retriever = ContextualCompressionRetriever(
+                base_compressor=compressor,
+                base_retriever=self.vector_index.as_retriever(search_kwargs={"k": 20}),
+            )
+            logger.info(f"Reranker initialized with model: {self.reranker_model}")
+        except Exception as e:
+            logger.error(f"Failed to initialize reranker: {e}")
+            self.use_reranker = False
+
+    # ============ SEARCH OPERATIONS ============
+    async def _perform_reranked_search(self, query: str, k: int = 4) -> List[Document]:
+        if self.use_reranker and self.compression_retriever:
+            self.compression_retriever.base_compressor.top_n = k
+            return await self.compression_retriever.ainvoke(query)
+        return []
+
     async def similarity_search(self, query: str, k: int = 4):
         if not self.vector_index:
             logger.warning("Vector index is not initialized. Cannot perform similarity search.")
             return []
 
         try:
-            return await self.perform_reranked_search(query, k) if self.use_reranker else await self.vector_index.asimilarity_search(query, k=k)
-
+            return await self._perform_reranked_search(query, k) if self.use_reranker else await self.vector_index.asimilarity_search(query, k=k)
         except Exception as e:
             logger.error(f"Error during similarity search: {e}", exc_info=True)
             return []
@@ -210,3 +222,34 @@ class VectorStore:
             return [[] for _ in queries]
 
         return await asyncio.gather(*(self.similarity_search(query, k=k) for query in queries))
+
+    # ============ RETRIEVAL ============
+    def _retrieve_relevant_documents(self, query: str, filter_threshold: float = 0.6):
+        """Retrieve relevant documents using compression pipeline."""
+        if not self.vector_index:
+            return []
+
+        retriever = self.vector_index.as_retriever(search_kwargs={"k": 8})
+        pipeline_compressor = DocumentCompressorPipeline(
+            transformers=[
+                EmbeddingsFilter(embeddings=self.embeddings, similarity_threshold=filter_threshold),
+                EmbeddingsRedundantFilter(embeddings=self.embeddings, similarity_threshold=0.95),
+                FlashrankRerank(),
+                LLMChainExtractor.from_llm(self.llm)
+            ]
+        )
+        compression_retriever = ContextualCompressionRetriever(
+            base_compressor=pipeline_compressor, 
+            base_retriever=retriever
+        )
+
+        try:
+            results = compression_retriever.invoke(query)
+            return pretty_print_docs(results) if results else []
+        except ValueError as e:
+            if "token_type_ids" in str(e) or "missing from input feed" in str(e):
+                return []
+            raise
+        except Exception as e:
+            logger.error(f"Retrieval error: {e}")
+            return []
