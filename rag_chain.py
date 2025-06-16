@@ -1,20 +1,28 @@
 from pydantic import BaseModel, Field
 from langchain.prompts import PromptTemplate, ChatPromptTemplate
 import heapq
-from typing import List, Set, Dict, Tuple
-from langchain.retrievers.document_compressors import LLMChainExtractor
-from langchain.retrievers import ContextualCompressionRetriever
+from langchain.globals import set_llm_cache
+from langchain_community.callbacks import get_openai_callback
+from prompt_caching import SemanticCache
+import logging
 
-class AnswerCheck(BaseModel):
-    is_complete: bool = Field(description = "Whether the answer is complete or not")
-    answer: str = Field(description = "The current answer based on the context")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+# semantic_cache = SemanticCache(
+#     database_path=".my_semantic_cache.db",
+#     faiss_index_path="./my_semantic_faiss_index",
+#     similarity_threshold=0.4 
+# )
+
+# set_llm_cache(SemanticCache)
 
 class AnswerCheck(BaseModel):
     """Check if a query is fully answerable with the provided context."""
 
     is_complete: bool = Field(description="Whether the answer is complete or not")
     answer: str = Field(description="The current answer based on the context")
-
 
 class QueryEngine:
     """Query engine for traversing the knowledge graph to answer a query."""
@@ -47,13 +55,13 @@ class QueryEngine:
         response = self.answer_check_chain.invoke({"query": query, "context": context})
         return response.is_complete, response.answer
 
-    def _initialize_traversal(self, relevant_docs):
+    async def _initialize_traversal(self, relevant_docs):
         """Initialize the graph traversal."""
         priority_queue = []
         distances = {}
 
         for doc in relevant_docs:
-            closest_nodes_results = self.vector_store.similarity_search_with_score(
+            closest_nodes_results = await self.vector_store.similarity_search_with_score(
                 doc.page_content, k=1
             )
             if not closest_nodes_results:
@@ -74,8 +82,8 @@ class QueryEngine:
 
     def _process_node(self, current_node, current_priority, query, expanded_context, traversal_path, visited_concepts, filtered_content, step):
         """Process a node in the graph traversal."""
-        node_content = self.knowledge_graph.nodes[current_node]["content"]
-        node_concepts = self.knowledge_graph.nodes[current_node]["concepts"]
+        node_content = self.knowledge_graph.graph.nodes[current_node]["content"]
+        node_concepts = self.knowledge_graph.graph.nodes[current_node]["concepts"]
         filtered_content[current_node] = node_content
         expanded_context += "\n" + node_content if expanded_context else node_content
         traversal_path.append(current_node)
@@ -95,7 +103,7 @@ class QueryEngine:
 
     def _explore_neighbors(self, current_node, current_priority, query, expanded_context, traversal_path, visited_concepts, filtered_content, distances, priority_queue):
         """Explore the neighbors of a node in the graph traversal."""
-        for neighbor in self.knowledge_graph.graph.neighbors[current_node]:
+        for neighbor in self.knowledge_graph.graph.neighbors(current_node):
             if neighbor in traversal_path:
                 continue
 
@@ -107,14 +115,14 @@ class QueryEngine:
                 heapq.heappush(priority_queue, (distance, neighbor))
         return expanded_context, filtered_content, "", False
 
-    def _expand_context(self, query, relevant_docs):
+    async def _expand_context(self, query, relevant_docs):
         """Expand the context by traversing the knowledge graph."""
         expanded_context = ""
         traversal_path = []
         visited_concepts = set()
         filtered_content = {}
         final_answer = ""
-        priority_queue, distances = self._initialize_traversal(relevant_docs)
+        priority_queue, distances = await self._initialize_traversal(relevant_docs)
         step = 0
 
         while priority_queue:
@@ -144,21 +152,14 @@ class QueryEngine:
 
         return expanded_context, traversal_path, filtered_content, final_answer
 
-    def query(self, query):
+    async def query(self, query):
         """Query the knowledge graph."""
         with get_openai_callback() as cb:
-            relevant_docs = self._retrieve_relevant_documents(query)
-            expanded_context, traversal_path, filtered_content, final_answer = self._expand_context(query, relevant_docs)
-            cb.print(f"Final Answer: {final_answer}")
-            cb.print(f"Total Tokens: {cb.total_tokens}")
-            cb.print(f"Prompt Tokens: {cb.prompt_tokens}")
-            cb.print(f"Completion Tokens: {cb.completion_tokens}")
-            cb.print(f"Total Cost (USD): ${cb.total_cost}")
+            relevant_docs = self.vector_store.retrieve_relevant_documents(query)
+            expanded_context, traversal_path, filtered_content, final_answer = await self._expand_context(query, relevant_docs)
+            logger.info(f"Final Answer: {final_answer}")
+            logger.info(f"Total Tokens: {cb.total_tokens}")
+            logger.info(f"Prompt Tokens: {cb.prompt_tokens}")
+            logger.info(f"Completion Tokens: {cb.completion_tokens}")
+            logger.info(f"Total Cost (USD): ${cb.total_cost}")
         return final_answer, traversal_path, filtered_content
-
-    def _retrieve_relevant_documents(self, query):
-        """Retrieve relevant documents from the vector store."""
-        retriever = self.vector_store.vector_index.as_retriever(search_kwargs={"k": 8})
-        compressor = LLMChainExtractor.from_llm(self.llm)
-        compression_retriever = ContextualCompressionRetriever(base_compressor=compressor, base_retriever=retriever)
-        return compression_retriever.invoke(query)
