@@ -1,158 +1,164 @@
-from typing import List, Dict, Any, Optional
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-import asyncio
-from langchain_community.tools.pubmed.tool import PubmedQueryRun
-from langchain_core.runnables.base import RunnableLambda 
-import os
-from langsmith import traceable
-from langchain.callbacks.manager import trace_as_chain_group
-from langsmith import Client
+from pydantic import BaseModel, Field
+from langchain.prompts import PromptTemplate, ChatPromptTemplate
+import heapq
+from typing import List, Set, Dict, Tuple
+from langchain.retrievers.document_compressors import LLMChainExtractor
+from langchain.retrievers import ContextualCompressionRetriever
 
-os.environ["LANGCHAIN_PROJECT"] = "simple-rag-demo"
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
+class AnswerCheck(BaseModel):
+    is_complete: bool = Field(description = "Whether the answer is complete or not")
+    answer: str = Field(description = "The current answer based on the context")
+
+class AnswerCheck(BaseModel):
+    """Check if a query is fully answerable with the provided context."""
+
+    is_complete: bool = Field(description="Whether the answer is complete or not")
+    answer: str = Field(description="The current answer based on the context")
 
 
-class RAGChain:
-    """RAG chain with conversation memory using the existing retriever and PubMed fallback."""
+class QueryEngine:
+    """Query engine for traversing the knowledge graph to answer a query."""
 
-    def __init__(self, retriever, llm, max_memory: int = 10):
-        self.retriever = retriever
+    def __init__(self, vector_store, knowledge_graph, llm):
+        """Initialize the query engine."""
+        self.vector_store = vector_store
+        self.knowledge_graph = knowledge_graph
         self.llm = llm
-        self.memory: List[Dict[str, str]] = []
-        self.max_memory = max_memory
-        self.client = Client()
-        # Initialize the PubMed tool
-        self.pubmed_tool = PubmedQueryRun()
 
-        # Updated prompt to guide LLM on tool usage and uncertainty
-        self.prompt = ChatPromptTemplate.from_template("""
-        **Your Goal:** Provide a concise, accurate, and helpful answer to the user's question.
+        self.max_context_length = 4000
+        self.answer_check_chain = self._create_answer_check_chain()
 
-        **Instructions:**
-        1. **Prioritize Context:** First, attempt to answer using the **Context** provided below.
-        2. **Refer to History:** Consider the **Previous conversation** for continuity.
-        3. **Tool Usage:** If you cannot find a relevant answer in the Context or conversation history, simply respond with "TOOL_USE: Need PubMed search" and I will search PubMed for you.
-        4. **Direct Answer:** Otherwise, provide a direct answer based on the available information.
-
-        ---
-        **Context:**
-        {context}
-
-        ---
-        **Previous conversation:**
-        {history}
-
-        ---
-        **Current question:**
-        {question}
-
-        **Answer:**
-        Summary::
-        """)
-
-    def _format_history(self) -> str:
-        """Format conversation history."""
-        if not self.memory:
-            return "No previous conversation."
-
-        formatted = []
-        for turn in self.memory[-self.max_memory:]:
-            formatted.append(f"Human: {turn['question']}")
-            formatted.append(f"Assistant: {turn['answer']}")
-        return "\n".join(formatted)
-
-    def _add_to_memory(self, question: str, answer: str):
-        """Add Q&A pair to memory with size limit."""
-        self.memory.append({"question": question, "answer": answer})
-        if len(self.memory) > self.max_memory:
-            self.memory.pop(0)
-
-    @traceable(run_type = "chain", name = "RAGChain.invoke", project_name = "simple-rag-demo")
-    async def invoke(self, question: str, k_vector: int = 3) -> str:
-        """Process question with retrieval and memory context, with PubMed fallback."""
-
-        # Retrieve context from internal RAG
-
-        with trace_as_chain_group("Retrieval"):
-            context = await self.retriever.hybrid_retrieval(question, k_vector=k_vector)
-
-        # Format prompt for the LLM
-        formatted_prompt = self.prompt.format(
-            context=context,
-            history=self._format_history(),
-            question=question
+    def _create_answer_check_chain(self):
+        """Create the answer check chain."""
+        prompt = ChatPromptTemplate.from_template(
+            """
+            Given the query: "{query}"
+            And the context:
+            {context}
+            Based on the provided context, is the query fully answerable? If yes, extract and provide the complete answer. If no, state "Incomplete Answer."
+            Answerable: [Yes/No]
+            Complete Answer (if Yes):
+            """
         )
+        return prompt | self.llm.with_structured_output(AnswerCheck)
 
-        # Initial LLM call
-        response = await asyncio.to_thread(self.llm.with_config(tags=["initial_llm_call"]).invoke, formatted_prompt)
-        initial_answer = response.content if hasattr(response, 'content') else str(response)
+    def _check_answer(self, query, context):
+        """Check if the query is fully answerable with the provided context."""
+        response = self.answer_check_chain.invoke({"query": query, "context": context})
+        return response.is_complete, response.answer
 
-        # Check for tool use signal
-        if "TOOL_USE:" in initial_answer:
-            try:
-                print(f"DEBUG: Attempting PubMed search with query: '{question}'")
-                # Simply use the original question as the search query
-                pubmed_results = await asyncio.to_thread(self.pubmed_tool.invoke, question)
-                print(f"DEBUG: PubMed results received. Length: {len(pubmed_results)}")
+    def _initialize_traversal(self, relevant_docs):
+        """Initialize the graph traversal."""
+        priority_queue = []
+        distances = {}
 
-                # Re-prompt the LLM with PubMed results
-                reprompt_template = ChatPromptTemplate.from_template("""
-                You previously tried to answer a question but needed to use the PubMed tool. Here are the results from your PubMed search:
+        for doc in relevant_docs:
+            closest_nodes_results = self.vector_store.similarity_search_with_score(
+                doc.page_content, k=1
+            )
+            if not closest_nodes_results:
+                continue
+            closest_node_content, similarity_score = closest_nodes_results[0]
+            closest_node = next(
+                n for n, data in self.knowledge_graph.graph.nodes(data=True)
+                if data["content"] == closest_node_content.page_content
+            )
 
-                **PubMed Search Results:**
-                {pubmed_results}
+            if not closest_node:
+                continue
 
-                **Original Context:**
-                {context}
+            priority = 1 / (similarity_score + 1e-15)
+            heapq.heappush(priority_queue, (priority, closest_node))
+            distances[closest_node] = priority
+        return priority_queue, distances
 
-                **Previous conversation:**
-                {history}
+    def _process_node(self, current_node, current_priority, query, expanded_context, traversal_path, visited_concepts, filtered_content, step):
+        """Process a node in the graph traversal."""
+        node_content = self.knowledge_graph.nodes[current_node]["content"]
+        node_concepts = self.knowledge_graph.nodes[current_node]["concepts"]
+        filtered_content[current_node] = node_content
+        expanded_context += "\n" + node_content if expanded_context else node_content
+        traversal_path.append(current_node)
 
-                **Original question:**
-                {question}
+        print(f"\nStep {step} - Node {current_node}:")
+        print(f"Content: {node_content[:100]}...")
+        print(f"Concepts: {', '.join(node_concepts)}")
+        print("-" * 50)
 
-                Based on these PubMed search results, the original context, and the previous conversation, provide a concise and accurate answer. If the PubMed results also do not contain the answer, state that you cannot find the answer.
+        is_complete, answer = self._check_answer(query, expanded_context)
+        if is_complete:
+            return expanded_context, traversal_path, filtered_content, answer, True
 
-                **Answer:**
-                Summary::
-                """)
-                final_prompt_with_pubmed = reprompt_template.format(
-                    pubmed_results=pubmed_results,
-                    context=context,
-                    history=self._format_history(),
-                    question=question
-                )
-                final_response = await asyncio.to_thread(self.llm.invoke, final_prompt_with_pubmed)
-                answer = final_response.content if hasattr(final_response, 'content') else str(final_response)
-                
-            except Exception as e:
-                print(f"ERROR: Failed to use PubMed tool: {e}")
-                answer = f"An error occurred while trying to use the PubMed tool: {e}\nOriginal attempt: {initial_answer}"
-        else:
-            answer = initial_answer
+        node_concepts_set = set(self.knowledge_graph._lemmatize_concept(c) for c in node_concepts)
+        visited_concepts.update(node_concepts_set)
+        return expanded_context, traversal_path, filtered_content, "", False
 
-        # Update memory
-        self._add_to_memory(question, answer)
+    def _explore_neighbors(self, current_node, current_priority, query, expanded_context, traversal_path, visited_concepts, filtered_content, distances, priority_queue):
+        """Explore the neighbors of a node in the graph traversal."""
+        for neighbor in self.knowledge_graph.graph.neighbors[current_node]:
+            if neighbor in traversal_path:
+                continue
 
-        return answer
+            edge_data = self.knowledge_graph.graph[current_node][neighbor]
+            edge_weight = edge_data["weight"]
+            distance = current_priority + (1 / (edge_weight + 1e-15))
+            if distance < distances.get(neighbor, float("inf")):
+                distances[neighbor] = distance
+                heapq.heappush(priority_queue, (distance, neighbor))
+        return expanded_context, filtered_content, "", False
 
-    @traceable(run_type="chain", name="RAGChain.batch_invoke", project_name = "simple-rag-demo")
-    async def batch_invoke(self, questions: List[str], k_vector: int = 3) -> List[str]:
-        """Process multiple questions with shared memory context."""
-        results = []
-        for question in questions:
-            result = await self.invoke(question, k_vector=k_vector)
-            results.append(result)
-        return results
+    def _expand_context(self, query, relevant_docs):
+        """Expand the context by traversing the knowledge graph."""
+        expanded_context = ""
+        traversal_path = []
+        visited_concepts = set()
+        filtered_content = {}
+        final_answer = ""
+        priority_queue, distances = self._initialize_traversal(relevant_docs)
+        step = 0
 
-    def clear_memory(self):
-        """Clear conversation history."""
-        self.memory.clear()
+        while priority_queue:
+            current_priority, current_node = heapq.heappop(priority_queue)
+            if current_priority > distances.get(current_node, float("inf")) or current_node in traversal_path:
+                continue
+            step += 1
+            expanded_context, traversal_path, filtered_content, current_node_answer, is_complete_now = self._process_node(
+                current_node, current_priority, query, expanded_context, traversal_path, visited_concepts, filtered_content, step
+            )
+            if is_complete_now:
+                final_answer = current_node_answer
+                break
+            expanded_context, filtered_content, _, _ = self._explore_neighbors(
+                current_node, current_priority, query, expanded_context, traversal_path, visited_concepts,
+                filtered_content, distances, priority_queue
+            )
 
-    @classmethod
-    async def create(cls, retriever, llm, max_memory: int = 10):
-        """Factory method for async initialization."""
-        return cls(retriever, llm, max_memory)
+        if not final_answer:
+            response_prompt = PromptTemplate(
+                input_variables=["query", "context"],
+                template="Based on the following context, please answer the query.\n\nContext: {context}\n\nQuery: {query}\n\nAnswer:"
+            )
+            response_chain = response_prompt | self.llm
+            input_data = {"query": query, "context": expanded_context}
+            final_answer = response_chain.invoke(input_data)
+
+        return expanded_context, traversal_path, filtered_content, final_answer
+
+    def query(self, query):
+        """Query the knowledge graph."""
+        with get_openai_callback() as cb:
+            relevant_docs = self._retrieve_relevant_documents(query)
+            expanded_context, traversal_path, filtered_content, final_answer = self._expand_context(query, relevant_docs)
+            cb.print(f"Final Answer: {final_answer}")
+            cb.print(f"Total Tokens: {cb.total_tokens}")
+            cb.print(f"Prompt Tokens: {cb.prompt_tokens}")
+            cb.print(f"Completion Tokens: {cb.completion_tokens}")
+            cb.print(f"Total Cost (USD): ${cb.total_cost}")
+        return final_answer, traversal_path, filtered_content
+
+    def _retrieve_relevant_documents(self, query):
+        """Retrieve relevant documents from the vector store."""
+        retriever = self.vector_store.vector_index.as_retriever(search_kwargs={"k": 8})
+        compressor = LLMChainExtractor.from_llm(self.llm)
+        compression_retriever = ContextualCompressionRetriever(base_compressor=compressor, base_retriever=retriever)
+        return compression_retriever.invoke(query)
