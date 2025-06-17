@@ -1,4 +1,6 @@
 .env
+~/
 .__pycache__/
 .vscode
 embedding_cache/
+
