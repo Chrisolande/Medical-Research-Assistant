@@ -45,7 +45,7 @@ class GraphVisualizer:
 
         # Add Traversal order nodes to the graph
         for i, node in enumerate(traversal_path):
-            concepts = graph.nodes[node].get(concepts, [])
+            concepts = graph.nodes[node].get("concepts", [])
             concept_text = concepts[0] if concepts else str(node)
             if len(concept_text) > self.config.max_label_length:
                 concept_text = concept_text[:self.config.max_label_length] + "..."
@@ -176,7 +176,7 @@ class GraphVisualizer:
         legend = ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(0, 1), ncol=2)
         legend.get_frame().set_alpha(0.9)
         
-        ax.set_title("Enhanced Graph Traversal Visualization", fontsize=16, fontweight='bold')
+        ax.set_title("Graph Traversal Visualization", fontsize=16, fontweight='bold')
         ax.axis('off')
 
     # === MAIN VISUALIZATION ===
@@ -227,19 +227,16 @@ class GraphVisualizer:
             raise
 
     def visualize_traversal(self, graph, traversal_path):
-        """Synchronous wrapper"""
+        """Synchronous wrapper to run the async visualization."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.visualize_traversal_async(graph, traversal_path))
+            # loop = asyncio.get_event_loop()
+            asyncio.create_task(self.visualize_traversal_async(graph, traversal_path))
+            
         except Exception as e:
             logger.error(f"Error in synchronous visualization: {str(e)}")
             raise
-        finally:
-            loop.close()
 
-    @staticmethod
-    def print_filtered_content(traversal_path: List[int], filtered_content: Dict[int, str]) -> None:
+    def print_filtered_content(self, traversal_path: List[int], filtered_content: Dict[int, str]) -> None:
         """
         Print the filtered content of visited nodes in traversal order.
         """
