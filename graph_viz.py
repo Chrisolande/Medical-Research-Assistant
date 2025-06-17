@@ -61,3 +61,52 @@ class GraphVisualizer:
                 labels[node] = concept_text
         
         return labels
+
+    def _draw_base_graph(self, graph: nx.Graph, pos: Dict, ax):
+        logger.info("Drawing basic graph ...")
+
+        # Draw edges with weight based coloring
+        edges = list(graph.edges())
+        edge_weights = [graph[u][v].get('weight', 0.5) for u, v in edges]
+
+        nx.draw_networkx_edges(
+            graph, pos,
+            edgelist=edges,
+            edge_color = edge_weights,
+            edge_cmap=getattr(plt.cm, self.edge_style.colormap),
+            width=self.config.edge_width,
+            ax=ax,
+            alpha=0.6
+        )
+
+        # Draw regular nodes
+        nx.draw_networkx_nodes(
+            graph, pos,
+            node_color=self.node_style.regular,
+            node_size=self.config.node_size,
+            ax=ax,
+            alpha=0.8
+        )
+
+        return edge_weights
+
+    def _draw_traversal_path(self, traversal_path, pos, ax):
+        logger.info("Drawing traversal path ...")
+
+        for i in range(len(traversal_path) - 1):
+            start, end = traversal_path[i], traversal_path[i + 1]
+            start_pos, end_pos = pos[start], pos[end]
+            arrow = patches.FancyArrowPatch(
+                start_pos, end_pos,
+                connectionstyle=f"arc3,rad={self.config.curve_radius}",
+                color=self.edge_style.traversal_color,
+                arrowstyle="->",
+                mutation_scale=20,
+                linestyle=self.edge_style.traversal_style,
+                linewidth=self.config.traversal_edge_width,
+                zorder=4,
+                alpha=0.8
+            )
+            ax.add_patch(arrow)
+
+        
