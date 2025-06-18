@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 import networkx as nx
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -17,44 +18,44 @@ from spacy.cli import download
 import pickle
 import hashlib
 from pathlib import Path
+from asyncio import Semaphore
+import asyncio
+
+from utils import CacheManager, extract_and_parse_json, create_text_hash, clean_concepts, calculate_edge_weight
 
 @dataclass
 class Concepts:
     concepts_list: List[str]
 
 class KnowledgeGraph:
-    def __init__(self,  cache_dir="./cache", batch_size: int = 100):
+    def __init__(self, cache_dir="./cache", batch_size: int = 100, max_concurrent_calls = 10):
         self.graph = nx.Graph()
         self.lemmatizer = WordNetLemmatizer()
         self.concept_cache = {}
         self.nlp = self._load_spacy_model()
         self.edges_threshold = 0.8
-
-        # Caching and batch processing
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(exist_ok=True)
-        self.embeddings_cache = {}
         self.batch_size = batch_size
+        self.max_concurrent_calls = max_concurrent_calls
+        
+        # Use CacheManager
+        self.cache_manager = CacheManager(cache_dir)
+        self.embeddings_cache = {}
         self._load_cache()
 
+        self.max_concurrent_calls = max_concurrent_calls
+
     def _load_cache(self):
-        cache_file = self.cache_dir / "cache.pkl"
-        if cache_file.exists():
-            with open(cache_file, 'rb') as f:
-                data = pickle.load(f)
-                self.concept_cache = data.get('concepts', {})
-                self.embeddings_cache = data.get('embeddings', {})
-                self.extraction_progress = data.get('extraction_progress', {})  # Track which docs are processed
-        else:
-            self.extraction_progress = {}
+        data = self.cache_manager.load_cache()
+        self.concept_cache = data.get('concepts', {})
+        self.embeddings_cache = data.get('embeddings', {})
+        self.extraction_progress = data.get('extraction_progress', {})
 
     def _save_cache(self):
-        with open(self.cache_dir / "cache.pkl", 'wb') as f:
-            pickle.dump({
-                'concepts': self.concept_cache, 
-                'embeddings': self.embeddings_cache,
-                'extraction_progress': self.extraction_progress
-            }, f)  
+        self.cache_manager.save_cache({
+            'concepts': self.concept_cache,
+            'embeddings': self.embeddings_cache,
+            'extraction_progress': self.extraction_progress
+        })
     
     def _compute_similarities(self, embeddings):
         return cosine_similarity(np.array(embeddings))
@@ -70,19 +71,13 @@ class KnowledgeGraph:
     def _lemmatize_concept(self, concept):
         return ' '.join([self.lemmatizer.lemmatize(word) for word in concept.lower().split()])
 
-    def _calculate_edge_weight(self, node1, node2, similarity_score, shared_concepts):
-        max_shared = min(len(self.graph.nodes[node1]['concepts']), 
-                        len(self.graph.nodes[node2]['concepts']))
-        concept_score = len(shared_concepts) / max_shared if max_shared > 0 else 0
-        return 0.7 * similarity_score + 0.3 * concept_score 
-
     def _create_embeddings(self, splits: List[str], embedding_model = "sentence-transformers/all-MiniLM-L6-v2"):
         texts = [split.page_content for split in splits]
         embeddings = [None] * len(splits)
         uncached = []
 
         for i, text in tqdm(enumerate(texts), desc="Checking Embedding Cache", total=len(texts)):
-            h = hashlib.md5(text.encode()).hexdigest()
+            h = create_text_hash(text)
             if h in self.embeddings_cache:
                 embeddings[i] = self.embeddings_cache[h]
             else:
@@ -110,7 +105,7 @@ class KnowledgeGraph:
 
         return embeddings
 
-    def _extract_concepts(self, splits, llm):
+    async def _extract_concepts(self, splits, llm):
         uncached_splits = [(i, s) for i, s in enumerate(splits) if s.page_content not in self.concept_cache]
 
         if not uncached_splits:
@@ -123,7 +118,7 @@ class KnowledgeGraph:
         uncached_spacy = []
         
         for i, split in uncached_splits:
-            spacy_key = f"spacy_{hashlib.md5(split.page_content.encode()).hexdigest()}"
+            spacy_key = f"spacy_{create_text_hash(split.page_content)}"
             if spacy_key in self.embeddings_cache:
                 all_entities[i] = self.embeddings_cache[spacy_key]
             else:
@@ -139,43 +134,77 @@ class KnowledgeGraph:
             if len(all_entities) % 100 == 0:
                 self._save_cache()
 
+        # Process batches asynchronously
+        async def process_batches():
+            semaphore = asyncio.Semaphore(self.max_concurrent_calls)  # Limit concurrent requests
             
-        # LLM concepts in batches
-        total_batches = (len(uncached_splits) + self.batch_size - 1) // self.batch_size
-        with tqdm(total=total_batches, desc="LLM Concept Batches") as pbar:
-            for i in range(0, len(uncached_splits), self.batch_size):
-                batch = uncached_splits[i: i + self.batch_size]
-
-                # Process the batch with a single LLM Call
-                batch_texts = [f"Doc {idx}: {split.page_content}" for idx, (_, split) in enumerate(batch)]
-                prompt = f"""Extract key concepts from each document. Return JSON format:
-
-                {chr(10).join(batch_texts)}
-
-                Return: {{"doc_0": ["concept1", "concept2"], "doc_1": ["concept1", "concept2"], ...}}"""
-
-                try:
-                    result = llm.invoke(prompt)
-                    result_text = result.content if hasattr(result, "content") else str(result)
-                    json_str = result_text[result_text.find('{'):result_text.rfind('}') + 1]
-                    batch_concepts = json.loads(json_str)
-
-                    for idx, (i, split) in enumerate(batch):
-                        entities = all_entities.get(i, [])
-                        llm_concepts = batch_concepts.get(f"doc_{idx}", [])
-                        self.concept_cache[split.page_content] = list(set(entities + llm_concepts))
-                
-                except:
-                    for i, split in batch:
+            async def process_single_batch(batch_data):
+                i, batch = batch_data
+                async with semaphore:
+                    batch_success = False
+                    
+                    if len(batch) > 1:  # Only try batch if more than 1 item
                         try:
-                            result = llm.invoke(f"Extract key concepts from {split.page_content} \nConcepts: ")
-                            concepts = [c.strip() for c in str(result).split(',')[:10]]
-                            self.concept_cache[split.page_content] = all_entities.get(i, []) + concepts
-                        except:
-                            self.concept_cache[split.page_content] = all_entities.get(i, [])
-                
-                self._save_cache()
-                pbar.update(1)
+                            batch_prompts = [f"Document {idx}: {split.page_content[:500]}..." 
+                                        for idx, (_, split) in enumerate(batch)]
+                            
+                            prompt = f"""Extract 1-3 key concepts from each document. Return ONLY valid JSON in this exact format:
+                            {{"0": ["concept1", "concept2"], "1": ["concept1", "concept2"]}}
+
+                            Rules:
+                            - Use double quotes only
+                            - No trailing commas
+                            - No extra text or explanations
+                            - Start response with {{ and end with }}
+
+                            Documents:
+                            {chr(10).join(batch_prompts)}
+
+                            JSON:"""
+                            
+                            result = await llm.ainvoke(prompt)
+                            result_text = result.content if hasattr(result, "content") else str(result)
+                            
+                            batch_concepts = extract_and_parse_json(result_text)
+                            if batch_concepts:
+                                for idx, (i, split) in enumerate(batch):
+                                    entities = all_entities.get(i, [])
+                                    llm_concepts = batch_concepts.get(str(idx), [])
+                                    self.concept_cache[split.page_content] = list(set(entities + llm_concepts))
+                                
+                                batch_success = True
+                                
+                        except Exception as e:
+                            print(f"Batch failed: {str(e)[:50]}... falling back")
+                    
+                    # Fall back to individual processing
+                    if not batch_success:
+                        for i, split in batch:
+                            try:
+                                prompt = f"Extract 1-3 key concepts from this text as a comma-separated list:\n{split.page_content[:500]}...\n\nConcepts:"
+                                result = await llm.ainvoke(prompt)
+                                result_text = result.content if hasattr(result, "content") else str(result)
+                                concepts = [c.strip() for c in result_text.replace('\n', ',').split(',')[:5] if c.strip()]
+                                self.concept_cache[split.page_content] = list(set(all_entities.get(i, []) + concepts))
+                            except Exception as e:
+                                print(f"Individual extraction failed for doc {i}: {str(e)[:50]}")
+                                self.concept_cache[split.page_content] = all_entities.get(i, [])
+            
+            # Create batch tasks
+            batches = [(i, uncached_splits[i:i + self.batch_size]) 
+                    for i in range(0, len(uncached_splits), self.batch_size)]
+            
+            # Process with progress bar
+            tasks = [process_single_batch(batch_data) for batch_data in batches]
+            
+            with tqdm(total=len(tasks), desc="LLM Concept Batches") as pbar:
+                for coro in asyncio.as_completed(tasks):
+                    await coro
+                    self._save_cache()
+                    pbar.update(1)
+
+        # Run async processing
+        await process_batches()
 
         for i, split in enumerate(splits):
             self.graph.nodes[i]['concepts'] = self.concept_cache[split.page_content]
@@ -191,7 +220,9 @@ class KnowledgeGraph:
         for i, j in tqdm(zip(indices[0], indices[1]), desc="Adding edges", total=len(indices[0])):
             shared = set(self.graph.nodes[i]['concepts']) & set(self.graph.nodes[j]['concepts'])
             if shared:
-                weight = self._calculate_edge_weight(i, j, sim_matrix[i, j], shared)
+                weight = calculate_edge_weight(sim_matrix[i, j], list(shared), 
+                              self.graph.nodes[i]['concepts'], 
+                              self.graph.nodes[j]['concepts'])
                 self.graph.add_edge(i, j, weight=weight, 
                                   similarity=sim_matrix[i, j], 
                                   shared_concepts=list(shared))
@@ -276,7 +307,7 @@ class KnowledgeGraph:
         plt.tight_layout()
         plt.show()
             
-    def build_knowledge_graph(self, splits, llm):
+    async def build_knowledge_graph(self, splits, llm):
         """Build knowledge graph with optimized batch processing"""
         print("Adding nodes...")
         self._add_nodes(splits)
@@ -285,7 +316,7 @@ class KnowledgeGraph:
         embeddings = self._create_embeddings(splits)
         
         print("Extracting concepts...")
-        self._extract_concepts(splits, llm)
+        await self._extract_concepts(splits, llm)
         
         print("Adding edges...")
         self._add_edges(embeddings)
