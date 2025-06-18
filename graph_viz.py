@@ -1,13 +1,12 @@
-import networkx as nx
-from matplotlib import pyplot as plt
-import matplotlib.patches as patches
-import numpy as np
 import logging
+import networkx as nx
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple, Any
-from concurrent.futures import ThreadPoolExecutor
+from matplotlib import pyplot as plt
+import matplotlib.patches as patches 
+from typing import Dict, List, Optional
 import asyncio
-from config import VisualizationConfig, NodeStyle, EdgeStyle
+
+from config import EdgeStyle, NodeStyle, VisualizationConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -22,14 +21,20 @@ class GraphVisualizer:
         logger.info("Initialized the GraphVisualizer")
 
     # === GRAPH TRAVERSAL ===
-    def _create_traversal_graph(self, graph: nx.Graph):
-        logger.info("Creating the traversal graph ...")
-        traversal_graph = nx.DiGraph()
-        traversal_graph.add_nodes_from(graph.nodes(data = True))
-        traversal_graph.add_edges_from(graph.edges(data = True))
-        logger.info(f"Created traversal graph with {len(traversal_graph.nodes)} nodes and {len(traversal_graph.edges)} edges")
+    def _create_traversal_graph(self, graph: nx.Graph, traversal_path: List[int]):
+        logger.info("Creating the traversal subgraph with neighbors...")
+        
+        # Get all nodes to include: traversal path + their neighbors
+        nodes_to_include = set(traversal_path)
+        for node in traversal_path:
+            nodes_to_include.update(graph.neighbors(node))
+        
+        # Create subgraph with only relevant nodes
+        traversal_graph = graph.subgraph(nodes_to_include).copy()
+        
+        logger.info(f"Created traversal subgraph with {len(traversal_graph.nodes)} nodes and {len(traversal_graph.edges)} edges")
         return traversal_graph
-
+        
     def _generate_optimized_layout(self, graph:nx.Graph):
         logger.info("Generating optimized graph layout")
         return nx.spring_layout(
@@ -189,13 +194,13 @@ class GraphVisualizer:
 
         try:
             # Create the traversal graph
-            traversal_graph = self._create_traversal_graph(graph)
+            traversal_graph = self._create_traversal_graph(graph, traversal_path)
 
             # Generate layout
             pos = self._generate_optimized_layout(traversal_graph)
 
             # Prepare labels
-            labels = self._prepare_node_labels(graph, traversal_path)
+            labels = self._prepare_node_labels(traversal_graph, traversal_path)
             
             # Create figure
             fig, ax = plt.subplots(figsize=self.config.figure_size)
@@ -263,4 +268,3 @@ class GraphVisualizer:
         
         print(f"\n Completed traversal of {len(traversal_path)} nodes")
         logger.info("Content printing completed")
-
