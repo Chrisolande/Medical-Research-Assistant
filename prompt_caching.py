@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import time
+from langchain_huggingface import HuggingFaceEmbeddings
 DUMMY_DOC_CONTENT = "Langchain Document Initializer"
 
 @dataclass
@@ -36,12 +37,8 @@ class SemanticCache(SQLiteCache):
 
         self.executor = ThreadPoolExecutor(max_workers = 4)
         self.lock = threading.RLock() # ReEntrant Lock, a single thread can access it multiple times
-        cohere_api_key = os.getenv("COHERE_API_KEY1")
-        if not cohere_api_key:
-            raise ValueError("COHERE_API_KEY1 environment variable not set. Please set it to use CohereEmbeddings.")
 
-        self.embeddings = CohereEmbeddings(cohere_api_key=cohere_api_key, model="embed-english-light-v3.0")
-        self.vector_store: Optional[FAISS] = None
+        self.embeddings = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-MiniLM-L6-v2")
         self._lazy_loaded = False
 
     #@property
@@ -82,7 +79,7 @@ class SemanticCache(SQLiteCache):
             self._create_new_faiss_index_async()
 
     def _load_faiss_index(self):
-        return FAISS.load_local(self.faiss_index_path, self.embeddings, allow_dangerous_serialization = True)
+        return FAISS.load_local(self.faiss_index_path, self.embeddings, allow_dangerous_deserialization = True)
     
     def _create_new_faiss_index(self):
         try:
@@ -293,8 +290,6 @@ class SemanticCache(SQLiteCache):
         except Exception as e:
             print(f"Error during semantic index update: {e}")
 
-
-    
     def update(self, prompt: str, llm_string: str, return_val: List[Generation]):
         super().update(prompt, llm_string, return_val)
 
@@ -335,15 +330,15 @@ class SemanticCache(SQLiteCache):
         )
 
     def _evict_oldest_entries(self):
-
-        docs_with_timestamps = [(doc_id, doc.metadata.get("timestamp", 0)) 
+        # Use a set for faster lookups
+        docs_with_timestamps = {(doc_id, doc.metadata.get("timestamp", 0)) 
                                for doc_id, doc in self.vector_store.docstore._dict.items()
-                               if not doc.metadata.get("is_dummy")]
+                               if not doc.metadata.get("is_dummy")}
 
         if len(docs_with_timestamps) > self.max_cache_size * 0.8:  # Evict 20% when near limit
             docs_with_timestamps.sort(key=lambda x: x[1])
             to_evict = docs_with_timestamps[:int(len(docs_with_timestamps) * 0.2)]
-            evict_ids = [doc_id for doc_id, _ in to_evict]
+            evict_ids = {doc_id for doc_id, _ in to_evict}
             self.vector_store.delete(evict_ids)
             print(f"Evicted {len(evict_ids)} oldest entries from FAISS index.")
 
