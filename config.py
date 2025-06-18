@@ -2,6 +2,7 @@
 import os
 from typing import Tuple
 from dataclasses import dataclass, field
+from pydantic import BaseModel, Field # CHANGE: Added for AnswerCheck
 
 # ---------------------------------------------------------------------------- #
 #                              Dataclass Definitions                           #
@@ -16,7 +17,7 @@ class VisualizationConfig:
     traversal_edge_width: int = 3
     font_size: int = 8
     curve_radius: float = 0.3
-    edge_offset: float = 0.1 
+    edge_offset: float = 0.1
     layout_iterations: int = 50
     layout_k: float = 1
     max_label_length: int = 20
@@ -83,7 +84,7 @@ RERANKER_TOP_N = 4
 BATCH_SIZE = 500
 # Maximum concurrent operations for vector store updates/processing
 MAX_CONCURRENT = 10
-# Maximum tokens for LLM interactions 
+# Maximum tokens for LLM interactions
 LLM_MAX_TOKENS = 4000
 
 
@@ -99,7 +100,7 @@ DEFAULT_SIMILARITY_THRESHOLD = 0.5
 DEFAULT_MAX_CACHE_SIZE = 1000
 DEFAULT_MEMORY_CACHE_SIZE = 100
 DEFAULT_BATCH_SIZE = 10
-ENABLE_QUANTIZATION = False 
+ENABLE_QUANTIZATION = False
 
 
 # ---------------------------------------------------------------------------- #
@@ -112,3 +113,19 @@ PMC_RETRY_ATTEMPTS = 2
 PMC_RETRY_DELAY = 1.0
 PMC_INTER_BATCH_DELAY = 0.1 # Delay between batches
 MIN_ABSTRACT_CONTENT_LENGTH = 50 # Minimum content length for a valid document abstract
+
+# ---------------------------------------------------------------------------- #
+#                               Query Engine Settings                          #
+# ---------------------------------------------------------------------------- #
+MIN_NODES_TO_TRAVERSE = 8
+MAX_NODES_TO_TRAVERSE = 15
+LLM_MAX_CONTEXT_LENGTH = 4000 # Max context length for the LLM
+
+# ---------------------------------------------------------------------------- #
+#                                  Pydantic Models                             #
+# ---------------------------------------------------------------------------- #
+
+class AnswerCheck(BaseModel):
+    """Check if a query is fully answerable with the provided context."""
+    is_complete: bool = Field(description="Whether the answer is complete or not")
+    answer: str = Field(description="The current answer based on the context")
