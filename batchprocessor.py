@@ -165,7 +165,7 @@ class PMCBatchProcessor:
             # Progress callback
             if progress_callback:
                 progress_callback(completed_batches, total_batches, result)
-                        
+        
         # Generate final statistics
         processing_time = time.time() - start_time
         results["processing_summary"] = {
@@ -182,6 +182,10 @@ class PMCBatchProcessor:
         
         self.logger.info(f"Processing complete in {processing_time:.2f} seconds")
         self.logger.info(f"Success rate: {results['processing_summary']['success_rate']:.1f}%")
+        self.logger.info(f"Total chunks: {results['processing_summary']['total_chunks']}")
+        self.logger.info(f"Total documents: {results['processing_summary']['total_documents']}")
+        self.logger.info(f"Total batches: {results['processing_summary']['total_batches']}")
+        self.logger.info(f"Failed batches: {results['processing_summary']['failed_batches']}")
         
         return results
             
@@ -196,8 +200,7 @@ class PMCBatchProcessor:
             "all_documents": [],
             "processing_summary": {
                 "total_documents": 0,
-                "total_batches": 0,
-                "successful_batches": 0,
+                "total_batches": 0,                "successful_batches": 0,
                 "failed_batches": 0,
                 "total_chunks": 0,
                 "success_rate": 0.0,
