@@ -49,13 +49,19 @@ class KnowledgeGraph:
         self.concept_cache = data.get('concepts', {})
         self.embeddings_cache = data.get('embeddings', {})
         self.extraction_progress = data.get('extraction_progress', {})
+        graph_data = data.get('graph', None)
+        if graph_data:
+            self.graph = nx.node_link_graph(graph_data)
+            print(f"Loaded existing graph with {self.graph.number_of_nodes()} nodes and {self.graph.number_of_edges()} edges")
 
     def _save_cache(self):
-        self.cache_manager.save_cache({
+        cache_data = {
             'concepts': self.concept_cache,
             'embeddings': self.embeddings_cache,
-            'extraction_progress': self.extraction_progress
-        })
+            'extraction_progress': self.extraction_progress,
+            'graph': nx.node_link_data(self.graph) if self.graph.nodes else None
+        }
+        self.cache_manager.save_cache(cache_data)
     
     def _compute_similarities(self, embeddings):
         return cosine_similarity(np.array(embeddings))
@@ -251,64 +257,12 @@ class KnowledgeGraph:
         
         return stats
 
-    def visualize(self, figsize=(16, 12), sample_nodes=200, show_concepts=True):
-        """Visualize knowledge graph with sampling and concept labels"""
-        if self.graph.number_of_nodes() > sample_nodes:
-            # Sample largest connected components
-            components = list(nx.connected_components(self.graph))
-            components.sort(key=len, reverse=True)
-            
-            sampled_nodes = set()
-            for comp in components[:min(10, len(components))]:
-                sampled_nodes.update(list(comp)[:sample_nodes//10])
-                if len(sampled_nodes) >= sample_nodes:
-                    break
-            
-            subgraph = self.graph.subgraph(sampled_nodes)
-            print(f"Showing {len(sampled_nodes)} nodes from largest components")
-        else:
-            subgraph = self.graph
-        
-        fig, ax = plt.subplots(figsize=figsize)
-        pos = nx.spring_layout(subgraph, k=2, iterations=30)
-        
-        # Draw edges with weight-based coloring
-        edges = list(subgraph.edges(data=True))
-        edge_weights = [d.get('weight', 0.5) for _, _, d in edges]
-        
-        nx.draw_networkx_edges(subgraph, pos, 
-                            edge_color=edge_weights,
-                            edge_cmap=plt.cm.Blues,
-                            width=1.5, alpha=0.6, ax=ax)
-        
-        # Draw nodes
-        nx.draw_networkx_nodes(subgraph, pos, 
-                            node_color='lightblue',
-                            node_size=100, alpha=0.8, ax=ax)
-        
-        # Add concept labels if requested
-        if show_concepts:
-            labels = {}
-            for node in subgraph.nodes():
-                concepts = self.graph.nodes[node].get('concepts', [])
-                labels[node] = concepts[0][:15] + '...' if concepts and len(concepts[0]) > 15 else (concepts[0] if concepts else str(node))
-            
-            nx.draw_networkx_labels(subgraph, pos, labels, font_size=6, ax=ax)
-        
-        # Add colorbar
-        if edge_weights:
-            sm = plt.cm.ScalarMappable(cmap=plt.cm.Blues, norm=plt.Normalize(vmin=min(edge_weights), vmax=max(edge_weights)))
-            sm.set_array([])
-            cbar = fig.colorbar(sm, ax=ax, fraction=0.046, pad=0.04)
-            cbar.set_label('Edge Weight', rotation=270, labelpad=15)
-        
-        ax.set_title(f"Knowledge Graph ({subgraph.number_of_nodes()} nodes, {subgraph.number_of_edges()} edges)")
-        ax.axis('off')
-        plt.tight_layout()
-        plt.show()
-            
     async def build_knowledge_graph(self, splits, llm):
         """Build knowledge graph with optimized batch processing"""
+        if (self.graph.number_of_nodes() == len(splits) and self.graph.number_of_edges() > 0):
+            print(f"Knowledge graph already exists with {self.graph.number_of_nodes()} nodes and {self.graph.number_of_edges()} edges")
+            return self.graph
+        
         print("Adding nodes...")
         self._add_nodes(splits)
         
