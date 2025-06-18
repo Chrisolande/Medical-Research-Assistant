@@ -4,28 +4,41 @@ import re
 import hashlib
 import pickle
 from pathlib import Path
+import math
 import logging
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Any, Optional, Generator
-import math 
+from typing import Any, Dict, List, Optional, Generator
+
+from common_helpers import log_info, log_error, run_in_executor
 
 from langchain_core.documents import Document
+from langchain.globals import set_llm_cache
+from prompt_caching import SemanticCache
+
+from config import (
+    DEFAULT_DATABASE_PATH,
+    DEFAULT_FAISS_INDEX_PATH,
+    DEFAULT_SIMILARITY_THRESHOLD,
+    ENABLE_QUANTIZATION
+)
 
 # ---------------------------------------------------------------------------- #
 #                               Logging Configuration                          #
 # ---------------------------------------------------------------------------- #
-# Configure logging for the entire utils module.
-# This ensures all loggers created below use this basic configuration.
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Helper functions for consistent logging
-def log_info(message: str):
-    logger.info(message)
+# ---------------------------------------------------------------------------- #
+#                             Semantic Cache Setup                             #
+# ---------------------------------------------------------------------------- #
 
-def log_error(message: str, exc_info=False):
-    logger.error(message, exc_info=exc_info)
+# This block sets up the global LLM cache. It will run when utils.py is imported.
+semantic_cache_instance = SemanticCache(
+    database_path=DEFAULT_DATABASE_PATH,
+    faiss_index_path=DEFAULT_FAISS_INDEX_PATH,
+    similarity_threshold=DEFAULT_SIMILARITY_THRESHOLD,
+    enable_quantization=ENABLE_QUANTIZATION
+)
+set_llm_cache(semantic_cache_instance)
+logger.info("Semantic cache initialized and set globally.")
 
 
 # ---------------------------------------------------------------------------- #
@@ -212,7 +225,7 @@ def extract_and_parse_json(text: str) -> Optional[Dict[str, List[str]]]:
         all_quotes = re.findall(r'"([^"]+)"', text)
         if all_quotes and len(all_quotes) >= 2:
             # Group quotes into potential concept lists (heuristic)
-            for i in range(0, len(all_quotes), 3): 
+            for i in range(0, len(all_quotes), 3):
                 if i // 3 < 10: # Limit to ~10 documents for this heuristic
                     concepts = all_quotes[i:i+3]
                     concept_dict[str(i // 3)] = concepts
@@ -244,19 +257,6 @@ def calculate_edge_weight(similarity_score: float, shared_concepts: List[str],
     max_shared = min(len(node1_concepts), len(node2_concepts))
     concept_score = len(shared_concepts) / max_shared if max_shared > 0 else 0
     return similarity_weight * similarity_score + (1 - similarity_weight) * concept_score
-
-
-# ---------------------------------------------------------------------------- #
-#                             Asynchronous Utilities                           #
-# ---------------------------------------------------------------------------- #
-
-async def run_in_executor(executor: ThreadPoolExecutor, func, *args: Any) -> Any:
-    """
-    Helper to run a blocking function in a ThreadPoolExecutor from an async context.
-    """
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(executor, func, *args)
-
 
 # ---------------------------------------------------------------------------- #
 #                             Batch Processing Utilities                       #
