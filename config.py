@@ -95,7 +95,7 @@ LLM_MAX_TOKENS = 4000
 DUMMY_DOC_CONTENT = "Langchain Document Initializer"
 DEFAULT_DATABASE_PATH = ".langchain.db"
 # This is specifically for the SQLiteCache's FAISS index
-DEFAULT_FAISS_INDEX_PATH = "./faiss_index"
+DEFAULT_FAISS_INDEX_PATH = "./semantic_cache_index"
 DEFAULT_SIMILARITY_THRESHOLD = 0.5
 DEFAULT_MAX_CACHE_SIZE = 1000
 DEFAULT_MEMORY_CACHE_SIZE = 100
