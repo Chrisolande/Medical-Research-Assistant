@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 import shutil
 
-from knowledge_graph import KnowledgeGraph
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
@@ -19,46 +18,53 @@ from langchain_community.document_compressors import FlashrankRerank
 from langchain.retrievers.document_compressors import (
     LLMChainExtractor,
     EmbeddingsFilter,
-    DocumentCompressorPipeline    
+    DocumentCompressorPipeline
 )
 from langchain_openai import ChatOpenAI
+from flashrank import Ranker
 
 from utils import pretty_print_docs
+from config import (
+    EMBEDDING_MODEL_NAME, RERANKER_MODEL_NAME, LLM_MODEL_NAME, FLASHRANK_MODEL_NAME,
+    PERSIST_DIRECTORY, FLASHRANK_CACHE_DIR, OPENROUTER_API_BASE, OPENROUTER_API_KEY,
+    RERANKER_TOP_N, BATCH_SIZE, MAX_CONCURRENT, LLM_MAX_TOKENS
+)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+ranker = Ranker(model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR)
+
 @dataclass
 class VectorStore:
     # Configuration
-    knowledge_graph: KnowledgeGraph
-    batch_size: int = 200
-    persist_directory: str = "faiss_index"
-    max_concurrent: int = 10
-    model_name: str = "meta-llama/llama-3.3-70b-instruct"
-    
+    batch_size: int = BATCH_SIZE
+    persist_directory: str = PERSIST_DIRECTORY
+    max_concurrent: int = MAX_CONCURRENT
+    model_name: str = LLM_MODEL_NAME
+
     # Reranker settings
     use_reranker: bool = True
-    reranker_model: str = "jinaai/jina-reranker-v1-turbo-en"
-    reranker_top_n: Optional[int] = 4
-    
+    reranker_model: str = RERANKER_MODEL_NAME
+    reranker_top_n: Optional[int] = RERANKER_TOP_N
+
     # Internal state
     vector_index: Optional[FAISS] = None
     compression_retriever: Optional[ContextualCompressionRetriever] = None
     added_doc_hashes: set = field(default_factory=set)
     semaphore: Semaphore = None
-    
+
     embeddings: HuggingFaceEmbeddings = field(
-        default_factory=lambda: HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        default_factory=lambda: HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
     )
 
     def __post_init__(self):
         self.semaphore = Semaphore(self.max_concurrent)
         self.llm = ChatOpenAI(
             model=self.model_name,
-            max_tokens=4000,
-            openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-            openai_api_base="https://openrouter.ai/api/v1",
+            max_tokens=LLM_MAX_TOKENS,
+            openai_api_key=OPENROUTER_API_KEY,
+            openai_api_base=OPENROUTER_API_BASE,
             temperature=0
         )
         self._load_local_index()
@@ -73,7 +79,7 @@ class VectorStore:
         try:
             self.vector_index = FAISS.load_local(self.persist_directory, self.embeddings, allow_dangerous_deserialization=True)
             self._reconstruct_hashes()
-            logger.info(f"Successfully loaded FAISS index with {len(self.vector_index.docstore._dict)} documents.")
+            logger.info(f"Successfully loaded FAISS index with {len(self.vector_index.index_to_docstore_id)} documents.")
             self._setup_reranker()
         except Exception as e:
             logger.error(f"Failed to load vector index: {e}", exc_info=True)
@@ -115,9 +121,12 @@ class VectorStore:
             self.added_doc_hashes.add(self._get_document_hash(doc))
 
     def _reconstruct_hashes(self):
-        for doc in self.vector_index.docstore._dict.values():
-            if isinstance(doc, Document):
-                self.added_doc_hashes.add(self._get_document_hash(doc))
+        if self.vector_index and self.vector_index.docstore:
+            for doc_id in self.vector_index.docstore._dict.keys():
+                doc = self.vector_index.docstore._dict.get(doc_id)
+                if isinstance(doc, Document):
+                    self.added_doc_hashes.add(self._get_document_hash(doc))
+
 
     def _is_new_document(self, doc: Document) -> bool:
         return (doc_hash := self._get_document_hash(doc)) and doc_hash not in self.added_doc_hashes
@@ -224,7 +233,7 @@ class VectorStore:
         return await asyncio.gather(*(self.similarity_search(query, k=k) for query in queries))
 
     # ============ RETRIEVAL ============
-    def _retrieve_relevant_documents(self, query: str, filter_threshold: float = 0.6):
+    def retrieve_relevant_documents(self, query: str, filter_threshold: float = 0.6):
         """Retrieve relevant documents using compression pipeline."""
         if not self.vector_index:
             return []
@@ -234,18 +243,23 @@ class VectorStore:
             transformers=[
                 EmbeddingsFilter(embeddings=self.embeddings, similarity_threshold=filter_threshold),
                 EmbeddingsRedundantFilter(embeddings=self.embeddings, similarity_threshold=0.95),
-                FlashrankRerank(),
+                FlashrankRerank(client = ranker),
                 LLMChainExtractor.from_llm(self.llm)
             ]
         )
         compression_retriever = ContextualCompressionRetriever(
-            base_compressor=pipeline_compressor, 
+            base_compressor=pipeline_compressor,
             base_retriever=retriever
         )
 
         try:
             results = compression_retriever.invoke(query)
-            return pretty_print_docs(results) if results else []
+            if results: 
+                pretty_print_docs(results)
+            else:
+                print("No relevant documents found for the query.") 
+
+            return results or []
         except ValueError as e:
             if "token_type_ids" in str(e) or "missing from input feed" in str(e):
                 return []
