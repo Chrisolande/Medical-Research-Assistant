@@ -5,7 +5,7 @@ default_language_version:
   python: python3.13
 
 repos:
-  # General file checks
+  # General file checks and validation
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -14,11 +14,8 @@ repos:
       - id: end-of-file-fixer
         types_or: [python, yaml, toml, json]
       - id: check-yaml
-        types_or: [yaml]
       - id: check-toml
-        types_or: [toml]
       - id: check-json
-        types_or: [json]
       - id: check-added-large-files
         args: ['--maxkb=20000']
       - id: check-merge-conflict
@@ -30,30 +27,43 @@ repos:
 
   # YAML linting
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.37.1
+    rev: v1.35.1
     hooks:
       - id: yamllint
         args: [--strict]
-        types_or: [yaml]
 
-  # Python formatting
+  # Python code formatting
   - repo: https://github.com/psf/black
-    rev: 25.1.0
+    rev: 24.8.0
     hooks:
       - id: black
         args: [--line-length=88]
+        types_or: [python, pyi, jupyter]
+
   - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+    rev: 5.13.2
     hooks:
       - id: isort
         args: [--profile=black, --line-length=88]
+        types_or: [python, pyi, jupyter]
+
   - repo: https://github.com/PyCQA/docformatter
     rev: v1.7.7
     hooks:
       - id: docformatter
         args: [--in-place, --wrap-summaries=88, --wrap-descriptions=88]
 
-  # Python linting and cleanup
+  # Modern Python linting with Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi, jupyter]
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]
+
+  # Python code cleanup
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1
     hooks:
@@ -63,50 +73,76 @@ repos:
           - --remove-unused-variables
           - --remove-duplicate-keys
           - --in-place
+        types_or: [python, pyi]
+
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.20.0
+    rev: v3.17.0
     hooks:
       - id: pyupgrade
-        args: [--py38-plus]
-  # - repo: https://github.com/pycqa/flake8
-  #   rev: 7.2.0
-  #   hooks:
-  #     - id: flake8
-  #       args: [--max-line-length=88]
-  #       entry: bash -c 'PYTHONPATH=. flake8 "$@"' --
-  #       additional_dependencies:
-  #         - flake8-docstrings
-  #         - flake8-bugbear
-  #         - flake8-comprehensions
-  #         - flake8-simplify
-  #         - flake8-bandit
-  #         - flake8-unused-arguments
-  - repo: https://github.com/PyCQA/pylint
-    rev: v3.3.7
-    hooks:
-      - id: pylint
-        args:
-          - --disable=all
-          - --enable=unused-import,unused-variable,undefined-variable,unused-argument
-          - --score=no
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.16.1
-  #   hooks:
-  #     - id: mypy
-  #       additional_dependencies:
-  #         - types-requests
-  #         - types-PyYAML
+        args: [--py310-plus]
+        types_or: [python, pyi]
+
+  # Security scanning
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.5
-    args: ["-c", "pyproject.toml", "-ll"]
+    rev: 1.7.9
     hooks:
       - id: bandit
         args:
-          - --skip=B101,B403, B601
+          - "-c"
+          - "pyproject.toml"
+          - "-ll"
+          - "--skip=B101,B403,B601"
+        types: [python]
 
-  # Jupyter notebook output stripping
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-requests
+          - types-PyYAML
+        types: [python]
+
+  # Jupyter notebook specific hooks
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.8.0
+    rev: 0.7.1
     hooks:
       - id: nbstripout
         types: [jupyter]
+
+  # Jupyter notebook linting and formatting
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.8.7
+    hooks:
+      - id: nbqa-black
+        args: [--line-length=88]
+        additional_dependencies: [black==24.8.0]
+      - id: nbqa-isort
+        args: [--profile=black, --line-length=88]
+        additional_dependencies: [isort==5.13.2]
+      - id: nbqa-ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        additional_dependencies: [ruff==0.6.9]
+      - id: nbqa-pyupgrade
+        args: [--py310-plus]
+        additional_dependencies: [pyupgrade==3.17.0]
+
+  # Notebook cell execution order and output validation
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.16.4
+    hooks:
+      - id: jupytext
+        args: [--sync]
+        types: [jupyter]
+
+  # notebook quality checks
+  - repo: https://github.com/srstevenson/nb-clean
+    rev: 3.3.0
+    hooks:
+      - id: nb-clean
+        args:
+          - --remove-empty-cells
+          - --preserve-cell-metadata
+          - tags
+          - --preserve-cell-outputs
