@@ -7,6 +7,7 @@ import math
 import pickle  # nosec - pickle usage reviewed for security
 import re
 import textwrap
+from asyncio import get_event_loop
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
 
@@ -419,3 +420,12 @@ def save_processing_results(
     str(e)}",
                     exc_info=True,
                 )
+
+
+# ---------------------------------------------------------------------------- #
+#                              Asynchronous operations                         #
+# ---------------------------------------------------------------------------- #
+
+
+async def run_in_executor(func, *args, **kwargs):
+    return await get_event_loop().run_in_executor(None, func, *args, **kwargs)
