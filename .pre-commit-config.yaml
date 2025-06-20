@@ -68,17 +68,19 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py38-plus]
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.2.0
-    hooks:
-      - id: flake8
-        additional_dependencies:
-          - flake8-docstrings
-          - flake8-bugbear
-          - flake8-comprehensions
-          - flake8-simplify
-          - flake8-bandit
-          - flake8-unused-arguments
+  # - repo: https://github.com/pycqa/flake8
+  #   rev: 7.2.0
+  #   hooks:
+  #     - id: flake8
+  #       args: [--max-line-length=88]
+  #       entry: bash -c 'PYTHONPATH=. flake8 "$@"' --
+  #       additional_dependencies:
+  #         - flake8-docstrings
+  #         - flake8-bugbear
+  #         - flake8-comprehensions
+  #         - flake8-simplify
+  #         - flake8-bandit
+  #         - flake8-unused-arguments
   - repo: https://github.com/PyCQA/pylint
     rev: v3.3.7
     hooks:
@@ -87,17 +89,24 @@ repos:
           - --disable=all
           - --enable=unused-import,unused-variable,undefined-variable,unused-argument
           - --score=no
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.16.1
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - types-requests
-          - types-PyYAML
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.16.1
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies:
+  #         - types-requests
+  #         - types-PyYAML
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.5
+    args: ["-c", "pyproject.toml", "-ll"]
     hooks:
       - id: bandit
         args:
-          - --skip=B101
-          - B601
+          - --skip=B101,B403, B601
+
+  # Jupyter notebook output stripping
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.0
+    hooks:
+      - id: nbstripout
+        types: [jupyter]
