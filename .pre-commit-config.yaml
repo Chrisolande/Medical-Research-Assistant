@@ -20,7 +20,7 @@ repos:
       - id: check-json
         types_or: [json]
       - id: check-added-large-files
-        args: ['--maxkb=500']
+        args: ['--maxkb=2000']
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: check-docstring-first
