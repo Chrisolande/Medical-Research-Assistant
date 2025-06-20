@@ -1,16 +1,22 @@
 # config.py
+"""Config module."""
+
+
 import os
+from dataclasses import dataclass
 from typing import Tuple
-from dataclasses import dataclass, field
-from pydantic import BaseModel, Field # # Added for AnswerCheck
+
+from pydantic import BaseModel, Field  # # Added for AnswerCheck
 
 # ---------------------------------------------------------------------------- #
 #                              Dataclass Definitions                           #
 # ---------------------------------------------------------------------------- #
 
+
 @dataclass
 class VisualizationConfig:
     """Configuration for graph visualization parameters."""
+
     figure_size: Tuple[int, int] = (16, 12)
     node_size: int = 3000
     edge_width: int = 2
@@ -23,22 +29,26 @@ class VisualizationConfig:
     max_label_length: int = 20
     content_preview_length: int = 200
 
+
 @dataclass
 class NodeStyle:
     """Style configuration for different node types in graph visualization."""
-    regular: str = 'lightblue'
-    start: str = 'lightgreen'
-    end: str = 'lightcoral'
-    visited: str = 'gold'
-    neighbor: str = '#800000' # Brown/Maroon
+
+    regular: str = "lightblue"
+    start: str = "lightgreen"
+    end: str = "lightcoral"
+    visited: str = "gold"
+    neighbor: str = "#800000"  # Brown/Maroon
+
 
 @dataclass
 class EdgeStyle:
     """Style configuration for different edge types in graph visualization."""
-    regular_color: str = 'blue'
-    traversal_color: str = 'red'
-    traversal_style: str = '--'
-    colormap: str = 'Blues' # Colormap for edge weights
+
+    regular_color: str = "blue"
+    traversal_color: str = "red"
+    traversal_style: str = "--"
+    colormap: str = "Blues"  # Colormap for edge weights
 
 
 # ---------------------------------------------------------------------------- #
@@ -111,21 +121,23 @@ PMC_BATCH_SIZE = 96
 PMC_MAX_CONCURRENT_BATCHES = 3
 PMC_RETRY_ATTEMPTS = 2
 PMC_RETRY_DELAY = 1.0
-PMC_INTER_BATCH_DELAY = 0.1 # Delay between batches
-MIN_ABSTRACT_CONTENT_LENGTH = 50 # Minimum content length for a valid document abstract
+PMC_INTER_BATCH_DELAY = 0.1  # Delay between batches
+MIN_ABSTRACT_CONTENT_LENGTH = 50  # Minimum content length for a valid document abstract
 
 # ---------------------------------------------------------------------------- #
 #                               Query Engine Settings                          #
 # ---------------------------------------------------------------------------- #
 MIN_NODES_TO_TRAVERSE = 8
 MAX_NODES_TO_TRAVERSE = 15
-LLM_MAX_CONTEXT_LENGTH = 4000 # Max context length for the LLM
+LLM_MAX_CONTEXT_LENGTH = 4000  # Max context length for the LLM
 
 # ---------------------------------------------------------------------------- #
 #                                  Pydantic Models                             #
 # ---------------------------------------------------------------------------- #
 
+
 class AnswerCheck(BaseModel):
     """Check if a query is fully answerable with the provided context."""
+
     is_complete: bool = Field(description="Whether the answer is complete or not")
     answer: str = Field(description="The current answer based on the context")

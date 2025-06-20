@@ -1,6 +1,21 @@
+# Ignore environment variables file
 .env
-~/
-.__pycache__/
-.vscode
+
+# Ignore Python bytecode
+__pycache__/
+*.pyc
+
+# Ignore VS Code specific files
+.vscode/
+
+# Ignore embedding cache directory
 embedding_cache/
 
+# Ignore generated output chunks
+output/
+
+# Ignore Reranking cache
+~/.cache/
+.langchain.db
+
+semantic_cache_index/

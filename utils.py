@@ -1,25 +1,26 @@
-import textwrap
-import json
-import re
+"""Utils module."""
+
 import hashlib
-import pickle
-from pathlib import Path
-import math
+import json
 import logging
-from typing import Any, Dict, List, Optional, Generator
+import math
+import pickle  # nosec - pickle usage reviewed for security
+import re
+import textwrap
+from pathlib import Path
+from typing import Any, Dict, Generator, List, Optional
 
-from common_helpers import log_info, log_error, run_in_executor
-
-from langchain_core.documents import Document
 from langchain.globals import set_llm_cache
-from prompt_caching import SemanticCache
+from langchain_core.documents import Document
 
+from common_helpers import log_error, log_info
 from config import (
     DEFAULT_DATABASE_PATH,
     DEFAULT_FAISS_INDEX_PATH,
     DEFAULT_SIMILARITY_THRESHOLD,
-    ENABLE_QUANTIZATION
+    ENABLE_QUANTIZATION,
 )
+from prompt_caching import SemanticCache
 
 # ---------------------------------------------------------------------------- #
 #                               Logging Configuration                          #
@@ -35,7 +36,7 @@ semantic_cache_instance = SemanticCache(
     database_path=DEFAULT_DATABASE_PATH,
     faiss_index_path=DEFAULT_FAISS_INDEX_PATH,
     similarity_threshold=DEFAULT_SIMILARITY_THRESHOLD,
-    enable_quantization=ENABLE_QUANTIZATION
+    enable_quantization=ENABLE_QUANTIZATION,
 )
 set_llm_cache(semantic_cache_instance)
 logger.info("Semantic cache initialized and set globally.")
@@ -45,10 +46,10 @@ logger.info("Semantic cache initialized and set globally.")
 #                             Document Printing Utilities                      #
 # ---------------------------------------------------------------------------- #
 
+
 def pretty_print_docs(docs, wrap_width: int = 80, queries: Optional[List[str]] = None):
-    """
-    Prints a list of Document objects or batch results with their page_content cleaned and wrapped,
-    separated by a visual delimiter.
+    """Prints a list of Document objects or batch results with their page_content
+    cleaned and wrapped, separated by a visual delimiter.
 
     Args:
         docs: A list of Document objects OR a list of lists of Document objects (batch results).
@@ -59,7 +60,11 @@ def pretty_print_docs(docs, wrap_width: int = 80, queries: Optional[List[str]] =
     if docs and isinstance(docs[0], list):
         for query_idx, query_docs in enumerate(docs):
             print(f"\n{'='*wrap_width}")
-            query_text = f": {queries[query_idx]}" if queries and query_idx < len(queries) else ""
+            query_text = (
+                f": {queries[query_idx]}"
+                if queries and query_idx < len(queries)
+                else ""
+            )
             print(f"QUERY {query_idx + 1} RESULTS{query_text}")
             print(f"{'='*wrap_width}")
             _print_single_query_docs(query_docs, wrap_width)
@@ -67,6 +72,7 @@ def pretty_print_docs(docs, wrap_width: int = 80, queries: Optional[List[str]] =
 
     # single query handling
     _print_single_query_docs(docs, wrap_width)
+
 
 def _print_single_query_docs(docs: List[Document], wrap_width: int):
     """Helper function for printing a single list of documents."""
@@ -80,7 +86,7 @@ def _print_single_query_docs(docs: List[Document], wrap_width: int):
         wrapped_content = textwrap.fill(content.strip(), width=wrap_width)
 
         metadata_str = ""
-        if hasattr(d, 'metadata') and d.metadata:
+        if hasattr(d, "metadata") and d.metadata:
             metadata_str = f"\nMetadata: {d.metadata}"
 
         formatted_docs.append(f"Document {i+1}:{metadata_str}\n\n{wrapped_content}")
@@ -88,13 +94,18 @@ def _print_single_query_docs(docs: List[Document], wrap_width: int):
     separator = f"\n{'-' * (wrap_width if wrap_width > 10 else 10)}\n"
     print(separator.join(formatted_docs))
 
+
 def print_filtered_content(
     traversal_path: List[int],
     filtered_content: Dict[int, str],
-    content_preview_length: int = 200
+    content_preview_length: int = 200,
 ) -> None:
-    """
-    Print the filtered content of visited nodes in traversal order.
+    """Print the filtered content of visited nodes in traversal order.
+
+    Args:
+    traversal_path (List[int]): The list of nodes to print the filtered content for.
+    filtered_content (Dict[int, str]): A mapping of node IDs to the filtered content.
+    content_preview_length (int, optional): The length of the content preview. Defaults to 200.
     """
     logger.info(f"Printing filtered content for {len(traversal_path)} nodes")
 
@@ -102,12 +113,12 @@ def print_filtered_content(
         logger.warning("Empty traversal path provided.")
         return
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("FILTERED CONTENT OF VISITED NODES (IN TRAVERSAL ORDER)")
-    print("="*80)
+    print("=" * 80)
 
     for i, node in enumerate(traversal_path):
-        content = filtered_content.get(node, 'No filtered content available')
+        content = filtered_content.get(node, "No filtered content available")
         preview = content[:content_preview_length]
         if len(content) > content_preview_length:
             preview += "..."
@@ -125,10 +136,12 @@ def print_filtered_content(
 #                               Cache Management Utilities                     #
 # ---------------------------------------------------------------------------- #
 
+
 class CacheManager:
     """Handles caching operations for embeddings and concepts using pickle."""
 
     def __init__(self, cache_dir: str = "./cache"):
+        """Initialize init."""
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         log_info(f"CacheManager initialized. Cache directory: {self.cache_dir}")
@@ -138,8 +151,8 @@ class CacheManager:
         cache_file = self.cache_dir / "cache.pkl"
         if cache_file.exists():
             try:
-                with open(cache_file, 'rb') as f:
-                    data = pickle.load(f)
+                with open(cache_file, "rb") as f:
+                    data = pickle.load(f)  # nosec
                     log_info(f"Cache loaded from {cache_file}.")
                     return data
             except Exception as e:
@@ -152,7 +165,7 @@ class CacheManager:
         """Saves cache to disk."""
         cache_file = self.cache_dir / "cache.pkl"
         try:
-            with open(cache_file, 'wb') as f:
+            with open(cache_file, "wb") as f:
                 pickle.dump(data, f)
             log_info(f"Cache saved to {cache_file}.")
         except Exception as e:
@@ -163,26 +176,29 @@ class CacheManager:
 #                            JSON & Text Processing Utilities                  #
 # ---------------------------------------------------------------------------- #
 
+
 def extract_and_parse_json(text: str) -> Optional[Dict[str, List[str]]]:
     """Extract and parse JSON with multiple fallback strategies from a given text."""
 
     json_patterns = [
-        r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}',  # Handle nested braces
-        r'\{.*?\}(?=\s*$|\s*\n)',            # JSON followed by end/newline
+        r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}",  # Handle nested braces
+        r"\{.*?\}(?=\s*$|\s*\n)",  # JSON followed by end/newline
     ]
 
     for pattern in json_patterns:
         matches = re.findall(pattern, text, re.DOTALL)
-        for match in matches:
+        for _match in matches:
             try:
                 cleaned = match.strip()
-                cleaned = re.sub(r'^[^{]*(\{)', r'\1', cleaned)
-                cleaned = re.sub(r'(\})[^}]*$', r'\1', cleaned)
-                cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
+                cleaned = re.sub(r"^[^{]*(\{)", r"\1", cleaned)
+                cleaned = re.sub(r"(\})[^}]*$", r"\1", cleaned)
+                cleaned = re.sub(r",(\s*[}\]])", r"\1", cleaned)
                 cleaned = re.sub(r"'([^']*)':", r'"\1":', cleaned)
                 cleaned = re.sub(r":\s*'([^']*)'", r': "\1"', cleaned)
 
-                cleaned = ''.join(char for char in cleaned if ord(char) >= 32 or char in '\n\t')
+                cleaned = "".join(
+                    char for char in cleaned if ord(char) >= 32 or char in "\n\t"
+                )
 
                 return json.loads(cleaned)
             except (json.JSONDecodeError, ValueError):
@@ -190,22 +206,22 @@ def extract_and_parse_json(text: str) -> Optional[Dict[str, List[str]]]:
 
     # Line-by-line extraction
     concept_dict = {}
-    lines = text.split('\n')
-    for line in lines:
+    lines = text.split("\n")
+    for _line in lines:
         line = line.strip()
         if not line:
             continue
 
         patterns = [
             r'"?(\d+)"?\s*:\s*\[(.*?)\]',  # e.g., "0": ["concept1", "concept2"] or 0: ["concept1"]
-            r'"(\d+)":\s*"([^"]+)"',       # e.g., "0": "concept1"
+            r'"(\d+)":\s*"([^"]+)"',  # e.g., "0": "concept1"
         ]
 
         for pattern in patterns:
             match = re.search(pattern, line)
             if match:
                 key = match.group(1)
-                if len(match.groups()) == 2:
+                if len(match.groups()) == 2 and pattern == r'"(\d+)":\s*"([^"]+)"':
                     if pattern == r'"(\d+)":\s*"([^"]+)"':
                         concepts = [match.group(2)]
                     else:
@@ -214,7 +230,9 @@ def extract_and_parse_json(text: str) -> Optional[Dict[str, List[str]]]:
                         concepts = re.findall(r'"([^"]+)"', values)
                         if not concepts:
                             # Fallback to comma-separated unquoted concepts
-                            concepts = [c.strip() for c in values.split(',') if c.strip()]
+                            concepts = [
+                                c.strip() for c in values.split(",") if c.strip()
+                            ]
 
                     if concepts:
                         concept_dict[key] = concepts
@@ -226,54 +244,71 @@ def extract_and_parse_json(text: str) -> Optional[Dict[str, List[str]]]:
         if all_quotes and len(all_quotes) >= 2:
             # Group quotes into potential concept lists (heuristic)
             for i in range(0, len(all_quotes), 3):
-                if i // 3 < 10: # Limit to ~10 documents for this heuristic
-                    concepts = all_quotes[i:i+3]
+                if i // 3 < 10:  # Limit to ~10 documents for this heuristic
+                    concepts = all_quotes[i : i + 3]
                     concept_dict[str(i // 3)] = concepts
 
     return concept_dict if concept_dict else None
 
+
 def create_text_hash(text: str) -> str:
     """Creates an MD5 hash for text, useful for caching."""
-    return hashlib.md5(text.encode('utf-8')).hexdigest()
+    return hashlib.md5(text.encode("utf-8")).hexdigest()  # nosec
+
 
 def clean_concepts(concepts: List[str]) -> List[str]:
     """Cleans and deduplicates a list of concept strings."""
     # Ensure each concept is stripped and non-empty, then convert to list from set for deduplication
     cleaned_set = {c.strip() for c in concepts if c and c.strip()}
-    return sorted(list(cleaned_set)) # Sort for consistent order
+    return sorted(list(cleaned_set))  # Sort for consistent order
 
 
 # ---------------------------------------------------------------------------- #
 #                               Graph Utilities                                #
 # ---------------------------------------------------------------------------- #
 
-def calculate_edge_weight(similarity_score: float, shared_concepts: List[str],
-                         node1_concepts: List[str], node2_concepts: List[str],
-                         similarity_weight: float = 0.7) -> float:
-    """
-    Calculates an edge weight based on a similarity score and shared concepts
-    between two nodes.
-    """
+
+def calculate_edge_weight(
+    similarity_score: float,
+    shared_concepts: List[str],
+    node1_concepts: List[str],
+    node2_concepts: List[str],
+    similarity_weight: float = 0.7,
+) -> float:
+    """Calculates an edge weight based on a similarity score and shared concepts between
+    two nodes."""
     max_shared = min(len(node1_concepts), len(node2_concepts))
     concept_score = len(shared_concepts) / max_shared if max_shared > 0 else 0
-    return similarity_weight * similarity_score + (1 - similarity_weight) * concept_score
+    return (
+        similarity_weight * similarity_score + (1 - similarity_weight) * concept_score
+    )
+
 
 # ---------------------------------------------------------------------------- #
 #                             Batch Processing Utilities                       #
 # ---------------------------------------------------------------------------- #
 
-def load_json_data(file_path: str, max_items: Optional[int] = None) -> List[Dict[str, Any]]:
+
+def load_json_data(
+    file_path: str, max_items: Optional[int] = None
+) -> List[Dict[str, Any]]:
     """Loads JSON data from a file, with an option to limit the number of items."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             data = json.load(f)
 
-        if isinstance(data, dict) and len(data) == 1 and isinstance(list(data.values())[0], list):
+        if (
+            isinstance(data, dict)
+            and len(data) == 1
+            and isinstance(list(data.values())[0], list)
+        ):
             items = list(data.values())[0]
         elif isinstance(data, list):
             items = data
         else:
-            logger.warning(f"Unexpected JSON structure in {file_path}. Expected a list or a dict with one list value.")
+            logger.warning(
+                f"Unexpected JSON structure in {file_path}. Expected a list or a dict with one list value."
+            )
             return []
 
         if max_items and max_items > 0:
@@ -283,21 +318,24 @@ def load_json_data(file_path: str, max_items: Optional[int] = None) -> List[Dict
         logger.info(f"Loaded {len(items)} items from {file_path}.")
         return items
     except Exception as e:
-        logger.error(f"Error loading JSON data from {file_path}: {str(e)}", exc_info=True)
+        logger.error(
+            f"Error loading JSON data from {file_path}: {str(e)}", exc_info=True
+        )
         raise ValueError(f"Failed to load data from {file_path}: {str(e)}")
 
+
 def create_batches(
-    items: List[Any],
-    batch_size: int
+    items: List[Any], batch_size: int
 ) -> Generator[List[Any], None, None]:
     """Generates batches from a list of items."""
     if not items:
-        return # Yield nothing for empty input
+        return  # Yield nothing for empty input
 
     total_batches = math.ceil(len(items) / batch_size)
     logger.info(f"Creating {total_batches} batches of size {batch_size}.")
     for i in range(0, len(items), batch_size):
         yield items[i : i + batch_size]
+
 
 def save_processing_results(
     results: Dict[str, Any],
@@ -305,11 +343,9 @@ def save_processing_results(
     base_filename: str,
     batch_size: int,
     source_type: str,
-    save_batch_details: bool = False
+    save_batch_details: bool = False,
 ) -> None:
-    """
-    Saves processing results to JSON files.
-    """
+    """Saves processing results to JSON files."""
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -318,7 +354,7 @@ def save_processing_results(
             "source_type": source_type,
             "batch_processing": True,
             "batch_size": batch_size,
-            "total_batches": results["processing_summary"]["total_batches"]
+            "total_batches": results["processing_summary"]["total_batches"],
         },
         "summary": results["processing_summary"],
         "documents": [
@@ -326,20 +362,21 @@ def save_processing_results(
                 "chunk_id": i,
                 "content": doc.page_content,
                 "metadata": doc.metadata,
-                "content_length": len(doc.page_content)
+                "content_length": len(doc.page_content),
             }
             for i, doc in enumerate(results["all_documents"])
-        ]
+        ],
     }
 
     main_path = output_path / f"{base_filename}.json"
     try:
-        with open(main_path, 'w', encoding='utf-8') as f:
+        with open(main_path, "w", encoding="utf-8") as f:
             json.dump(main_output, f, indent=2, ensure_ascii=False)
         logger.info(f"Saved {len(results['all_documents'])} chunks to {main_path}")
     except Exception as e:
-        logger.error(f"Error saving main results to {main_path}: {str(e)}", exc_info=True)
-
+        logger.error(
+            f"Error saving main results to {main_path}: {str(e)}", exc_info=True
+        )
 
     if save_batch_details:
         batch_dir = output_path / "batch_details"
@@ -351,19 +388,25 @@ def save_processing_results(
                 "batch_info": {
                     "batch_num": batch_result["batch_num"],
                     "original_count": batch_result["original_count"],
-                    "chunk_count": batch_result["chunk_count"]
+                    "chunk_count": batch_result["chunk_count"],
                 },
                 "documents": [
                     {
                         "content": doc.page_content,
                         "metadata": doc.metadata,
-                        "content_length": len(doc.page_content)
+                        "content_length": len(doc.page_content),
                     }
                     for doc in batch_result["documents"]
-                ]
+                ],
             }
             try:
-                with open(batch_file, 'w', encoding='utf-8') as f:
+                with open(batch_file, "w", encoding="utf-8") as f:
                     json.dump(batch_data, f, indent=2, ensure_ascii=False)
             except Exception as e:
-                logger.error(f"Error saving batch {batch_result['batch_num']} to {batch_file}: {str(e)}", exc_info=True)
+                logger.error(
+                    f"Error saving batch {
+    batch_result['batch_num']} to {
+    batch_file}: {
+    str(e)}",
+                    exc_info=True,
+                )
