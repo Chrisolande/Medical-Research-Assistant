@@ -60,12 +60,10 @@ def test_init(mock_text_splitter, mock_embeddings, test_data):
         embeddings_model=test_data["embeddings_model"],
         metadata_fields=test_data["metadata_fields"],
     )
-    assert (
-        processor.embeddings_model == test_data["embeddings_model"]
-    ), "Embeddings model should match configuration"
-    assert (
-        processor.metadata_fields == test_data["metadata_fields"]
-    ), "Metadata fields should match configuration"
+    assert processor.embeddings_model == test_data["embeddings_model"]
+    print("Embeddings model should match configuration")
+    assert processor.metadata_fields == test_data["metadata_fields"]
+    print("Metadata fields should match configuration")
 
     mock_embeddings.assert_called_once_with(model_name=test_data["embeddings_model"])
     mock_text_splitter.assert_called_once_with(chunk_size=300, chunk_overlap=75)
