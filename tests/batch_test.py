@@ -175,3 +175,121 @@ async def test_process_batch_async_success(batch_processor, sample_pmc_data):
     assert result["original_count"] == 1
     assert result["error"] is None
     assert result["attempt"] == 1
+
+
+@pytest.mark.asyncio
+async def test_process_batch_async_failure_with_retry(batch_processor, sample_pmc_data):
+    """Test async batch processing with failure and retry."""
+    batch = sample_pmc_data[:1]
+
+    with patch.object(batch_processor, "_process_batch_documents") as mock_process:
+        mock_process.side_effect = Exception("Processing failed")
+
+        result = await batch_processor._process_batch_async(batch, 1)
+
+        assert result["success"] is False
+        assert result["batch_num"] == 1
+        assert result["error"] == "Processing failed"
+        assert result["attempt"] == batch_processor.retry_attempts
+        assert mock_process.call_count == batch_processor.retry_attempts
+
+
+@pytest.mark.asyncio
+async def test_process_pmc_file_async_complete_flow(
+    batch_processor, temp_json_file, sample_pmc_data
+):
+    """Test complete async processing flow."""
+    with patch("src.data_processing.batch_processor.load_json_data") as mock_load:
+        mock_load.return_value = sample_pmc_data
+
+        result = await batch_processor.process_pmc_file_async(
+            temp_json_file, max_docs=2
+        )
+
+        assert "successful_batches" in result
+        assert "failed_batches" in result
+        assert "all_documents" in result
+        assert "processing_summary" in result
+
+        summary = result["processing_summary"]
+        assert summary["total_documents"] == 3
+        assert summary["success_rate"] >= 0
+        assert summary["processing_time"] > 0
+
+
+@pytest.mark.asyncio
+async def test_process_pmc_file_async_no_valid_docs(batch_processor, temp_json_file):
+    """Test processing with no valid documents."""
+    with patch("src.data_processing.batch_processor.load_json_data") as mock_load:
+        mock_load.return_value = []
+
+        result = await batch_processor.process_pmc_file_async(temp_json_file)
+
+        assert result["processing_summary"]["total_documents"] == 0
+        assert result["processing_summary"]["total_batches"] == 0
+        assert len(result["all_documents"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_process_pmc_file_async_with_progress_callback(
+    batch_processor, temp_json_file, sample_pmc_data
+):
+    """Test processing with progress callback."""
+    callback_calls = []
+
+    def progress_callback(completed, total, result):
+        callback_calls.append((completed, total, result))
+
+    with patch("src.data_processing.batch_processor.load_json_data") as mock_load:
+        mock_load.return_value = sample_pmc_data[:1]
+
+        await batch_processor.process_pmc_file_async(
+            temp_json_file, progress_callback=progress_callback
+        )
+
+        assert len(callback_calls) > 0
+        completed, total, result = callback_calls[-1]
+        assert completed <= total
+        assert "batch_num" in result
+
+
+def test_empty_result(batch_processor):
+    """Test empty result structure."""
+    result = batch_processor._empty_result()
+
+    expected_keys = [
+        "successful_batches",
+        "failed_batches",
+        "all_documents",
+        "processing_summary",
+    ]
+    for key in expected_keys:
+        assert key in result
+
+    summary = result["processing_summary"]
+    assert summary["total_documents"] == 0
+    assert summary["success_rate"] == 0.0
+
+
+def test_save_results(batch_processor, tmp_path):
+    """Test saving results to file."""
+    results = {
+        "successful_batches": [],
+        "failed_batches": [],
+        "all_documents": [],
+        "processing_summary": {"total_documents": 0},
+    }
+
+    with patch(
+        "src.data_processing.batch_processor.save_processing_results"
+    ) as mock_save:
+        batch_processor.save_results(results, str(tmp_path))
+
+        mock_save.assert_called_once_with(
+            results=results,
+            output_dir=str(tmp_path),
+            base_filename="pmc_chunks",
+            batch_size=batch_processor.batch_size,
+            source_type="pmc_abstracts",
+            save_batch_details=False,
+        )
