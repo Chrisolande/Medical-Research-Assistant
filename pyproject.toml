@@ -1,27 +1,149 @@
+# Project Configuration
 [project]
 name = "finalrag"
 version = "0.1.0"
-description = "Medical RAG to cap what I've learnt through the RAG series"
+description = "Medical Retrieval-Augmented Generation (RAG) system summarizing learnings from the RAG series"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "cohere>=5.15.0",
-    "faiss-cpu>=1.11.0",
-    "langchain>=0.3.25",
-    "langchain-cohere>=0.4.4",
-    "langchain-community>=0.3.24",
-    "langchain-neo4j>=0.4.0",
-    "langchain-openai>=0.3.19",
-    "langgraph>=0.4.8",
-    "numpy>=2.2.6",
-    "pdf2image>=1.17.0",
-    "python-dotenv>=1.1.0",
-    "scikit-learn>=1.7.0",
-    "tenacity>=9.1.2",
-    "tqdm>=4.67.1",
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = []
+keywords = ["rag", "medical", "ai", "retrieval", "langchain"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
-[tool.bandit]
-exclude_tests = [
-    "B403", # Disables the 'import pickle' warning (B403)
+# Core Dependencies
+dependencies = [
+    # AI/ML Core
+    "cohere>=5.15.0,<6.0.0",
+    "langchain>=0.3.25,<0.4.0",
+    "langchain-cohere>=0.4.4,<0.5.0",
+    "langchain-community>=0.3.24,<0.4.0",
+    "langchain-neo4j>=0.4.0,<0.5.0",
+    "langchain-openai>=0.3.19,<0.4.0",
+    "langgraph>=0.4.8,<0.5.0",
+
+    # Scientific Computing
+    "numpy>=2.0.0,<3.0.0",
+    "scikit-learn>=1.5.0,<2.0.0",
+    "faiss-cpu>=1.8.0,<2.0.0",
+
+    # Document Processing
+    "pdf2image>=1.17.0,<2.0.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0,<2.0.0",
+    "tenacity>=8.0.0,<10.0.0",
+    "tqdm>=4.65.0,<5.0.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.0.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+]
+
+# Development Tools Configuration
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+extend-exclude = [
+    "migrations",
+    "venv",
+    ".venv",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "B008",  # Do not perform function calls in argument defaults
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = true
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["finalrag"]
+
+# Type Checking
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+# Testing Configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=finalrag",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+# Coverage Configuration
+[tool.coverage.run]
+source = ["finalrag"]
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+# Security Configuration
+[tool.bandit]
+exclude = ["B403"]  # Excludes 'import pickle' warning
