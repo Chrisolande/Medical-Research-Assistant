@@ -6,15 +6,6 @@ from langchain_core.documents import Document
 from src.data_processing.document_processor import DocumentProcessor
 
 
-@pytest.fixture(scope="session")
-def document_processor(test_data):
-    """Fixture for DocumentProcessor with default settings."""
-    return DocumentProcessor(
-        embeddings_model=test_data["embeddings_model"],
-        metadata_fields=test_data["metadata_fields"],
-    )
-
-
 @patch("src.data_processing.document_processor.HuggingFaceEmbeddings")
 @patch("src.data_processing.document_processor.RecursiveCharacterTextSplitter")
 def test_init(mock_text_splitter, mock_embeddings, test_data):
