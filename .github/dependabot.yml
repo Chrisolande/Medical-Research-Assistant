@@ -1,6 +1,5 @@
-# CHANGE: Add grouping and better PR management
 ---
-# version: 2
+version: 2
 updates:
   # Python/pip updates
   - package-ecosystem: "pip"
