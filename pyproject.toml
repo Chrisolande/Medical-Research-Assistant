@@ -51,6 +51,7 @@ dependencies = [
     "spacy>=3.8.7",
     "streamlit>=1.46.0",
     "plotly>=6.1.2",
+    "sentence-transformers>=2.7.0"
 ]
 
 [project.optional-dependencies]
