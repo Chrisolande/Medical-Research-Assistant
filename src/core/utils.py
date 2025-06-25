@@ -8,8 +8,9 @@ import pickle  # nosec - pickle usage reviewed for security
 import re
 import textwrap
 from asyncio import get_event_loop
+from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any
 
 from langchain.globals import set_llm_cache
 from langchain_core.documents import Document
@@ -57,7 +58,7 @@ def ensure_semantic_cache():
 # ---------------------------------------------------------------------------- #
 
 
-def pretty_print_docs(docs, wrap_width: int = 80, queries: Optional[List[str]] = None):
+def pretty_print_docs(docs, wrap_width: int = 80, queries: list[str] | None = None):
     """Prints a list of Document objects or batch results with their page_content
     cleaned and wrapped, separated by a visual delimiter.
 
@@ -84,7 +85,7 @@ def pretty_print_docs(docs, wrap_width: int = 80, queries: Optional[List[str]] =
     _print_single_query_docs(docs, wrap_width)
 
 
-def _print_single_query_docs(docs: List[Document], wrap_width: int):
+def _print_single_query_docs(docs: list[Document], wrap_width: int):
     """Helper function for printing a single list of documents."""
     if not docs:
         print("No documents to display.")
@@ -106,8 +107,8 @@ def _print_single_query_docs(docs: List[Document], wrap_width: int):
 
 
 def print_filtered_content(
-    traversal_path: List[int],
-    filtered_content: Dict[int, str],
+    traversal_path: list[int],
+    filtered_content: dict[int, str],
     content_preview_length: int = 200,
 ) -> None:
     """Print the filtered content of visited nodes in traversal order.
@@ -156,7 +157,7 @@ class CacheManager:
         self.cache_dir.mkdir(exist_ok=True)
         log_info(f"CacheManager initialized. Cache directory: {self.cache_dir}")
 
-    def load_cache(self) -> Dict[str, Any]:
+    def load_cache(self) -> dict[str, Any]:
         """Loads cache from disk."""
         cache_file = self.cache_dir / "cache.pkl"
         if cache_file.exists():
@@ -171,7 +172,7 @@ class CacheManager:
         log_info(f"No cache file found at {cache_file}. Starting with empty cache.")
         return {}
 
-    def save_cache(self, data: Dict[str, Any]) -> None:
+    def save_cache(self, data: dict[str, Any]) -> None:
         """Saves cache to disk."""
         cache_file = self.cache_dir / "cache.pkl"
         try:
@@ -187,7 +188,7 @@ class CacheManager:
 # ---------------------------------------------------------------------------- #
 
 
-def extract_and_parse_json(text: str) -> Optional[Dict[str, List[str]]]:
+def extract_and_parse_json(text: str) -> dict[str, list[str]] | None:
     """Extract and parse JSON with multiple fallback strategies from a given text."""
 
     json_patterns = [
@@ -197,7 +198,7 @@ def extract_and_parse_json(text: str) -> Optional[Dict[str, List[str]]]:
 
     for pattern in json_patterns:
         matches = re.findall(pattern, text, re.DOTALL)
-        for _match in matches:
+        for match in matches:  # CHANGE: Fixed variable name from _match to match
             try:
                 cleaned = match.strip()
                 cleaned = re.sub(r"^[^{]*(\{)", r"\1", cleaned)
@@ -217,7 +218,7 @@ def extract_and_parse_json(text: str) -> Optional[Dict[str, List[str]]]:
     # Line-by-line extraction
     concept_dict = {}
     lines = text.split("\n")
-    for _line in lines:
+    for line in lines:  # CHANGE: Fixed variable name from _line to line
         line = line.strip()
         if not line:
             continue
@@ -266,11 +267,11 @@ def create_text_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()  # nosec
 
 
-def clean_concepts(concepts: List[str]) -> List[str]:
+def clean_concepts(concepts: list[str]) -> list[str]:
     """Cleans and deduplicates a list of concept strings."""
     # Ensure each concept is stripped and non-empty, then convert to list from set for deduplication
     cleaned_set = {c.strip() for c in concepts if c and c.strip()}
-    return sorted(list(cleaned_set))  # Sort for consistent order
+    return sorted(cleaned_set)  # CHANGE: Removed unnecessary list() call
 
 
 # ---------------------------------------------------------------------------- #
@@ -280,9 +281,9 @@ def clean_concepts(concepts: List[str]) -> List[str]:
 
 def calculate_edge_weight(
     similarity_score: float,
-    shared_concepts: List[str],
-    node1_concepts: List[str],
-    node2_concepts: List[str],
+    shared_concepts: list[str],
+    node1_concepts: list[str],
+    node2_concepts: list[str],
     similarity_weight: float = 0.7,
 ) -> float:
     """Calculates an edge weight based on a similarity score and shared concepts between
@@ -300,8 +301,8 @@ def calculate_edge_weight(
 
 
 def load_json_data(
-    file_path: str, max_items: Optional[int] = None
-) -> List[Dict[str, Any]]:
+    file_path: str, max_items: int | None = None
+) -> list[dict[str, Any]]:
     """Loads JSON data from a file, with an option to limit the number of items."""
     try:
         with open(file_path, encoding="utf-8") as f:
@@ -331,12 +332,14 @@ def load_json_data(
         logger.error(
             f"Error loading JSON data from {file_path}: {str(e)}", exc_info=True
         )
-        raise ValueError(f"Failed to load data from {file_path}: {str(e)}")
+        raise ValueError(
+            f"Failed to load data from {file_path}: {str(e)}"
+        ) from e  # CHANGE: Added 'from e'
 
 
 def create_batches(
-    items: List[Any], batch_size: int
-) -> Generator[List[Any], None, None]:
+    items: list[Any], batch_size: int
+) -> Generator[list[Any], None, None]:
     """Generates batches from a list of items."""
     if not items:
         return  # Yield nothing for empty input
@@ -348,7 +351,7 @@ def create_batches(
 
 
 def save_processing_results(
-    results: Dict[str, Any],
+    results: dict[str, Any],
     output_dir: str,
     base_filename: str,
     batch_size: int,
@@ -414,11 +417,7 @@ def save_processing_results(
                     json.dump(batch_data, f, indent=2, ensure_ascii=False)
             except Exception as e:
                 logger.error(
-                    f"Error saving batch {
-    batch_result['batch_num']} to {
-    batch_file}: {
-    str(e)}",
-                    exc_info=True,
+                    f"Error saving batch {batch_result['batch_num']} to {batch_file}: {str(e)}"
                 )
 
 

@@ -6,7 +6,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Dict, List
 
 from langchain.schema import Generation
 from langchain_community.cache import SQLiteCache
@@ -138,7 +137,7 @@ class SemanticCache(SQLiteCache):
             )
             self.vector_store = None
 
-    def _create_faiss_from_texts(self, texts: List[str], metadatas: List[Dict]):
+    def _create_faiss_from_texts(self, texts: list[str], metadatas: list[dict]):
         """Create Faiss From Texts method."""
 
         faiss_store = FAISS.from_texts(texts, self.embeddings, metadatas=metadatas)
@@ -164,14 +163,14 @@ class SemanticCache(SQLiteCache):
 
         return faiss_store
 
-    def _get_cached_embedding(self, text: List[str]):
+    def _get_cached_embedding(self, text: list[str]):
         """Get Cached Embedding method."""
         if text in self.embedding_cache:
             return self.embedding_cache[text]
 
         return None
 
-    def _cache_embedding(self, text: List[str], embedding: List[float]):
+    def _cache_embedding(self, text: list[str], embedding: list[float]):
         """Cache Embedding method."""
         # Perform LRU eviction
         if len(self.embedding_cache) >= self.memory_cache_size:
@@ -262,9 +261,7 @@ class SemanticCache(SQLiteCache):
                                 return result
                     else:
                         log_info(
-                            f"Best match score {
-    score:.4f} above threshold ({
-    self.similarity_threshold})."
+                            f"Best match score {score:.4f} above threshold ({self.similarity_threshold})."
                         )
                         break
 
@@ -288,7 +285,7 @@ class SemanticCache(SQLiteCache):
             return False  # If count is 1 but not dummy, it's not dummy only
         return False
 
-    def _add_to_memory_cache(self, key: str, value: List[Generation]):
+    def _add_to_memory_cache(self, key: str, value: list[Generation]):
         """Add To Memory Cache method."""
         if len(self.memory_cache) >= self.memory_cache_size:
             first_item = next(iter(self.memory_cache))
@@ -296,7 +293,7 @@ class SemanticCache(SQLiteCache):
 
         self.memory_cache[key] = value
 
-    def update(self, prompt: str, llm_string: str, return_val: List[Generation]):
+    def update(self, prompt: str, llm_string: str, return_val: list[Generation]):
         """Update method."""
         super().update(prompt, llm_string, return_val)
 
@@ -332,7 +329,7 @@ class SemanticCache(SQLiteCache):
             log_error(f"Error during semantic index update: {e}", exc_info=True)
 
     async def update_async(
-        self, prompt: str, llm_string: str, return_val: List[Generation]
+        self, prompt: str, llm_string: str, return_val: list[Generation]
     ):
         super().update(prompt, llm_string, return_val)
 
@@ -410,7 +407,7 @@ class SemanticCache(SQLiteCache):
     async def _evict_oldest_entries_async(self):
         await run_in_executor(self.executor, self._evict_oldest_entries)
 
-    def _add_to_vector_store(self, prompt: str, metadata: Dict):
+    def _add_to_vector_store(self, prompt: str, metadata: dict):
         """Add To Vector Store method."""
         self.vector_store.add_texts([prompt], metadatas=[metadata])
 
