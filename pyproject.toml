@@ -28,19 +28,29 @@ dependencies = [
     "langchain-neo4j>=0.4.0,<0.5.0",
     "langchain-openai>=0.3.19,<0.4.0",
     "langgraph>=0.4.8,<0.5.0",
-
     # Scientific Computing
     "numpy>=2.0.0,<3.0.0",
     "scikit-learn>=1.5.0,<2.0.0",
     "faiss-cpu>=1.8.0,<2.0.0",
-
     # Document Processing
     "pdf2image>=1.17.0,<2.0.0",
-
     # Utilities
     "python-dotenv>=1.0.0,<2.0.0",
     "tenacity>=8.0.0,<10.0.0",
     "tqdm>=4.65.0,<5.0.0",
+    "bio>=1.8.0",
+    "biopython>=1.85",
+    "flashrank>=0.2.10",
+    "langchain-huggingface>=0.3.0",
+    "matplotlib>=3.10.3",
+    "networkx>=3.5",
+    "nltk>=3.9.1",
+    "pandas>=2.3.0",
+    "pytest>=8.4.1",
+    "pydantic>=2.11.5",
+    "spacy>=3.8.7",
+    "streamlit>=1.46.0",
+    "plotly>=6.1.2",
 ]
 
 [project.optional-dependencies]
