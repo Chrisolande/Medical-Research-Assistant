@@ -1,23 +1,30 @@
+# CHANGE: Add grouping and better PR management
 ---
-version: 2
+# version: 2
 updates:
   # Python/pip updates
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
       - "python"
     commit-message:
       prefix: "chore"
       include: "scope"
+    groups:
+      python-deps:
+        patterns:
+          - "*"
 
   # GitHub Actions updates
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "github-actions"
