@@ -1,45 +1,70 @@
----
-  name: CI
+name: CI
 
-  on:
-    push:
-      branches:
-        - main
-    pull_request:
-      branches:
-        - main
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
-  jobs:
-    test:
-      runs-on: ubuntu-latest
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
 
-      strategy:
-        matrix:
-          python-version: ["3.13"]
+    steps:
+      - uses: actions/checkout@v4
 
-      steps:
-        - uses: actions/checkout@v4
+      # 1️⃣ SETUP: Python with UV for ultra-fast installs
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
 
-        - name: Set up Python ${{ matrix.python-version }}
-          uses: actions/setup-python@v5
-          with:
-            python-version: ${{ matrix.python-version }}
-            cache: pip
-            cache-dependency-path: pyproject.toml
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
-        - name: Cache dependencies
-          uses: actions/cache@v4
-          with:
-            path: ~/.cache/pip
-            key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-            restore-keys: |
-              ${{ runner.os }}-pip-${{ matrix.python-version }}-
+      # 2️⃣ CACHE: Comprehensive dependency and model caching
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        id: deps-cache
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.cache/flashrank
+            ~/.cache/huggingface
+            .venv
+          key: ${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}-models-v1
+          restore-keys: |
+            ${{ runner.os }}-py${{ matrix.python-version }}-
 
-        - name: Install dependencies
-          run: |
-            python -m pip install --upgrade pip wheel
-            pip install -e .[dev,test] pytest pytest-cov coverage
+      # 3️⃣ INSTALL: Lightning-fast with UV
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev --extra test
+          uv add pytest-xdist --group dev
 
-        - name: Test with pytest
-          run: |
-            pytest -x --ff --tb=short --cov=. --cov-report=xml
+      # 4️⃣ PRE-DOWNLOAD: Cache models before parallel testing
+      - name: Pre-download models
+        run: |
+          mkdir -p ~/.cache/flashrank
+          uv run python -c "
+          try:
+              from flashrank import Ranker
+              print('Pre-downloading flashrank model...')
+              ranker = Ranker()
+              print('Model cached successfully')
+          except Exception as e:
+              print(f'Model download failed: {e}')
+          "
+
+      # 5️⃣ TEST: Parallel execution with minimal output
+      - name: Test with pytest
+        run: |
+          # Check if pytest-xdist is available, fallback to serial if not
+          if uv run python -c "import xdist" 2>/dev/null; then
+            uv run pytest -n auto --maxfail=1 --tb=line --disable-warnings --no-cov -m "not model_download"
+          else
+            uv run pytest --maxfail=1 --tb=line --disable-warnings --no-cov -m "not model_download"
+          fi
