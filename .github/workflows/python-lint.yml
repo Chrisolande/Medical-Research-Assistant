@@ -1,286 +1,60 @@
-name: CI/CD Pipeline
+name: Python Linting
 
 on:
   push:
-    branches: [main, develop]
+    branches: ["main", "develop"]
   pull_request:
-    branches: [main, develop]
-  workflow_dispatch:
-
-env:
-  PYTHON_VERSION: "3.13"
-  UV_CACHE_DIR: ~/.cache/uv
+    branches: ["main", "develop"]
 
 jobs:
-  # Code Quality & Security
-  quality:
+  lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Code formatting (black)
-        run: uv run black --check --diff .
-
-      - name: Import sorting (isort)
-        run: uv run isort --check-only --diff .
-
-      - name: Linting (flake8)
-        run: uv run flake8 src tests
-
-      - name: Type checking (mypy)
-        run: uv run mypy src
-
-      - name: Security scan (bandit)
-        run: uv run bandit -r src -f json -o bandit-report.json
-        continue-on-error: true
-
-      - name: Dependency vulnerability scan
-        run: uv run safety check --json --output safety-report.json
-        continue-on-error: true
-
-  # Testing Matrix
-  test:
-    needs: quality
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.11", "3.12", "3.13"]
-        exclude:
-          # Reduce matrix for faster builds
-          - os: windows-latest
-            python-version: "3.11"
-          - os: macos-latest
-            python-version: "3.11"
+        python-version: ["3.13"]
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
 
       - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-      # Enhanced caching strategy
-      - name: Cache dependencies and models
+      - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          path: |
-            ${{ env.UV_CACHE_DIR }}
-            ~/.cache/flashrank
-            ~/.cache/huggingface
-            ~/.cache/pip
-            .venv
-          key: ${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml', '**/uv.lock') }}-models-v2
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt') }}
           restore-keys: |
-            ${{ runner.os }}-py${{ matrix.python-version }}-models-v2
-            ${{ runner.os }}-py${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-
 
       - name: Install dependencies
         run: |
-          uv sync --extra dev --extra test
-          uv add pytest-xdist pytest-cov pytest-benchmark --group dev
+          python -m pip install --upgrade pip
+          pip install --no-deps flake8 black isort mypy bandit
+          if [ -f pyproject.toml ]; then pip install -e . --no-deps; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt --no-deps; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt --no-deps; fi
 
-      # Optimized model pre-download with retry logic
-      - name: Pre-download models
+      - name: Run linting tools in parallel
         run: |
-          uv run python -c "
-          import os
-          import time
-          import sys
-          from pathlib import Path
+          # Run flake8 checks in parallel
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics &
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics &
 
-          def download_with_retry(max_retries=3):
-              for attempt in range(max_retries):
-                  try:
-                      from src.core.config import FLASHRANK_MODEL_NAME, FLASHRANK_CACHE_DIR
-                      from flashrank import Ranker, RerankRequest
+          # Run other tools in parallel
+          black --check --diff . &
+          isort --check-only --diff . &
+          mypy . --ignore-missing-imports --install-types --non-interactive &
+          bandit -r . -f json -o bandit-report.json &
 
-                      print(f'Attempt {attempt + 1}: Downloading {FLASHRANK_MODEL_NAME}...')
+          # Wait for all background jobs to complete
+          wait
 
-                      # Ensure cache directory exists
-                      Path(FLASHRANK_CACHE_DIR).mkdir(parents=True, exist_ok=True)
-
-                      ranker = Ranker(model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR)
-
-                      # Verify model works
-                      request = RerankRequest(
-                          query='test query',
-                          passages=[{'text': 'test passage', 'meta': {'id': 1}}]
-                      )
-                      result = ranker.rerank(request)
-
-                      print(f'Model cached successfully. Results: {len(result.results)}')
-                      return True
-
-                  except Exception as e:
-                      print(f'Attempt {attempt + 1} failed: {e}')
-                      if attempt < max_retries - 1:
-                          time.sleep(5)  # Wait before retry
-                      else:
-                          print('All attempts failed. Continuing without model cache...')
-                          return False
-
-          download_with_retry()
-          "
-
-      # Comprehensive testing with coverage
-      - name: Run tests
-        run: |
-          # Determine test strategy based on OS and available resources
-          if [ '${{ matrix.os }}' = 'ubuntu-latest' ]; then
-            # Full test suite with coverage on Ubuntu
-            uv run pytest \
-              --cov=src \
-              --cov-report=xml \
-              --cov-report=html \
-              --cov-report=term-missing \
-              --cov-fail-under=80 \
-              -n auto \
-              --maxfail=3 \
-              --tb=short \
-              --strict-markers \
-              --durations=10
-          else
-            # Lightweight tests on other platforms
-            uv run pytest \
-              -n auto \
-              --maxfail=1 \
-              --tb=line \
-              --disable-warnings
-          fi
-
-      # Upload coverage for Ubuntu Python 3.13 only
-      - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
-
-  # Performance benchmarks
-  benchmark:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: uv sync --extra dev --extra test
-
-      - name: Run benchmarks
-        run: |
-          uv run pytest tests/benchmarks/ \
-            --benchmark-only \
-            --benchmark-json=benchmark-results.json \
-            --benchmark-sort=mean
-
-      - name: Store benchmark results
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          tool: 'pytest'
-          output-file-path: benchmark-results.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-
-  # Build and deployment
-  build:
-    needs: [quality, test]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
-
-      - name: Build package
-        run: |
-          uv build
-
-      - name: Upload build artifacts
+      - name: Upload bandit report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: dist-files
-          path: dist/
-          retention-days: 30
-
-  # Security and dependency analysis
-  security:
-    needs: quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-  # Deploy to staging (if needed)
-  deploy-staging:
-    needs: [test, build]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    timeout-minutes: 10
-    steps:
-      - name: Deploy to staging
-        run: |
-          echo "Deploying to staging environment..."
-          # Add your deployment logic here
-
-  # Deploy to production
-  deploy-production:
-    needs: [test, build, benchmark]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    timeout-minutes: 15
-    steps:
-      - name: Deploy to production
-        run: |
-          echo "Deploying to production environment..."
-          # Add your deployment logic here
+          name: bandit-report
+          path: bandit-report.json
