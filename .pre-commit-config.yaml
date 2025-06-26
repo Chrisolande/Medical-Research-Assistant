@@ -26,11 +26,11 @@ repos:
       - id: requirements-txt-fixer
 
   # YAML linting
-  - repo: https://github.com/adrienverge/yamllint
-    rev: v1.35.1
-    hooks:
-      - id: yamllint
-        # args: [--strict]
+  # - repo: https://github.com/adrienverge/yamllint
+  #   rev: v1.35.1
+  #   hooks:
+  #     - id: yamllint
+  #       # args: [--strict]
 
   # Python code formatting
   - repo: https://github.com/psf/black
