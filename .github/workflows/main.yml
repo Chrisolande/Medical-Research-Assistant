@@ -50,21 +50,33 @@ jobs:
         run: |
           mkdir -p ~/.cache/flashrank
           uv run python -c "
+          import os
+          import time
           try:
-              from flashrank import Ranker
-              print('Pre-downloading flashrank model...')
-              ranker = Ranker()
-              print('Model cached successfully')
+              # Import your config to use the same model
+              from src.core.config import FLASHRANK_MODEL_NAME, FLASHRANK_CACHE_DIR
+              from flashrank import Ranker, RerankRequest
+              print(f'Pre-downloading flashrank model: {FLASHRANK_MODEL_NAME}...')
+              ranker = Ranker(model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR)
+              # Test with correct flashrank API
+              rerankrequest = RerankRequest(query='test query', passages=[{'text': 'test passage'}])
+              test_result = ranker.rerank(rerankrequest)
+              print('Model cached and verified successfully')
           except Exception as e:
               print(f'Model download failed: {e}')
+              exit(1)
           "
 
-      # 5️⃣ TEST: Parallel execution with minimal output
+      # 5️⃣ TEST: Parallel execution with fallback
       - name: Test with pytest
         run: |
-          # Check if pytest-xdist is available, fallback to serial if not
+          # Try parallel first, fallback to serial if it fails
           if uv run python -c "import xdist" 2>/dev/null; then
-            uv run pytest -n auto --maxfail=1 --tb=line --disable-warnings --no-cov -m "not model_download"
+            echo "Running tests in parallel..."
+            uv run pytest -n auto --maxfail=1 --tb=line --disable-warnings --no-cov || \
+            (echo "Parallel testing failed, falling back to serial..." && \
+             uv run pytest --maxfail=1 --tb=line --disable-warnings --no-cov)
           else
-            uv run pytest --maxfail=1 --tb=line --disable-warnings --no-cov -m "not model_download"
+            echo "Running tests serially..."
+            uv run pytest --maxfail=1 --tb=line --disable-warnings --no-cov
           fi
