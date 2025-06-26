@@ -1,0 +1,3013 @@
+{
+  "metadata": {
+    "generated_at": "2025-06-26T01:11:17.814622",
+    "documents_processed": 150,
+    "qa_pairs_generated": 300,
+    "llm_config": {
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "temperature": 0.7
+    }
+  },
+  "qa_pairs": [
+    {
+      "id": "qa_0000",
+      "question": "What is introduced to improve radiologic image analysis?",
+      "answer": "Radiologic contrastive language-image pretraining (RadCLIP)",
+      "source": null,
+      "context": "required in radiologic imaging, we introduce radiologic contrastive language-image pretraining (RadCLIP): a cross-modal vision-language foundational model that utilizes a vision-language pretraining (VLP) framework to improve radiologic image analysis.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0001",
+      "question": "What framework does RadCLIP utilize to improve radiologic image analysis?",
+      "answer": "A vision-language pretraining (VLP) framework",
+      "source": null,
+      "context": "a cross-modal vision-language foundational model that utilizes a vision-language pretraining (VLP) framework to improve radiologic image analysis",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0002",
+      "question": "What is the main focus of the specialized algorithms in large-scale sequencing datasets?",
+      "answer": "To handle redundancy efficiently",
+      "source": null,
+      "context": "highlighting specialized algorithms designed to handle redundancy in large-scale sequencing datasets efficiently",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0003",
+      "question": "What have innovations in this field enhanced?",
+      "answer": "Compression ratios and processing efficiencies",
+      "source": null,
+      "context": "Innovations in this field have enhanced compression ratios and processing efficiencies leveraging intrinsic redundancy within genomic datasets",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0004",
+      "question": "Where were FITC positive endometriotic lesions observed after 6 weeks of endometriosis induction?",
+      "answer": "On the peritoneal surface of the abdominal wall as well as on the serosal surfaces of the uterus and small intestine",
+      "source": null,
+      "context": "After 6 weeks of endometriosis induction, FITC positive endometriotic lesions were observed on the peritoneal surface of the abdominal wall as well as on the serosal surfaces of the uterus and small intestine",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0005",
+      "question": "What type of dye was used to label tissue fragments?",
+      "answer": "Fluorescein isothiocyanate",
+      "source": null,
+      "context": "tissue fragments labeled with fluorescein isothiocyanate dye-doped silica nanoparticles",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0006",
+      "question": "What is the main focus of the study mentioned in the content?",
+      "answer": "cross-modal aroma-taste interactions as critical drivers of sweetness perception in FBT",
+      "source": null,
+      "context": "This study elucidates cross-modal aroma-taste interactions as critical drivers of sweetness perception in FBT, offering a multidisciplinary methodology to design reduced-sugar beverages with preserved sensory appeal.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0007",
+      "question": "What is the ultimate goal of the methodology proposed by the study?",
+      "answer": "to design reduced-sugar beverages with preserved sensory appeal",
+      "source": null,
+      "context": "This study elucidates cross-modal aroma-taste interactions as critical drivers of sweetness perception in FBT, offering a multidisciplinary methodology to design reduced-sugar beverages with preserved sensory appeal.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0008",
+      "question": "What is the effect of educational anxiety on adolescents?",
+      "answer": "Educational anxiety increased the risk of low self-esteem and bullying victimization among adolescents.",
+      "source": null,
+      "context": "educational anxiety increased the risk of low self-esteem and bullying victimization among adolescents.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0009",
+      "question": "What are the two risks associated with educational anxiety in adolescents?",
+      "answer": "low self-esteem and bullying victimization",
+      "source": null,
+      "context": "educational anxiety increased the risk of low self-esteem and bullying victimization among adolescents.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0010",
+      "question": "What is the impact of care provided by a Registered Dietitian Nutritionist (RDN) to malnourished children?",
+      "answer": "The impact is not well described",
+      "source": null,
+      "context": "The impact of care provided by a Registered Dietitian Nutritionist (RDN) to malnourished children is not well described.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0011",
+      "question": "What is the purpose of comparing nutrition outcomes of malnourished children with and without RDN involvement?",
+      "answer": "To compare nutrition outcomes of malnourished, chronically ill children with and without Registered Dietitian Nutritionist (RDN) involvement in outpatient care",
+      "source": null,
+      "context": "To compare nutrition outcomes of malnourished, chronically ill children with and without Registered Dietitian Nutritionist (RDN) involvement in outpatient care.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0012",
+      "question": "What is the focus of the new system?",
+      "answer": "treatment and rehabilitation",
+      "source": null,
+      "context": "into supports and programs focused on treatment and rehabilitation",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0013",
+      "question": "What system is being moved away from?",
+      "answer": "traditional system",
+      "source": null,
+      "context": "traditional system and into supports and programs focused on treatment and rehabilitation",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0014",
+      "question": "What is the challenge with surgical videos?",
+      "answer": "Their increasing volume and complexity render manual review impractical.",
+      "source": null,
+      "context": "However, their increasing volume and complexity render manual review impractical.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0015",
+      "question": "What is the purpose of the study?",
+      "answer": "To develop an intelligent platform capable of utilizing surgical videos for surgical education, quality control, and skill assessment.",
+      "source": null,
+      "context": "To address this challenge, this study aims to develop an intelligent platform capable of",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0016",
+      "question": "What was characterized in the study related to movement generation?",
+      "answer": "the spatial distribution and recruitment patterns of motor units",
+      "source": null,
+      "context": "characterized the spatial distribution and recruitment patterns of motor units during movement generation.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0017",
+      "question": "What is highlighted by the findings of the study?",
+      "answer": "the feasibility of integrating neural drive insights with deep learning methods to improve simultaneous and proportional estimation performance",
+      "source": null,
+      "context": "These findings highlight the feasibility of integrating neural drive insights with deep learning methods to improve simultaneous and proportional estimation performance.",
+      "difficulty": "medium",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0018",
+      "question": "At what concentration did limonene show no obvious toxicity to BV2 cells?",
+      "answer": "4 mg/ml",
+      "source": null,
+      "context": "bromide (MTT) results showed that limonene had no obvious toxicity to BV2 cells when the concentration was 4 mg/ml",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0019",
+      "question": "What effects did limonene have on BV2 cells according to transcriptomic analysis?",
+      "answer": "effects on inflammatory response, immune regulation, and other signaling pathways",
+      "source": null,
+      "context": "Transcriptomic analysis revealed the effects of limonene on inflammatory response, immune regulation, and other signaling pathways",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0020",
+      "question": "What happens when the two operation modes are combined in the stacked device?",
+      "answer": "The combination of the two operation modes largely extends the dynamic range of detectors.",
+      "source": null,
+      "context": "The combination of the two operation modes largely extends the dynamic range of detectors, even superior to that of a commercial silicon detector.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0021",
+      "question": "How does the dynamic range of the detectors compare to a commercial silicon detector?",
+      "answer": "It is superior to that of a commercial silicon detector.",
+      "source": null,
+      "context": "The combination of the two operation modes largely extends the dynamic range of detectors, even superior to that of a commercial silicon detector.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0022",
+      "question": "What is being ensured through testing?",
+      "answer": "more reliable methods for controlling product quality",
+      "source": null,
+      "context": "testing, ensuring more reliable methods for controlling product quality.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0023",
+      "question": "What is the purpose of the testing process?",
+      "answer": "to control product quality",
+      "source": null,
+      "context": "testing, ensuring more reliable methods for controlling product quality.",
+      "difficulty": "easy",
+      "type": "inferential",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0024",
+      "question": "What was the median ΔSL for the expandable cohort?",
+      "answer": "6.1° [2.4, 8.4]",
+      "source": null,
+      "context": "The median ΔSL for the expandable cohort was significantly higher than the static cohort (6.1° [2.4, 8.4] vs 4.1° [1.3, 6.9], P =.016).",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0025",
+      "question": "What factor had the greatest impact on ΔSL?",
+      "answer": "Preoperative SL",
+      "source": null,
+      "context": "Preoperative SL was found to have the greatest impact on ΔSL with",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0026",
+      "question": "What were the oxygen content and lower heating value (LHV) percentages?",
+      "answer": "97.74%, 91.22%, 91.28% and 97.02%",
+      "source": null,
+      "context": "oxygen content and lower heating value (LHV) reach 97.74%, 91.22%, 91.28% and 97.02%, respectively.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0027",
+      "question": "How did models utilizing 10 selected key peaks perform compared to other models?",
+      "answer": "They demonstrated superior performance compared to those employing raw LIBS spectra or principal components.",
+      "source": null,
+      "context": "Notably, models utilizing 10 selected key peaks demonstrated superior performance compared to those employing raw LIBS spectra or principal components, especially with the absolute difference",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0028",
+      "question": "Was the operation duration longer in the laryngeal mask group compared to the tracheal intubation group?",
+      "answer": "Yes",
+      "source": null,
+      "context": "the operation duration was significantly longer in the laryngeal mask group compared with the tracheal intubation group (P < 0.05)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0029",
+      "question": "How did the recovery time compare between the laryngeal mask group and the tracheal intubation group?",
+      "answer": "The recovery time was shorter in the laryngeal mask group",
+      "source": null,
+      "context": "whereas the recovery time was shorter in the laryngeal mask group (P<0.05)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0030",
+      "question": "Were there differences in operation time between the two groups?",
+      "answer": "Yes",
+      "source": null,
+      "context": "There were significant differences in the operation time, blood loss, the postoperative pain VAS score between the two groups",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0031",
+      "question": "Were there differences in length of hospital stay between the two groups?",
+      "answer": "No",
+      "source": null,
+      "context": "while no difference was found in... length of hospital stay",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0032",
+      "question": "What was the result of combining BA with IA nimodipine in terms of clinical outcomes?",
+      "answer": "Combined BA with IA nimodipine significantly improved clinical outcomes compared to BA alone.",
+      "source": null,
+      "context": "Combined BA with IA nimodipine significantly improved clinical outcomes compared to BA alone (OR: 0.07, 95% CI: 0.01-0.68, p = 0.02) without increasing hemorrhagic or ischemic risks.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0033",
+      "question": "Did the combined therapy of BA with IA nimodipine increase ischemic risks compared to IA nimodipine alone?",
+      "answer": "Yes, ischemic complications were higher with combined therapy than IA nimodipine.",
+      "source": null,
+      "context": "However, ischemic complications were higher with combined therapy than IA nimodipine",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0034",
+      "question": "How many people participated in the semi-structured interviews?",
+      "answer": "Thirteen",
+      "source": null,
+      "context": "Thirteen people met the study criteria and participated in semi-structured interviews.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0035",
+      "question": "What method was used to analyse the interviews?",
+      "answer": "Constructivist grounded theory",
+      "source": null,
+      "context": "Interviews were analysed using constructivist grounded theory.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0036",
+      "question": "What is hindering the clinical translation of Single-atom catalysts (SACs)?",
+      "answer": "Limited biocompatibility, instability, and lack of tumor targeting",
+      "source": null,
+      "context": "yet their clinical translation is hindered by limited biocompatibility, instability, and lack of tumor targeting",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0037",
+      "question": "Why are Single-atom catalysts (SACs) promising in biomedical applications?",
+      "answer": "Due to their unmatched catalytic activity and atomic-level precision",
+      "source": null,
+      "context": "Single-atom catalysts (SACs) are highly promising in biomedical applications due to their unmatched catalytic activity and atomic-level precision",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0038",
+      "question": "What is the overall willingness to receive an EUA-authorized mpox vaccine across all regions?",
+      "answer": "67.9%",
+      "source": null,
+      "context": "The overall willingness to receive an EUA-authorized mpox vaccine across all regions is 67.9%.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0039",
+      "question": "What are the willingness rates to receive an EUA-authorized mpox vaccine in the Northeastern and Northwestern regions?",
+      "answer": "84.9% and 81.8%",
+      "source": null,
+      "context": "The less economically developed Northeastern and Northwestern regions, with willingness rates of 84.9% and 81.8%,",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0040",
+      "question": "What is lacking in the context of VTE recurrence or hemorrhagic complications?",
+      "answer": "Validated tools for predicting long-term VTE recurrence or hemorrhagic complications",
+      "source": null,
+      "context": "Nevertheless, bleeding risks remain significant, and validated tools for predicting long-term VTE recurrence or hemorrhagic complications are lacking.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0041",
+      "question": "What is advocated for to support shared decision-making in cancer thrombosis?",
+      "answer": "The creation of dedicated cancer thrombosis clinics",
+      "source": null,
+      "context": "We advocate for the creation of dedicated cancer thrombosis clinics to support shared",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0042",
+      "question": "What was the effect of tannins on bacterial activity?",
+      "answer": "Tannins caused partial inhibition of bacterial activity.",
+      "source": null,
+      "context": "the partial inhibition of bacterial activity by tannins",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0043",
+      "question": "How did methane production in vitro compare between the HD and LD groups?",
+      "answer": "Methane production in vitro was reduced in the HD group compared to the LD one.",
+      "source": null,
+      "context": "methane production in vitro was reduced in the HD group compared to the LD one",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0044",
+      "question": "What would facilitate timely information sharing and improve preparedness for future pandemics?",
+      "answer": "A standardized AMR surveillance at regional level",
+      "source": null,
+      "context": "the Nordics would still benefit further from a standardized AMR surveillance at regional level, which ultimately facilitate timely information sharing and improve our preparedness for and response to future pandemics and/or large-scale outbreaks.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0045",
+      "question": "What crisis occurred during the COVID-19 pandemic?",
+      "answer": "AMR crisis",
+      "source": null,
+      "context": "AMR crisis also during COVID-19 pandemic.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0046",
+      "question": "What was the age range of women participating in the IVF study?",
+      "answer": "21 to 40",
+      "source": null,
+      "context": "Women aged 21 to 40 undergoing COS for their first or second IVF cycle, with or without intracytoplasmic sperm injection, were randomized to receive either Gynogen HP or Menopur.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0047",
+      "question": "What were the two medications that women in the study were randomized to receive?",
+      "answer": "Gynogen HP or Menopur",
+      "source": null,
+      "context": "Women aged 21 to 40 undergoing COS for their first or second IVF cycle, with or without intracytoplasmic sperm injection, were randomized to receive either Gynogen HP or Menopur.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0048",
+      "question": "What standards require an appropriate validation of the methods?",
+      "answer": "ISO/IEC 17025 or ISO/IEC 15198",
+      "source": null,
+      "context": "as ISO/IEC 17025 or ISO/IEC 15198 require an appropriate validation of the methods.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0049",
+      "question": "To which system was the approach for validation and statistical modelling of dPCR systems applied?",
+      "answer": "The Bio-Rad QX200 Droplet dPCR (ddPCR) system",
+      "source": null,
+      "context": "and applied to the Bio-Rad QX200 Droplet dPCR (ddPCR) system.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0050",
+      "question": "What has been implicated in the realization of preexisting evaluative contents into bias-motivated behaviors?",
+      "answer": "Alcohol",
+      "source": null,
+      "context": "Prior studies have implicated alcohol in the realization of preexisting evaluative contents into bias-motivated behaviors.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0051",
+      "question": "What type of aggressive acts has the role of alcohol use not been studied in?",
+      "answer": "More subtle forms of aggressive acts, such as microaggressions",
+      "source": null,
+      "context": "However, the role of alcohol use in the association between negative attitudes and the enactment of more subtle forms of aggressive acts, such as microaggressions, has not been",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0052",
+      "question": "What type of cells were administered to a rat model of PVOD?",
+      "answer": "Adipose-derived mesenchymal stem cells (ASCs)",
+      "source": null,
+      "context": "Allogeneic ASCs were intravenously administered to a rat model of PVOD induced by mitomycin C.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0053",
+      "question": "What was the aim of the study regarding PVOD?",
+      "answer": "To determine whether adipose-derived mesenchymal stem cells (ASCs) alleviate pulmonary hypertension and right ventricular hypertrophy",
+      "source": null,
+      "context": "The study aimed to determine whether adipose-derived mesenchymal stem cells (ASCs) alleviate pulmonary hypertension and right ventricular hypertrophy in a rat model of PVOD.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0054",
+      "question": "What is suggested to drive sex inversion in females in Brycon orbignyanus?",
+      "answer": "The action of the androgen 11-KT",
+      "source": null,
+      "context": "Thus, it is suggested that sex inversion in females in Brycon orbignyanus is driven by the action of the androgen 11-KT.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0055",
+      "question": "What has higher plasma concentrations of 11-KT compared to other groups analyzed?",
+      "answer": "The group experiencing sex inversion in females in Brycon orbignyanus",
+      "source": null,
+      "context": "plasma concentrations of 11-KT than the other groups analyzed.",
+      "difficulty": "medium",
+      "type": "inferential",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0056",
+      "question": "What was the thickness at which the disilicate glass-ceramic materials were prepared?",
+      "answer": "1.5 ±0.01 mm",
+      "source": null,
+      "context": "disilicate glass-ceramic materials (IPS e.max CAD [LDS], GC Initial LiSi Block [LD], Celtra Duo [ZLS], CEREC Tessera [ALD], and Amber Mill [NLD]) were prepared at 1.5 ±0.01 mm thicknesses.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0057",
+      "question": "How many subgroups was each material divided into?",
+      "answer": "2",
+      "source": null,
+      "context": "Each material was divided into 2 subgroups: mechanically polished and glazed (n=10).",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0058",
+      "question": "What has palliative care been shown to improve in patients with serious illnesses?",
+      "answer": "Quality of life, reduce symptom burden, and align care with patient goals",
+      "source": null,
+      "context": "Palliative care (PC) has been shown to improve quality of life (QoL), reduce symptom burden, and align care with patient goals in those with serious illnesses.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0059",
+      "question": "Where do many patients with advanced illness present, highlighting the need for palliative care integration?",
+      "answer": "The emergency department (ED)",
+      "source": null,
+      "context": "However, its integration into the emergency department (ED), where many patients with advanced illness present, remains underexplored and",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0060",
+      "question": "What was the water-oil ratio of the emulsion with superior performance?",
+      "answer": "2:8",
+      "source": null,
+      "context": "superior performance (water-oil ratio of 2:8, polyglyceryl ricinoleate concentration of 50 g kg<sup>-1</sup>, sucrose concentration of 30 g kg<sup>-1</sup>, with 0.1% GSP added)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0061",
+      "question": "What was the zeta potential of the emulsion?",
+      "answer": "44.2 ± 0.5 mV",
+      "source": null,
+      "context": "The emulsion had an emulsification index of <1%, a zeta potential of 44.2 ± 0.5 mV and remained stable for many days",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0062",
+      "question": "Is CLD associated with a longer length of stay (LOS)?",
+      "answer": "Yes",
+      "source": null,
+      "context": "a longer LOS(aOR = 1.26, 95% CI: 1.12-1.39, p < 0.001)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0063",
+      "question": "What is the impact of CLD on 90-day readmission rates?",
+      "answer": "Increased",
+      "source": null,
+      "context": "increased 90-day readmission rates (aOR = 1.20, 95% CI: 1.09-1.31, p < 0.001)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0064",
+      "question": "What type of reactor was used for the hydrogenation processes?",
+      "answer": "A flow-type reactor",
+      "source": null,
+      "context": "in a flow-type reactor at atmospheric hydrogen pressure",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0065",
+      "question": "What was the pressure of hydrogen during the hydrogenation processes?",
+      "answer": "Atmospheric",
+      "source": null,
+      "context": "at atmospheric hydrogen pressure",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0066",
+      "question": "What happened to ferroptosis in AML12 cells when Hyp or FUNDC1 knockdown by siRNA was used?",
+      "answer": "Ferroptosis decreased",
+      "source": null,
+      "context": "and use of Hyp or FUNDC1 knockdown by siRNA decreased ferroptosis in AML12 cells.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0067",
+      "question": "What is the effect of Hyp on the recruitment and degradation of glutathione peroxidase 4 to mitochondria after ZEA exposure?",
+      "answer": "Hyp reversed the recruitment and degradation of glutathione peroxidase 4 to mitochondria",
+      "source": null,
+      "context": "Furthermore, Hyp attenuated ZEA exposure-induced Gpx4 interaction with FUNDC1 and reversed the recruitment and degradation of glutathione peroxidase 4 to mitochondria.",
+      "difficulty": "medium",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0068",
+      "question": "What type of cells are required for the persistence of allergen-specific cells in the skin?",
+      "answer": "CD8+ TRM cells",
+      "source": null,
+      "context": "are required for the persistence of allergen-specific CD8+ TRM cells in the skin.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0069",
+      "question": "Where are the allergen-specific CD8+ TRM cells required to persist?",
+      "answer": "the skin",
+      "source": null,
+      "context": "are required for the persistence of allergen-specific CD8+ TRM cells in the skin.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0070",
+      "question": "What methods were used to assess cardiac involvement?",
+      "answer": "Cardiac symptoms, NT-Pro-BNP levels, Troponin I levels, electrocardiography, and echocardiography including global longitudinal strain (GLS)",
+      "source": null,
+      "context": "involvement. This included cardiac symptoms, NT-Pro-BNP levels, Troponin I levels, electrocardiography, and echocardiography including global longitudinal strain (GLS).",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0071",
+      "question": "What imaging tests were used to confirm the presence of cardiac involvement?",
+      "answer": "Cardiac MRI or radionuclide cardiac imaging",
+      "source": null,
+      "context": "Patients who were positive for any underwent cardiac MRI or radionuclide cardiac imaging to confirm the presence of cardiac",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0072",
+      "question": "What was the low cell voltage achieved to reach a current density of 10 mA cm-2?",
+      "answer": "1.59 V",
+      "source": null,
+      "context": "Notably, it achieved a low cell voltage of 1.59 V to reach a current density of 10 mA cm-2",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0073",
+      "question": "Why was the performance of the catalyst enhanced?",
+      "answer": "Due to the amorphous structure of the catalyst, high",
+      "source": null,
+      "context": "Characterization studies revealed that the enhanced performance was due to the amorphous structure of the catalyst, high",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0074",
+      "question": "What is the focus of the study regarding the glymphatic system function?",
+      "answer": "The relationship between glymphatic system function and thalassemia severity",
+      "source": null,
+      "context": "relationship between glymphatic system function and thalassemia severity, particularly in patients with transfusion-dependent and non-transfusion-dependent thalassemia",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0075",
+      "question": "How many thalassemia patients were included in the study?",
+      "answer": "40",
+      "source": null,
+      "context": "The study included a population of 40 thalassemia patients (TM, n = 40) confirmed through genetic testing",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0076",
+      "question": "What were the key barrier themes identified in the screening process?",
+      "answer": "Six key barrier themes: (1) language and health system navigation, (2) cost, transportation, and time, (3) health knowledge and exposure, (4) fear of cancer screening and diagnosis, (5) cultural and religious",
+      "source": null,
+      "context": "included screening barriers, screening rates, and sample demographics. Six key barrier themes were identified: (1) language and health system navigation, (2) cost, transportation, and time, (3) health knowledge and exposure, (4) fear of cancer screening and diagnosis, (5) cultural and religious",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0077",
+      "question": "What aspects of healthcare were included in the screening process?",
+      "answer": "screening barriers, screening rates, and sample demographics",
+      "source": null,
+      "context": "included screening barriers, screening rates, and sample demographics. Six key barrier themes were identified: (1) language and health system navigation, (2) cost, transportation, and time, (3) health knowledge and exposure, (4) fear of cancer screening and diagnosis, (5) cultural and religious",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0078",
+      "question": "What is the goal of developing better variants of ω-TAs?",
+      "answer": "to enhance the biotransformation of unnatural substrates",
+      "source": null,
+      "context": "Development of better variants of ω-TAs is hence essential for biotransformation of unnatural substrates.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0079",
+      "question": "What is the target biotransformation product of (R)-phenylacetylcarbinol?",
+      "answer": "(1R, 2S)-norephedrine",
+      "source": null,
+      "context": "to engineer enzymes that enhance the biotransformation of (R)-phenylacetylcarbinol to (1R, 2S)-norephedrine",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0080",
+      "question": "What type of sequencing was performed on eight IBD-patient faecal stools?",
+      "answer": "Shotgun metagenomic sequencing",
+      "source": null,
+      "context": "Shotgun metagenomic sequencing was performed on eight IBD-patient faecal stools.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0081",
+      "question": "Which bacteria reduced thiopurine concentrations and cytotoxicity when incubated with thiopurines?",
+      "answer": "K. pneumoniae",
+      "source": null,
+      "context": "Incubation of thiopurines with K. pneumoniae, but not Escherichia coli and Salmonella enterica, reduced thiopurine concentrations and cytotoxicity on NALM6 and",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0082",
+      "question": "When was the study conducted?",
+      "answer": "January to March 2023",
+      "source": null,
+      "context": "The study was conducted from January to March 2023.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0083",
+      "question": "How many respondents participated in the study?",
+      "answer": "249",
+      "source": null,
+      "context": "A total of 249 respondents including 9 policymakers and 240 public participants",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0084",
+      "question": "What techniques were used to measure esterase activity, membrane permeability, and photosynthetic activity?",
+      "answer": "Flow cytometry and pulse-amplitude modulated fluorometry",
+      "source": null,
+      "context": "esterase activity, membrane permeability, and photosynthetic activity, using flow cytometry and pulse-amplitude modulated fluorometry",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0085",
+      "question": "Which endpoint was most affected by noise exposure in all species?",
+      "answer": "Esterase activity",
+      "source": null,
+      "context": "All species exhibited significant reductions in cell size and granularity following noise exposure, with esterase activity being the most affected endpoint",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0086",
+      "question": "What populations are being studied in relation to PFAS exposure?",
+      "answer": "The occupational population and the general population from different countries",
+      "source": null,
+      "context": "and the general population from different countries. A systematic summary is made from the external exposure environment, exposure pathways, internal exposure levels, and health effects of the occupational population.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0087",
+      "question": "What processes increase PFAS levels?",
+      "answer": "The manufacturing, use, and disposal processes of PFAS",
+      "source": null,
+      "context": "The manufacturing, use, and disposal processes of PFAS increase their",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0088",
+      "question": "What collaboration's results are used to demonstrate the process?",
+      "answer": "ANL/BNL collaboration",
+      "source": null,
+      "context": "and use the results of the pion valence quark distribution from the ANL/BNL collaboration to demonstrate how this can be done.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0089",
+      "question": "What is being demonstrated using the pion valence quark distribution results?",
+      "answer": "how this can be done",
+      "source": null,
+      "context": "and use the results of the pion valence quark distribution from the ANL/BNL collaboration to demonstrate how this can be done.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0090",
+      "question": "What do BCAAs contribute to in cancer development?",
+      "answer": "Immune evasion and resistance to therapies such as chemotherapy and immune checkpoint inhibitors",
+      "source": null,
+      "context": "promoting immunosuppressive conditions and increasing the survival rate of cancer stem cells (CSCs), BCAAs contribute to immune evasion and resistance to therapies such as chemotherapy and immune checkpoint inhibitors",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0091",
+      "question": "What is the focus of the article regarding BCAAs?",
+      "answer": "The different metabolic reprogramming patterns of BCAAs",
+      "source": null,
+      "context": "This article explores the different metabolic reprogramming patterns of BCAAs in",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0092",
+      "question": "What is atopic dermatitis (AD)?",
+      "answer": "Atopic dermatitis (AD) is a common and chronic skin disease",
+      "source": null,
+      "context": "Atopic dermatitis (AD) is a common and chronic skin disease that adversely impacts physical, mental, and social health.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0093",
+      "question": "Why are patient-reported outcomes (PROs) important for atopic dermatitis (AD)?",
+      "answer": "Because patients' experience of AD may not correlate with traditional clinician-reported assessments of disease burden",
+      "source": null,
+      "context": "Because patients' experience of AD may not correlate with traditional clinician-reported assessments of disease burden, patient-reported outcomes (PROs) are important for",
+      "difficulty": "medium",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0094",
+      "question": "What framework was used to define health disparities in the study?",
+      "answer": "PROGRESS-plus framework",
+      "source": null,
+      "context": "Web of Science was conducted using terms related to rhinology topics and health disparities as defined by the PROGRESS-plus framework.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0095",
+      "question": "What guidelines did the review adhere to?",
+      "answer": "Preferred Reporting Items for Systematic reviews and Meta-analyses extension for Scoping Reviews (PRISMA-ScR) guidelines",
+      "source": null,
+      "context": "The review adhered to the Preferred Reporting Items for Systematic reviews and Meta-analyses extension for Scoping Reviews (PRISMA-ScR) guidelines.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0096",
+      "question": "What type of males are used in long-term studies?",
+      "answer": "Sexually mature males",
+      "source": null,
+      "context": "long-term studies using sexually mature males while providing stable social support to animals.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0097",
+      "question": "What is provided to animals in long-term studies?",
+      "answer": "Stable social support",
+      "source": null,
+      "context": "long-term studies using sexually mature males while providing stable social support to animals.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0098",
+      "question": "What type of cancer cells did compound 9a demonstrate exceptional antitumor activity against?",
+      "answer": "Undifferentiated gastric cancer HGC27 cells",
+      "source": null,
+      "context": "Notably, compound <b>9a</b> demonstrated exceptional antitumor activity against undifferentiated gastric cancer HGC27 cells",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0099",
+      "question": "What was the IC50 value of compound 9a against HGC27 cells?",
+      "answer": "0.049 μM",
+      "source": null,
+      "context": "Notably, compound <b>9a</b> demonstrated exceptional antitumor activity against undifferentiated gastric cancer HGC27 cells (IC<sub>50</sub> = 0.049 μM)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0100",
+      "question": "What is the role of CYPs in the body?",
+      "answer": "It catalyzes the oxidative metabolism of several endogenous and exogenous chemicals.",
+      "source": null,
+      "context": "It catalyzes the oxidative metabolism of several endogenous and exogenous chemicals.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0101",
+      "question": "What factors affect the expression and biological functions of CYPs?",
+      "answer": "Environmental factors, genetic variations, and physiological conditions",
+      "source": null,
+      "context": "The expression and biological functions of CYPs are affected by environmental factors, genetic variations, and physiological conditions,",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0102",
+      "question": "What can be used for the diagnosis of inherited venous thromboembolism (VTE)?",
+      "answer": "Plasma-based assays or multigene panel testing",
+      "source": null,
+      "context": "Plasma-based assays or multigene panel testing can be used for the diagnosis of inherited venous thromboembolism (VTE).",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0103",
+      "question": "What percentage of patients showed strictly concordant results between genetic and phenotypic laboratory testing?",
+      "answer": "Half of the patients",
+      "source": null,
+      "context": "Our recent multigene panel data showed strictly concordant results between genetic and phenotypic laboratory testing in only half of the patients.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0104",
+      "question": "What are the negative attitudes and behaviors mentioned in the content?",
+      "answer": "Negative attitudes toward lesbian, gay, bisexual and transgender (LGBT) people and the enactment of sexual orientation (SO) and gender identity (GI) microaggressions",
+      "source": null,
+      "context": "negative attitudes toward lesbian, gay, bisexual and transgender (LGBT) people and the enactment of sexual orientation (SO) and gender identity (GI) microaggressions",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0105",
+      "question": "What type of associations were found among negative attitude, alcohol use severity, and microaggression perpetration?",
+      "answer": "Positive bivariate associations",
+      "source": null,
+      "context": "Positive bivariate associations among negative attitude, alcohol use severity and microaggression perpetration were found",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0106",
+      "question": "How many schools were randomly assigned to either iAmHealthy or the Newsletter Control group?",
+      "answer": "Eighteen",
+      "source": null,
+      "context": "Eighteen schools were randomly assigned to iAmHealthy or the Newsletter Control group.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0107",
+      "question": "What components does iAmHealthy consist of?",
+      "answer": "health coaching and group sessions via televideo",
+      "source": null,
+      "context": "iAmHealthy consists of health coaching and group sessions via televideo.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0108",
+      "question": "What was the percentage reduction in sludge when the recycle activated sludge ratio was increased from 50% to 200%?",
+      "answer": "91%",
+      "source": null,
+      "context": "increasing the recycle activated sludge ratio from 50% to 200% decreased the sludge production from 1000 to 90 g/L, leading to a 91% reduction in sludge",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0109",
+      "question": "What was the percentage reduction in sludge when the concentration was changed from 2.7 to 5 mg/L?",
+      "answer": "89%",
+      "source": null,
+      "context": "from 2.7 to 5 mg/L resulted in an 89% reduction in sludge",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0110",
+      "question": "What is recommended for routine clinical practice based on the findings of MP DNA in young children?",
+      "answer": "It should be considered for early diagnosis and intervention.",
+      "source": null,
+      "context": "of MP DNA found in young children in this study, it is recommended that it should be considered in routine clinical practice for early diagnosis and intervention.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0111",
+      "question": "Why is MP DNA considered important in this study?",
+      "answer": "Because it can aid in early diagnosis and intervention in young children.",
+      "source": null,
+      "context": "of MP DNA found in young children in this study, it is recommended that it should be considered in routine clinical practice for early diagnosis and intervention.",
+      "difficulty": "easy",
+      "type": "inferential",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0112",
+      "question": "What is required to enhance the efficacy of formulations?",
+      "answer": "Incorporating additional stabilizers and optimizing temperature conditions",
+      "source": null,
+      "context": "is required to enhance their efficacy, particularly in improving barrier properties and bioactive compound stability. Future research should focus on refining formulations by incorporating additional stabilizers and optimizing temperature conditions",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0113",
+      "question": "What aspects of formulations should future research focus on enhancing?",
+      "answer": "The preservation and safety aspects",
+      "source": null,
+      "context": "Future research should focus on refining formulations by incorporating additional stabilizers and optimizing temperature conditions to enhance the preservation and safety aspects",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0114",
+      "question": "What was the transfer efficiency for WJ-MSCs?",
+      "answer": "99.62%",
+      "source": null,
+      "context": "Mitochondria tracking showed high transfer efficiencies (99.62 % for WJ-MSCs, 91.34 % for BM-MSCs)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0115",
+      "question": "What was the transfer efficiency for BM-MSCs?",
+      "answer": "91.34%",
+      "source": null,
+      "context": "Mitochondria tracking showed high transfer efficiencies (99.62 % for WJ-MSCs, 91.34 % for BM-MSCs)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0116",
+      "question": "What was the AUC value of the clinical plan?",
+      "answer": "0.51",
+      "source": null,
+      "context": "while the clinical plan showed AUC = 0.51 and no positive OR.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0117",
+      "question": "How did the clinical brachytherapy plans perform in terms of tumor coverage and organ sparing?",
+      "answer": "The plans showed worse tumor coverage, worse urethra sparing but better rectal sparing.",
+      "source": null,
+      "context": "clinical brachytherapy plans showed worse tumor coverage, worse urethra sparing but better rectal sparing.",
+      "difficulty": "medium",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0118",
+      "question": "Why is individualized treatment necessary?",
+      "answer": "to highlight the necessity of individualized treatment concepts",
+      "source": null,
+      "context": "to highlight the necessity of individualized treatment concepts",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0119",
+      "question": "What type of injury patterns are becoming more common in Central Europe?",
+      "answer": "blast or gunshot wounds",
+      "source": null,
+      "context": "unfamiliar injury patterns, such as blast or gunshot wounds",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0120",
+      "question": "What type of malignancy is HNSCC?",
+      "answer": "A highly aggressive malignancy",
+      "source": null,
+      "context": "Head and neck squamous cell carcinoma (HNSCC) is a highly aggressive malignancy",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0121",
+      "question": "What role does the tumor microenvironment play in HNSCC?",
+      "answer": "It plays a pivotal role in tumor initiation, progression, and immune evasion",
+      "source": null,
+      "context": "characterized by a complex tumor microenvironment (TME) that plays a pivotal role in tumor initiation, progression, and immune evasion",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0122",
+      "question": "What assists cobalt atoms in the formation of a magnetic 2D MOF?",
+      "answer": "annealing",
+      "source": null,
+      "context": "cobalt atoms assisted by annealing",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0123",
+      "question": "What type of ligands enables the formation of a magnetic 2D MOF with strong π-d electron interactions?",
+      "answer": "radical asymmetric organic ligands",
+      "source": null,
+      "context": "the usage of radical asymmetric organic ligands enables us to form a magnetic 2D MOF with strong π-d electron interactions",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0124",
+      "question": "What method was used to quantify compound-specific sweetness contributions?",
+      "answer": "Gradient monomer recombination experiments",
+      "source": null,
+      "context": "gradient monomer recombination experiments quantified compound-specific sweetness contributions.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0125",
+      "question": "Which compound demonstrated optimal potency and palatability as a sweetness enhancer?",
+      "answer": "α-ionone",
+      "source": null,
+      "context": "Sensory evaluation revealed α-ionone, linalool, and sclareolide as superior enhancers, with α-ionone demonstrating optimal potency and palatability.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0126",
+      "question": "What percentage of people who used drugs reported willingness to use PHVMs if they were available?",
+      "answer": "56%",
+      "source": null,
+      "context": "Prior to implementation, we conducted a survey among people who used drugs (N = 227) on Reservation lands and found that most (56%) reported willingness to use PHVMs if they were available.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0127",
+      "question": "How many people who used drugs participated in the survey on Reservation lands?",
+      "answer": "227",
+      "source": null,
+      "context": "Prior to implementation, we conducted a survey among people who used drugs (N = 227) on Reservation lands and found that most (56%) reported willingness to use PHVMs if they were available.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0128",
+      "question": "What do natural supplements offer to aquaculture?",
+      "answer": "sustainable alternatives to antibiotics",
+      "source": null,
+      "context": "These natural supplements offer sustainable alternatives to antibiotics, addressing disease outbreaks and poor feed efficiency common in intensive aquaculture.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0129",
+      "question": "What is supported by the use of natural supplements in aquaculture?",
+      "answer": "eco-friendly practices",
+      "source": null,
+      "context": "Their use supports eco-friendly practices while improving fish performance and overall farm productivity.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0130",
+      "question": "What has been recommended as a non-pharmacological treatment for asthma?",
+      "answer": "Aerobic exercise",
+      "source": null,
+      "context": "Aerobic exercise has been recommended as a non-pharmacological treatment for asthma.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0131",
+      "question": "What does circMETTL9 regulate according to previous studies?",
+      "answer": "cellular inflammation, apoptosis, and oxidative stress levels",
+      "source": null,
+      "context": "Previous studies have shown that circMETTL9 regulates cellular inflammation, apoptosis, and oxidative stress levels.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0132",
+      "question": "What was the age of the child with colocolic megacolon intussusception?",
+      "answer": "6 years old",
+      "source": null,
+      "context": "This report narrates our experience in the management of a 6-year-old child with a colocolic megacolon intussusception.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0133",
+      "question": "How was the long-standing colicky abdominal pain initially interpreted?",
+      "answer": "as a food allergy",
+      "source": null,
+      "context": "Long-standing colicky abdominal pain was interpreted as a food allergy, and this was a",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0134",
+      "question": "What are Atypical Parathyroid Tumors (APTs) characterized by?",
+      "answer": "diagnostic challenges and an uncertain prognosis",
+      "source": null,
+      "context": "Atypical parathyroid tumors (APTs) are a rare subtype of parathyroid neoplasms characterized by diagnostic challenges and an uncertain prognosis.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0135",
+      "question": "What method was used to validate the subtypes of APTs in this study?",
+      "answer": "transcriptome sequencing",
+      "source": null,
+      "context": "This study aimed to validate the subtypes of APTs using transcriptome sequencing.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0136",
+      "question": "What is the purpose of conducting a systematic search in the context of caregiving for someone with PD?",
+      "answer": "To identify needs in caregiving for someone with PD and to identify research gaps in the existing literature to guide future research.",
+      "source": null,
+      "context": "about needs in caregiving for someone with PD from both qualitative and quantitative papers; and (2) to identify research gaps in the existing literature to guide future research.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0137",
+      "question": "Which databases were searched for both qualitative and quantitative papers on caregiving for someone with PD?",
+      "answer": "PubMed, CINAHL, PsychINFO, and MEDLINE",
+      "source": null,
+      "context": "A systematic search was conducted, searching PubMed, CINAHL, PsychINFO, and MEDLINE for both qualitative and",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0138",
+      "question": "When is chronic stress evaluated in the experiment?",
+      "answer": "at the end of the 10-day experiment",
+      "source": null,
+      "context": "Chronic stress is evaluated by whole-body cortisol measurement at the end of the 10-day experiment.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0139",
+      "question": "How is acute stress evaluated in the experiment?",
+      "answer": "by whole-body cortisol measurement 30 min after single anesthesia",
+      "source": null,
+      "context": "Additionally, acute stress is evaluated by whole-body cortisol measurement 30 min after single anesthesia in five groups:",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0140",
+      "question": "What are the two reactions catalyzed by TedH?",
+      "answer": "ether bridge formation and regio/stereoselective C-13 hydroxylation",
+      "source": null,
+      "context": "TedH, catalyzes both ether bridge formation and regio/stereoselective C-13 hydroxylation to construct the intricate polycyclic ring system.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0141",
+      "question": "What is the purpose of the reactions catalyzed by TedH?",
+      "answer": "to construct the intricate polycyclic ring system",
+      "source": null,
+      "context": "TedH, catalyzes both ether bridge formation and regio/stereoselective C-13 hydroxylation to construct the intricate polycyclic ring system.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0142",
+      "question": "What type of crystal is α-MoO3?",
+      "answer": "α-MoO3 is a biaxial hyperbolic van der Waals (vdW) crystal",
+      "source": null,
+      "context": "The α-phase molybdenum trioxide (α-MoO3), a biaxial hyperbolic van der Waals (vdW) crystal, supports highly confined and anisotropic phonon polaritons (PhPs), positioning it as a superior platform for mid-infrared light manipulation.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0143",
+      "question": "What depends on the performance of PhP-based devices?",
+      "answer": "The performance of PhP-based devices critically depends on some factors, but the specific factors are not mentioned in this text",
+      "source": null,
+      "context": "The performance of PhP-based devices critically depends",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0144",
+      "question": "What is the median time-to-onset (TTO) of adverse drug events (ADEs) after pemetrexed initiation?",
+      "answer": "27 days",
+      "source": null,
+      "context": "TTO analysis revealed that most ADEs occurred within the first two months after pemetrexed initiation, with a median TTO of 27 days",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0145",
+      "question": "When do most adverse drug events (ADEs) occur after starting pemetrexed treatment?",
+      "answer": "Within the first two months",
+      "source": null,
+      "context": "TTO analysis revealed that most ADEs occurred within the first two months after pemetrexed initiation",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0146",
+      "question": "What was the percentage decrease in effective moisture diffusivity during the second falling rate period?",
+      "answer": "51.1%",
+      "source": null,
+      "context": "of effective moisture diffusivity by 51.1 % during the second falling rate period",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0147",
+      "question": "What was the effect of the strategy on the resistance to internal moisture migration in sludge matrix?",
+      "answer": "It significantly decreased the resistance",
+      "source": null,
+      "context": "and significantly decreased the resistance to internal moisture migration in sludge matrix",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0148",
+      "question": "What plays a critical role in the onset and progression of Atherosclerosis (AS)?",
+      "answer": "Mitochondrial dysfunction",
+      "source": null,
+      "context": "Mitochondrial dysfunction plays a critical role in the onset and progression of Atherosclerosis (AS).",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0149",
+      "question": "What is UQCRB a subunit of?",
+      "answer": "The mitochondrial respiratory chain",
+      "source": null,
+      "context": "The ubiquinol-cytochrome c reductase binding protein (UQCRB) is an essential subunit of the mitochondrial respiratory chain.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0150",
+      "question": "What was the significance of the variation in sensitivities to ceftazidime-avibactam, aztreonam, and amikacin?",
+      "answer": "The variation was significant at p < 0.01",
+      "source": null,
+      "context": "sensitivities to ceftazidime-avibactam, aztreonam, and amikacin varied significantly (p < 0.01)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0151",
+      "question": "Which ST strain of CRKP was predominant in the region?",
+      "answer": "ST11 strains",
+      "source": null,
+      "context": "Analysis of the MLST results for CRKP revealed that ST11 strains were predominant in the region",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0152",
+      "question": "What is the time frame considered for paragangliomas (HNPG) in the given content?",
+      "answer": "up to December 2024",
+      "source": null,
+      "context": "paragangliomas (HNPG) up to December 2024",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0153",
+      "question": "What were the keywords included in the study?",
+      "answer": "'Glomus,' 'SRS,' 'Gamma Knife Radiosurgery,' and 'CyberKnife'",
+      "source": null,
+      "context": "Keywords included 'Glomus,' 'SRS,' 'Gamma Knife Radiosurgery,' and 'CyberKnife'",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0154",
+      "question": "What method is employed for long short-term memory multi-head self-attention network?",
+      "answer": "BMNet method",
+      "source": null,
+      "context": "long short-term memory multi-head self-attention network (BMNet) method is employed.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0155",
+      "question": "What algorithm is used for hyperparameter tuning to enhance the classification outcomes of the BMNet model?",
+      "answer": "Secretary bird optimizer algorithm (SBOA) method",
+      "source": null,
+      "context": "the hyperparameter tuning is accomplished by implementing the secretary bird optimizer algorithm (SBOA) method to enhance the classification outcomes of the BMNet model.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0156",
+      "question": "What is the effect of MT on the catalytic process of Ru-C3N4?",
+      "answer": "MT can inhibit this catalytic process, leading to partial recovery of the fluorescence of Ru-C3N4.",
+      "source": null,
+      "context": "MT can inhibit this catalytic process, leading to partial recovery of the fluorescence of Ru-C3N4 and the decrease in UV-vis signal of the reaction system, as well as the gradual fading of the yellow color of the reaction solution.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0157",
+      "question": "What happens to the yellow color of the reaction solution when MT inhibits the catalytic process?",
+      "answer": "The yellow color of the reaction solution gradually fades.",
+      "source": null,
+      "context": "MT can inhibit this catalytic process, leading to partial recovery of the fluorescence of Ru-C3N4 and the decrease in UV-vis signal of the reaction system, as well as the gradual fading of the yellow color of the reaction solution.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0158",
+      "question": "What is the effect of TM on gait performance compared to PT?",
+      "answer": "TM has a positive effect on gait performance.",
+      "source": null,
+      "context": "TM has a positive effect on gait performance, as indicated by GPS and increased activity in the right rectus femoris muscle when compared to PT.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0159",
+      "question": "Were there any complications detected between the two treatments?",
+      "answer": "No",
+      "source": null,
+      "context": "no complication was detected.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0160",
+      "question": "What is the purpose of SpsMDP1 in S. psammophila?",
+      "answer": "to defend against salt stress by scavenging reactive oxygen species",
+      "source": null,
+      "context": "to defend against salt stress by scavenging reactive oxygen species",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0161",
+      "question": "What do the results provide a foundation for?",
+      "answer": "better understanding the function of SpsMDP1 in response to salt in S. psammophila and identifying candidate genes for transgenic salt resistance breeding",
+      "source": null,
+      "context": "Our results provide a foundation for better understanding the function of SpsMDP1 in response to salt in S. psammophila and identifying candidate genes for transgenic salt resistance breeding",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0162",
+      "question": "What was the time limit for the literature search?",
+      "answer": "from the database establishment to 1 April 2024",
+      "source": null,
+      "context": "time limit was from the database establishment to 1 April 2024.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0163",
+      "question": "How many papers were ultimately included in the evaluation?",
+      "answer": "19",
+      "source": null,
+      "context": "A total of 19 papers were ultimately included,",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0164",
+      "question": "What may HCQ be associated with according to the literature?",
+      "answer": "short-term psychiatric adverse effects",
+      "source": null,
+      "context": "Based on the literature, HCQ may be associated with short-term psychiatric adverse effects.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0165",
+      "question": "What would help guide the differentiation of a primary psychiatric disorder from a drug-induced adverse effect?",
+      "answer": "A psychiatric consultation for a thorough clinical and risk factor evaluation",
+      "source": null,
+      "context": "A psychiatric consultation for a thorough clinical and risk factor evaluation to differentiate a primary psychiatric disorder from a drug induced adverse effect would help guide the",
+      "difficulty": "medium",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0166",
+      "question": "What was the objective of the study?",
+      "answer": "To examine mortality among residents of a permanent supportive housing program serving people who were previously homeless.",
+      "source": null,
+      "context": "The objective of this study was to examine mortality among residents of a permanent supportive housing program serving people who were previously homeless.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0167",
+      "question": "Where was the 145-unit supportive housing program located?",
+      "answer": "Toronto, Canada",
+      "source": null,
+      "context": "Deaths were identified among individuals who resided in a 145-unit supportive housing program in Toronto, Canada, between January 1, 2018, and",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0168",
+      "question": "What percentage of patients were in the RDN group?",
+      "answer": "28.5%",
+      "source": null,
+      "context": "Of 841 patients, 240 (28.5%) were in the RDN group versus 601 patients (71.5%) in the non-RDN group.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0169",
+      "question": "How many patients were in the non-RDN group?",
+      "answer": "601",
+      "source": null,
+      "context": "Of 841 patients, 240 (28.5%) were in the RDN group versus 601 patients (71.5%) in the non-RDN group.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0170",
+      "question": "What was generated for exploration and analysis of gene and protein levels?",
+      "answer": "A herbs-components-targets-pathways (HCTP) network",
+      "source": null,
+      "context": "Additionally, a herbs-components-targets-pathways (HCTP) network was generated for exploration and analysis.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0171",
+      "question": "What technique was used to examine the binding activity between screened components and targets?",
+      "answer": "Molecular docking",
+      "source": null,
+      "context": "Molecular docking was utilized for an in-depth examination of the binding activity between screened components and targets.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0172",
+      "question": "What was the purpose of the study?",
+      "answer": "To gain an insight into the possible mechanism of pathogenesis of hypomineralisation through a proteomic investigation of test enamel of HSPM vs the control enamel of Second Primary Molars.",
+      "source": null,
+      "context": "The purpose of this study was a proteomic investigation of test enamel of HSPM vs the control enamel of Second Primary Molars, to gain an insight into the possible mechanism of pathogenesis of hypomineralisation.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0173",
+      "question": "How were the enamel samples prepared for analysis?",
+      "answer": "Enamel sample blocks were sectioned and processed for label-free quantitation.",
+      "source": null,
+      "context": "Enamel sample blocks were sectioned and processed for label-free quantitation of",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0174",
+      "question": "How much does the luminescence intensity increase under a pressure of 9 GPa?",
+      "answer": "32-fold",
+      "source": null,
+      "context": "We demonstrate that the luminescence intensity increases by a remarkable 32-fold under a pressure of 9 GPa.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0175",
+      "question": "What type of simulations are used in combination with photophysical methods?",
+      "answer": "Quantum mechanics/molecular mechanics (QM/MM) simulations",
+      "source": null,
+      "context": "Combining quantum mechanics/molecular mechanics (QM/MM) simulations and photophysical",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0176",
+      "question": "What is the main goal of this review?",
+      "answer": "to outline the key pathophysiological changes observed in critically ill patients and their influence on antimicrobial dosing decisions",
+      "source": null,
+      "context": "This review aims to outline the key pathophysiological changes observed in critically ill patients and their influence on antimicrobial dosing decisions",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0177",
+      "question": "What do the guidelines aim to provide to help clinicians?",
+      "answer": "practical considerations to help clinicians optimize antimicrobial therapy",
+      "source": null,
+      "context": "while also providing practical considerations to help clinicians optimize antimicrobial therapy in",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0178",
+      "question": "What type of condition is insomnia disorder (ID) considered to be?",
+      "answer": "Insomnia disorder (ID) is considered to be not merely a psychiatric condition but also closely related to cardiovascular health.",
+      "source": null,
+      "context": "Insomnia disorder (ID) is not merely a psychiatric condition but is also closely related to cardiovascular health.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0179",
+      "question": "What remains poorly understood regarding insomnia disorder (ID)?",
+      "answer": "The role of brain-heart interplay (BHI) in the pathophysiology of ID, as well as the impact of transcranial current stimulation (tACS) on BHI, remains poorly understood.",
+      "source": null,
+      "context": "However, the role of brain-heart interplay (BHI) in the pathophysiology of ID, as well as the impact of transcranial current stimulation (tACS) on BHI, remains poorly understood.",
+      "difficulty": "medium",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0180",
+      "question": "What is being evaluated in the retrospective service evaluation?",
+      "answer": "the 12-month effectiveness, feasibility, acceptability, and potential cost-effectiveness of Second Nature's remotely-delivered, semaglutide-supported weight management program",
+      "source": null,
+      "context": "To evaluate the 12-month effectiveness, feasibility, acceptability, and potential cost-effectiveness of Second Nature's remotely-delivered, semaglutide-supported weight management program.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0181",
+      "question": "Why is the evaluation being conducted?",
+      "answer": "because the evidence for long-term effectiveness in this real-world context is limited",
+      "source": null,
+      "context": "for long-term effectiveness in this real-world context is limited",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0182",
+      "question": "What is the resolution of the Kestrel's comprehensive plate imaging?",
+      "answer": "9.6 µm",
+      "source": null,
+      "context": "the Kestrel provides comprehensive plate imaging at 9.6 µm resolution",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0183",
+      "question": "What type of assays were used to validate the Kestrel system?",
+      "answer": "zebrafish embryonic photomotor response (EPR) assays",
+      "source": null,
+      "context": "We validated the system using zebrafish embryonic photomotor response (EPR) assays",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0184",
+      "question": "What years did the patients with cancer complicated by ILD undergo lung resection at the department?",
+      "answer": "Between 2010 and 2019",
+      "source": null,
+      "context": "cancer complicated by ILD who underwent lung resection at our department between 2010 and 2019",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0185",
+      "question": "How were patients classified based on the CONUT score?",
+      "answer": "Into three groups: normal (0-1 points), mildly undernourished (2-4 points), and moderately undernourished (5-8 points)",
+      "source": null,
+      "context": "Based on the CONUT score, patients were classified into three groups: normal (0-1 points), mildly undernourished (2-4 points), and moderately undernourished (5-8 points)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0186",
+      "question": "What is the significance of rational design of nanozymes in colorimetric biosensing platforms?",
+      "answer": "The rational design of nanozymes with remarkable catalytic activity remains pivotal for advancing colorimetric biosensing platforms.",
+      "source": null,
+      "context": "The rational design of nanozymes with remarkable catalytic activity remains pivotal for advancing colorimetric biosensing platforms.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0187",
+      "question": "What are the advantages of using graphitic carbon nitride as a photocatalytic material?",
+      "answer": "Its cost-effectiveness, ease of fabrication",
+      "source": null,
+      "context": "Graphitic carbon nitride (g-C<sub>3</sub>N<sub>4</sub>) has emerged as a captivating photocatalytic material given its cost-effectiveness, ease of fabrication",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0188",
+      "question": "What type of training was performed in APP/PS1 mice?",
+      "answer": "Chronic treadmill training",
+      "source": null,
+      "context": "Chronic treadmill training (8 weeks, 4 sessions/week) was performed in APP/PS1 mice to evaluate hippocampal adaptations through functional tests, imaging, and molecular analyses.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0189",
+      "question": "What was inhibited by acute FK506 administration?",
+      "answer": "Ppp3ca and Ppp3r1",
+      "source": null,
+      "context": "Acute FK506 administration inhibited Ppp3ca and Ppp3r1",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0190",
+      "question": "What was the mean visual analog scale score preoperatively?",
+      "answer": "9",
+      "source": null,
+      "context": "Preoperatively, the mean visual analog scale score was 9.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0191",
+      "question": "What was the mean visual analog scale score after 12 months in four patients?",
+      "answer": "2.25",
+      "source": null,
+      "context": "In four patients, the score further decreased to 3.0 after 6 months and 2.25 after 12 months,",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0192",
+      "question": "What is the focus of the agricultural practices mentioned?",
+      "answer": "sustainable water management and enhancing food and water security",
+      "source": null,
+      "context": "agricultural practices with sustainable water management and enhancing food and water security in water-scarce regions.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0193",
+      "question": "Where are these agricultural practices applied?",
+      "answer": "water-scarce regions",
+      "source": null,
+      "context": "agricultural practices with sustainable water management and enhancing food and water security in water-scarce regions.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0194",
+      "question": "What were the endpoints for evaluating the effectiveness of roxadustat?",
+      "answer": "Hemoglobin changes from baseline and the proportion of patients who achieved mean hemoglobin ≥100 g/L",
+      "source": null,
+      "context": "endpoints were hemoglobin changes from baseline and the proportion of patients who achieved mean hemoglobin ≥100 g/L",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0195",
+      "question": "What populations were included in the effectiveness evaluable populations EE1 and EE2?",
+      "answer": "Roxadustat-naïve patients in EE1 and previously roxadustat-treated patients in EE2",
+      "source": null,
+      "context": "Effectiveness evaluable populations 1 (EE1) and EE2 included roxadustat-naïve and previously roxadustat-treated patients, respectively",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0196",
+      "question": "What is the name of the new technological solution used in the study?",
+      "answer": "eHeart",
+      "source": null,
+      "context": "a new technological solution, named eHeart",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0197",
+      "question": "What are the domains of functional capacity that the study aims to assess?",
+      "answer": "cardiorespiratory fitness, quality of life, strength, and flexibility",
+      "source": null,
+      "context": "on functional capacity domains by assessing pre- and post-effects on cardiorespiratory fitness, quality of life, strength, and flexibility",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0198",
+      "question": "What is enhanced by the solution that simplifies array coil tuning on-the-fly?",
+      "answer": "The performance and controllability of array-based medical imaging equipment",
+      "source": null,
+      "context": "eddy and copper losses, simplifies array coil tuning on-the-fly, and can be adapted to various gradient coils. It enhances the performance and controllability of array-based medical imaging equipment affected by eddy currents.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0199",
+      "question": "What type of currents affect the medical imaging equipment mentioned in the content?",
+      "answer": "Eddy currents",
+      "source": null,
+      "context": "eddy and copper losses, simplifies array coil tuning on-the-fly, and can be adapted to various gradient coils. It enhances the performance and controllability of array-based medical imaging equipment affected by eddy currents.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0200",
+      "question": "What is the impact of sarcopenia on healthcare?",
+      "answer": "Sarcopenia elevates risks of disability, frailty, and mortality, contributing to healthcare burdens.",
+      "source": null,
+      "context": "to healthcare burdens by elevating risks of disability, frailty, and mortality.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0201",
+      "question": "What are the cornerstone treatments for managing sarcopenia?",
+      "answer": "Resistance exercise and protein supplementation",
+      "source": null,
+      "context": "While resistance exercise and protein supplementation form the cornerstone of management,",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0202",
+      "question": "What protein is expressed in muscle as a result of exercise?",
+      "answer": "Midkine (MDK)",
+      "source": null,
+      "context": "exercise promotes midkine (MDK) expression in muscle",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0203",
+      "question": "What is the effect of MDK on macrophage efferocytosis?",
+      "answer": "MDK significantly enhances macrophage efferocytosis",
+      "source": null,
+      "context": "MDK significantly enhanced macrophage efferocytosis in a low-density",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0204",
+      "question": "What is characterized by a common structural domain at their C-terminus in TRAFs?",
+      "answer": "A class of signal transduction adapter proteins",
+      "source": null,
+      "context": "Tumor necrosis factor receptor-associated factors (TRAFs) are a class of signal transduction adapter proteins characterized by a common structural domain at their C-terminus.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0205",
+      "question": "How many family members of TRAFs are there in mammals?",
+      "answer": "Seven (TRAF1-7)",
+      "source": null,
+      "context": "Compared with seven family members (TRAF1-7) in mammals, TRAFs mediate innate and adaptive immune responses, regulate",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0206",
+      "question": "What factors strongly influenced the self-assembly of LNPs?",
+      "answer": "Molecular weight and contact angle",
+      "source": null,
+      "context": "molecular weight, and contact angle (R<sup>2</sup> > 0.84) strongly influenced the self-assembly of LNPs.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0207",
+      "question": "What range of ultraviolet wavelengths do LNPs protect against?",
+      "answer": "Ultraviolet A wavelengths (320-400 nm)",
+      "source": null,
+      "context": "The application of LNPs has been broadened in UV-blocking materials, particularly for protecting against ultraviolet A wavelengths (320-400 nm).",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0208",
+      "question": "What is the current state of research on in vivo ankle joint kinematics after TAA with an artificial talar prosthesis?",
+      "answer": "Few studies have investigated in vivo ankle joint kinematics after TAA with an artificial talar prosthesis.",
+      "source": null,
+      "context": "However, few studies have investigated in vivo ankle joint kinematics after TAA with an artificial talar prosthesis, and there is a need to evaluate and compare this newer approach with conventional talar implants, which only replace the articular surface of the talus",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0209",
+      "question": "What do conventional talar implants replace?",
+      "answer": "The articular surface of the talus",
+      "source": null,
+      "context": "and there is a need to evaluate and compare this newer approach with conventional talar implants, which only replace the articular surface of the talus",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0210",
+      "question": "Where is iron found in the enameloid?",
+      "answer": "at the inter-crystalline boundaries",
+      "source": null,
+      "context": "of iron, at the inter-crystalline boundaries, and sodium, at the core of the crystals.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0211",
+      "question": "Where is sodium found in the enameloid?",
+      "answer": "at the core of the crystals",
+      "source": null,
+      "context": "of iron, at the inter-crystalline boundaries, and sodium, at the core of the crystals.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0212",
+      "question": "What is the goal of the BPA-TECH study?",
+      "answer": "to leverage health IT to address racial and ethnic disparities in ADT use among people with type 1 diabetes",
+      "source": null,
+      "context": "The BPA-TECH study aims to leverage health IT to address racial and ethnic disparities in ADT use among people with type 1 diabetes.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0213",
+      "question": "What potential outcome does the BPA-TECH have for diabetes treatment?",
+      "answer": "to promote equity in diabetes",
+      "source": null,
+      "context": "By standardizing the approach to ADT prescribing for people with type 1 diabetes, the BPA-TECH has the potential to promote equity in diabetes",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0214",
+      "question": "What was the patient's diagnosis?",
+      "answer": "node metastasis (pT4a pN3a M0)",
+      "source": null,
+      "context": "node metastasis (pT4a pN3a M0). Postoperative recovery was uneventful, and the patient was discharged on a CAPEOX regimen for adjuvant chemotherapy.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0215",
+      "question": "Why is vigilance important in patients with long-standing gastrojejunostomy?",
+      "answer": "given the risk of malignancy at the anastomotic",
+      "source": null,
+      "context": "given the risk of malignancy at the anastomotic",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0216",
+      "question": "What may be necessary for optimal saucerization?",
+      "answer": "A variety of biters, shavers, and blades",
+      "source": null,
+      "context": "A variety of biters, shavers, and blades may be necessary for optimal saucerization.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0217",
+      "question": "What may facilitate controlling the DLM during saucerization for unstable tears?",
+      "answer": "Traction sutures",
+      "source": null,
+      "context": "For unstable tears, traction sutures may facilitate controlling the DLM during saucerization.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0218",
+      "question": "What affects the model's performance in the localization of rare MI?",
+      "answer": "The quality of the data",
+      "source": null,
+      "context": "methods are purely data-driven, and the quality of the data significantly affects the model's performance, particularly in the localization of rare MI.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0219",
+      "question": "What framework is proposed to guide deep learning models in identifying key elements?",
+      "answer": "A knowledge-driven graph representation learning (KD-GRL) framework",
+      "source": null,
+      "context": "We propose a knowledge-driven graph representation learning (KD-GRL) framework which is designed to guide deep learning models in identifying key",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0220",
+      "question": "Is there a correlation between the mean levels of Estradiol and ER α?",
+      "answer": "Yes, the mean levels of Estradiol are positively correlated with mean levels of ER α.",
+      "source": null,
+      "context": "demonstrated that the mean levels of Estradiol are positively correlated with mean levels of ER α (p value- 0.030)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0221",
+      "question": "Can the levels of E2 be used to predict disease progression?",
+      "answer": "Yes, the levels of E2 can be used as a marker in predicting the progression of disease",
+      "source": null,
+      "context": "The levels of E2 can be used as a marker in predicting the progression of disease from",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0222",
+      "question": "What is the definition of CKD stages G1-G3 in terms of GFR?",
+      "answer": "CKD stages G1-G3 is defined by a GFR of ≥30 mL min^-1/1.73 m^2",
+      "source": null,
+      "context": "CKD (stages G1-G3) is defined by a GFR of ≥30 mL min^-1/1.73 m^2, which indicates normal to moderately reduced kidney function with or without symptoms of impaired kidney function.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0223",
+      "question": "What is indicated by a GFR of ≥30 mL min^-1/1.73 m^2 in CKD stages G1-G3?",
+      "answer": "Normal to moderately reduced kidney function with or without symptoms of impaired kidney function",
+      "source": null,
+      "context": "CKD (stages G1-G3) is defined by a GFR of ≥30 mL min^-1/1.73 m^2, which indicates normal to moderately reduced kidney function with or without symptoms of impaired kidney function.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0224",
+      "question": "What is the role of EVs in intercellular communication?",
+      "answer": "EVs deliver biocargoes, such as miRNA, proteins, and lipids, implicating their involvement in disease pathogenesis and intervention.",
+      "source": null,
+      "context": "role in intercellular communication. EVs are known for their ability to deliver biocargoes, such as miRNA, proteins, and lipids, implicating their involvement in disease pathogenesis and intervention.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0225",
+      "question": "What is explored in the review article regarding EVs?",
+      "answer": "The dual role of EVs in age-related diseases: contributing to",
+      "source": null,
+      "context": "In this review article, we explore the dual role of EVs in age-related diseases: contributing to",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0226",
+      "question": "What two types of residues were mentioned in the content?",
+      "answer": "A basic His and an acidic Glu residue",
+      "source": null,
+      "context": "a basic His and an acidic Glu residue, whose charged states (cationic, zwitterionic, and anionic) were found to be not only dependent on solution pH but also closely related to peptide concentration.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0227",
+      "question": "What two factors are the charged states of the residues dependent on?",
+      "answer": "Solution pH and peptide concentration",
+      "source": null,
+      "context": "whose charged states (cationic, zwitterionic, and anionic) were found to be not only dependent on solution pH but also closely related to peptide concentration.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0228",
+      "question": "How is shipping wet bone samples between labs best done?",
+      "answer": "in glycerol",
+      "source": null,
+      "context": "Shipping wet bone samples between labs is best done in glycerol.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0229",
+      "question": "What are some methods used for cells?",
+      "answer": "fixation, drying, looking at undersides of bone cells, and metallic conductive coating",
+      "source": null,
+      "context": "Methods for cells include fixation, drying, looking at undersides of bone cells, and metallic conductive coating.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0230",
+      "question": "Which proteins did Co-immunoprecipitation experiments validate March6's direct interaction with?",
+      "answer": "p53 and ACSL4",
+      "source": null,
+      "context": "Co-immunoprecipitation (Co-IP) experiments validated the direct interaction between March6 and p53 or ACSL4.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0231",
+      "question": "What happened when ACSL4 or p53 were overexpressed in March6-overexpressing HK-2 cells?",
+      "answer": "It markedly reversed March6's protective effects against H/R-induced damage",
+      "source": null,
+      "context": "Overexpressing ACSL4 or p53 in March6-overexpressing HK-2 cells markedly reversed March6's protective effects against H/R-induced damage and",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0232",
+      "question": "What was the median age at diagnosis?",
+      "answer": "10 months",
+      "source": null,
+      "context": "Median age at diagnosis was 10 months, leading to a substantial median diagnostic delay of 5.7 months.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0233",
+      "question": "What correlated with the age of disease onset?",
+      "answer": "Homocysteine concentrations in plasma",
+      "source": null,
+      "context": "Homocysteine concentrations in plasma correlated with age of disease onset.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0234",
+      "question": "What is required for favorable postoperative results?",
+      "answer": "modern methods of preoperative diagnostics, accumulation of experience by neurosurgeons, adherence to algorithms for choosing a treatment method and current intensive care protocols",
+      "source": null,
+      "context": "Favorable postoperative results require modern methods of preoperative diagnostics, accumulation of experience by neurosurgeons, adherence to algorithms for choosing a treatment method and current intensive care protocols, as well as",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0235",
+      "question": "What kind of results does the treatment demonstrate?",
+      "answer": "favorable clinical and angiographic results",
+      "source": null,
+      "context": "demonstrates favorable clinical and angiographic results",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0236",
+      "question": "What is the potential effect of bromelain on blood glucose levels?",
+      "answer": "Lowering blood glucose levels",
+      "source": null,
+      "context": "Bromelain may stimulate AMPK in muscle cells, enhancing glucose uptake and utilization, potentially lowering blood glucose levels, and benefiting individuals with diabetes.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0237",
+      "question": "What group of individuals may benefit from bromelain supplementation?",
+      "answer": "Individuals with diabetes",
+      "source": null,
+      "context": "Bromelain may stimulate AMPK in muscle cells, enhancing glucose uptake and utilization, potentially lowering blood glucose levels, and benefiting individuals with diabetes.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0238",
+      "question": "In which states were the studies on older adults conducted?",
+      "answer": "Minas Gerais, Rio Grande do Sul, Santa Catarina, Amazonas, Federal District, Ceará, and Piauí",
+      "source": null,
+      "context": "older adults conducted in Belo Horizonte (Minas Gerais), Porto Alegre (Rio Grande do Sul), Araranguá (Santa Catarina), Manaus (Amazonas), Brasília (Federal District), Fortaleza (Ceará), and Teresina (Piauí)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0239",
+      "question": "What method was used to analyze the data from the studies on older adults?",
+      "answer": "Content Analysis",
+      "source": null,
+      "context": "The data were analyzed using Content Analysis",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0240",
+      "question": "What type of cells were previously targeted by WRAP-based nanoparticles?",
+      "answer": "human U87 glioblastoma cells",
+      "source": null,
+      "context": "as previously shown for WRAP-based nanoparticles targeting cyclin-dependent kinase 4 (CDK4) in human U87 glioblastoma cells",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0241",
+      "question": "What was the observed effect of WRAP-based nanoparticles on tumor cell proliferation?",
+      "answer": "only a minor effect",
+      "source": null,
+      "context": "only a minor effect on tumor cell proliferation, as previously shown for WRAP-based nanoparticles targeting cyclin-dependent kinase 4 (CDK4) in human U87 glioblastoma cells",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0242",
+      "question": "What is the effect of combined BA and IA CCBs on clinical outcomes for aSAH patients with vasospasm compared to BA alone?",
+      "answer": "Combined BA and IA CCBs may improve clinical outcomes for aSAH patients with vasospasm without increasing complications compared to BA alone.",
+      "source": null,
+      "context": "Our analysis indicates that combined BA and IA CCBs may improve clinical outcomes for aSAH patients with vasospasm without increasing complications compared to BA alone.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0243",
+      "question": "How does combined therapy compare to CCB in terms of ischemic complications?",
+      "answer": "Combined therapy was associated with a significant increase in ischemic complications compared to CCB.",
+      "source": null,
+      "context": "However, combined therapy was associated with a significant increase in ischemic complications compared to CCB",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0244",
+      "question": "What is the potential benefit of adulthood compared with childhood in terms of follow-up?",
+      "answer": "Less intensive follow-up",
+      "source": null,
+      "context": "adulthood compared with childhood, potentially allowing for less intensive follow-up",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0245",
+      "question": "What should be the basis for individualising follow-up?",
+      "answer": "Associated congenital heart defects and cardiovascular risks",
+      "source": null,
+      "context": "though follow-up should still be individualised based on associated congenital heart defects and cardiovascular risks",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0246",
+      "question": "What is the purpose of guidelines for physicians regarding SCD?",
+      "answer": "to identify disparate clinical conditions that may be symptoms or signs of SCD",
+      "source": null,
+      "context": "physicians in identifying disparate clinical conditions that may be symptoms or signs of SCD",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0247",
+      "question": "What do the guidelines assist physicians with?",
+      "answer": "identifying disparate clinical conditions that may be symptoms or signs of SCD",
+      "source": null,
+      "context": "physicians in identifying disparate clinical conditions that may be symptoms or signs of SCD",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0248",
+      "question": "What percentage of findings are due to moderate constraint?",
+      "answer": "40%",
+      "source": null,
+      "context": "40% due to moderate constraint and 15% due to high constraint",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0249",
+      "question": "What is indicated by the findings from this study?",
+      "answer": "the need for accelerated assistance to rehabilitate health infrastructure and services in Gaza",
+      "source": null,
+      "context": "Findings from this study indicate the need for accelerated assistance to rehabilitate health infrastructure and services in Gaza",
+      "difficulty": "medium",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0250",
+      "question": "What is the effect of Buforin-I on diabetic wound healing?",
+      "answer": "through the regulation of oxidative stress",
+      "source": null,
+      "context": "effect of Buforin-I on diabetic wound healing through the regulation of oxidative stress",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0251",
+      "question": "What is the potential application of Buforin-I?",
+      "answer": "in diabetic wound healing",
+      "source": null,
+      "context": "highlighting the potential application of Buforin-I in diabetic wound healing",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0252",
+      "question": "What was the range of median litter abundance per 100 meters across the seven coastal regions?",
+      "answer": "90 to 259 items/100 m",
+      "source": null,
+      "context": "data grouped on the basis of the seven coastal regions, the median litter abundance ranged from 90 to 259 items/100 m",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0253",
+      "question": "Which regions of Portugal have consistently exhibited the highest litter abundance on beaches?",
+      "answer": "The Lisbon and Central regions",
+      "source": null,
+      "context": "The beaches in the Lisbon and Central regions of Portugal have consistently exhibited the highest",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0254",
+      "question": "What type of spectroscopy has increased sensitivity for the main chemical components found within sporopollenins?",
+      "answer": "Raman spectroscopy",
+      "source": null,
+      "context": "Raman spectroscopy has increased sensitivity for the main chemical components found within sporopollenins.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0255",
+      "question": "How many species of Quercus L. pollen are compared in the study?",
+      "answer": "Five species",
+      "source": null,
+      "context": "a large dataset of Quercus L. pollen, comprising five species in three sections",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0256",
+      "question": "What is the effect of the molecules on the mitochondrial membrane potential?",
+      "answer": "reduce mitochondrial membrane potential",
+      "source": null,
+      "context": "These molecules can bind to the intracellular bacteria, target mitochondria, and generate ROS in situ, reduce mitochondrial membrane potential, subsequently induce autophagy to clear intracellular bacteria, and reduce inflammation.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0257",
+      "question": "What happens to the intracellular bacteria after the molecules induce autophagy?",
+      "answer": "They are cleared",
+      "source": null,
+      "context": "These molecules can bind to the intracellular bacteria, target mitochondria, and generate ROS in situ, reduce mitochondrial membrane potential, subsequently induce autophagy to clear intracellular bacteria, and reduce inflammation.",
+      "difficulty": "medium",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0258",
+      "question": "What type of therapeutic approaches have been developed as a result of this model disease?",
+      "answer": "novel therapeutic approaches, including antigen-specific immunotherapy for autoimmune diseases and chronic inflammatory disorders",
+      "source": null,
+      "context": "has made it a model disease, paving the way for the development of novel therapeutic approaches, including antigen-specific immunotherapy for autoimmune diseases and chronic inflammatory disorders",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0259",
+      "question": "What diseases can antigen-specific immunotherapy be used to treat?",
+      "answer": "autoimmune diseases and chronic inflammatory disorders",
+      "source": null,
+      "context": "has made it a model disease, paving the way for the development of novel therapeutic approaches, including antigen-specific immunotherapy for autoimmune diseases and chronic inflammatory disorders",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0260",
+      "question": "What is the time period covered by the monthly mapping of lakes?",
+      "answer": "2001-2023",
+      "source": null,
+      "context": "monthly mapping of 1.4 million lakes (2001-2023)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0261",
+      "question": "What are the basin-level median user's and producer's accuracies achieved by the approach?",
+      "answer": "93% and 96%, respectively",
+      "source": null,
+      "context": "basin-level median user's and producer's accuracies of 93% and 96%, respectively",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0262",
+      "question": "What was observed in the serum and liver of the IAA+LPS group regarding antioxidant enzymes?",
+      "answer": "Antioxidant enzymes (T-SOD, CAT, GSH-PX) were significantly elevated",
+      "source": null,
+      "context": "antioxidant enzymes (T-SOD, CAT, GSH-PX) were significantly elevated (P < 0.05) in the serum and liver of the IAA+LPS group",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0263",
+      "question": "What was the effect of IAA treatment on hepatocyte necrosis and inflammation?",
+      "answer": "Reduced hepatocyte necrosis and inflammation",
+      "source": null,
+      "context": "Histological analysis revealed reduced hepatocyte necrosis and inflammation in the IAA-treated groups (P < 0.05)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0264",
+      "question": "What was the prevalence rate of lens opacity among the radiological workers?",
+      "answer": "7.21%",
+      "source": null,
+      "context": "Among the 1,456 radiological workers, 105 cases of lens opacity were detected, with a prevalence rate of 7.21%.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0265",
+      "question": "Where were the majority of lens opacities located?",
+      "answer": "The posterior subcapsular region",
+      "source": null,
+      "context": "The majority of lens opacities were located in the posterior subcapsular region, accounting for 52 cases (49.52%, 52/105).",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0266",
+      "question": "What was the purpose of using an effective dose of glycine?",
+      "answer": "to assess the potential involvement of adrenergic receptors in glycine-mediated feed intake",
+      "source": null,
+      "context": "with an effective dose of glycine to assess the potential involvement of adrenergic receptors in glycine-mediated feed intake",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0267",
+      "question": "At what intervals was the cumulative feed consumption measured post-administration?",
+      "answer": "30, 60, and 120 minutes",
+      "source": null,
+      "context": "The cumulative feed consumption was subsequently measured at intervals of 30, 60, and 120 minutes post-administration",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0268",
+      "question": "At what temperature were thiopurines exposed to bacteria in vitro?",
+      "answer": "37°C",
+      "source": null,
+      "context": "Thiopurines were exposed in vitro to bacteria for 4 h at 37°C and drug concentrations measured by UV spectrophotometry.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0269",
+      "question": "How were drug concentrations measured after exposing thiopurines to bacteria?",
+      "answer": "By UV spectrophotometry",
+      "source": null,
+      "context": "Thiopurines were exposed in vitro to bacteria for 4 h at 37°C and drug concentrations measured by UV spectrophotometry.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0270",
+      "question": "What type of questionnaire was EQ-5D-Y-5L introduced as to co-design participants?",
+      "answer": "A 'general health tracking questionnaire'",
+      "source": null,
+      "context": "Co-design participants created resources to introduce EQ-5D-Y-5L as a 'general health tracking questionnaire' and explain its purpose.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0271",
+      "question": "How many service providers participated in the co-design workshops, feedback, and optimisation sessions?",
+      "answer": "Nine",
+      "source": null,
+      "context": "co-design workshops, nine feedback, and two optimisation sessions were conducted with nine service providers, two adolescents, and three caregivers.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0272",
+      "question": "What is involved in green social prescribing?",
+      "answer": "Green social prescribing involves link workers referring people from healthcare systems into nature-based activities.",
+      "source": null,
+      "context": "Green social prescribing involves link workers referring people from healthcare systems into nature-based activities, expected to offer holistic therapeutic experiences.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0273",
+      "question": "What types of activities are people referred to in green social prescribing?",
+      "answer": "walking and gardening groups",
+      "source": null,
+      "context": "we examined the use of referrals and creation of pathways into walking and gardening groups",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0274",
+      "question": "What is the goal of weed management practices?",
+      "answer": "to preserve soil health and ecosystem integrity",
+      "source": null,
+      "context": "weed management practices while preserving soil health and ecosystem integrity",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0275",
+      "question": "What two things should be preserved through weed management practices?",
+      "answer": "soil health and ecosystem integrity",
+      "source": null,
+      "context": "weed management practices while preserving soil health and ecosystem integrity",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0276",
+      "question": "What was the mean cut-off value of the b0 HF map?",
+      "answer": "199",
+      "source": null,
+      "context": "The mean cut-off value of the b0 HF map was 199, with all performances achieved at 1.0.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0277",
+      "question": "What was achieved by the classification of the b0 HF map for fibrotic or lung cancer images?",
+      "answer": "All maximum performances at 1.0",
+      "source": null,
+      "context": "Furthermore, the classification of the b0 HF map for fibrotic or lung cancer images achieved all maximum performances at 1.0.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0278",
+      "question": "What is notable about the share of illicit cigarette packs in Bangladesh?",
+      "answer": "Bangladesh has a low share of illicit cigarette packs.",
+      "source": null,
+      "context": "Bangladesh has a low share of illicit cigarette packs. While surveillance of the illicit cigarette trade is essential, the",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0279",
+      "question": "Is packaging non-compliance a sensitive marker for detecting tax-evaded cigarettes?",
+      "answer": "No",
+      "source": null,
+      "context": "Packaging non-compliance was not a sensitive marker for detecting tax-evaded cigarettes.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0280",
+      "question": "What factors were found to be significant in the analysis of urine samples?",
+      "answer": "excretion, supersaturation of calcium oxalate, and supersaturation of calcium phosphate",
+      "source": null,
+      "context": "excretion (p<0.001), supersaturation of calcium oxalate (p<0.001), and supersaturation of calcium phosphate (p=0.02)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0281",
+      "question": "What happened to candidates who repeated 24-hour urine analyses after interventions for stone prevention?",
+      "answer": "They had an increase in urinary",
+      "source": null,
+      "context": "Candidates approved for donation had an increase in urinary",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0282",
+      "question": "What was observed in individuals with high FMRs despite having low BMI?",
+      "answer": "A significant increase in cancer incidence",
+      "source": null,
+      "context": "example, a significant increase in cancer incidence was also observed in individuals exhibiting high FMRs despite having low BMI.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0283",
+      "question": "What may serve as potential biomarkers for assessing cancer risk?",
+      "answer": "Total and regional FMR",
+      "source": null,
+      "context": "Our findings suggested that both total and regional FMR may serve as potential biomarkers for assessing the risk of overall and site-specific cancers.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0284",
+      "question": "What species were evaluated in the study for serological differences?",
+      "answer": "Paracoccidioides brasiliensis sensu stricto, Paracoccidioides restrepiensis, Paracoccidioides americana, Paracoccidioides",
+      "source": null,
+      "context": "In this study, we evaluated the serological differences of mice experimentally infected with Paracoccidioides brasiliensis sensu stricto, Paracoccidioides restrepiensis, Paracoccidioides americana, Paracoccidioides",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0285",
+      "question": "What was the subject of the evaluation in the study?",
+      "answer": "serological differences of mice experimentally infected with Paracoccidioides species",
+      "source": null,
+      "context": "In this study, we evaluated the serological differences of mice experimentally infected with Paracoccidioides brasiliensis sensu stricto, Paracoccidioides restrepiensis, Paracoccidioides americana, Paracoccidioides",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0286",
+      "question": "What percentage of participants had vitamin D deficiency?",
+      "answer": "29.1%",
+      "source": null,
+      "context": "29.1% of participants had vitamin D deficiency.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0287",
+      "question": "What was the prevalence of retinopathy among the participants?",
+      "answer": "25.6%",
+      "source": null,
+      "context": "The prevalence of microvascular complications was 25.6% for retinopathy, 14.1% for neuropathy, and 40% for nephropathy.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0288",
+      "question": "What was the effect of high levels of XA21 protein in spikelets during anthesis on OsRBL3b?",
+      "answer": "Impaired anther dehiscence and pollen viability, resulting in male sterility and yield reduction",
+      "source": null,
+      "context": "OsRBL3b displayed impaired anther dehiscence and pollen viability, resulting in male sterility and yield reduction with high levels of XA21 protein present in spikelets during anthesis.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0289",
+      "question": "Were the levels of XA21 protein in leaves of osrbl3b mutants normal?",
+      "answer": "Yes",
+      "source": null,
+      "context": "In leaves, osrbl3b mutants expressing XA21 had normal levels of this resistance protein and disease",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0290",
+      "question": "What should future studies do regarding the findings on transfusion strategy in high-risk oncology patients?",
+      "answer": "validate these findings and further explore patient-centered outcomes",
+      "source": null,
+      "context": "Future studies should validate these findings and further explore patient-centered outcomes to refine transfusion strategy in high-risk oncology patients.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0291",
+      "question": "What type of patients are being considered for refinement of transfusion strategy?",
+      "answer": "high-risk oncology patients",
+      "source": null,
+      "context": "to refine transfusion strategy in high-risk oncology patients",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0292",
+      "question": "What was the effect of combined exposure to manganese and iron on tau phosphorylation or Aβ1-42 accumulation?",
+      "answer": "It did not further increase tau phosphorylation or Aβ1-42 accumulation beyond single-metal exposure levels.",
+      "source": null,
+      "context": "combined exposure to manganese and iron did not further increase tau phosphorylation or Aβ1-42 accumulation beyond single-metal exposure levels",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0293",
+      "question": "How was Wnt/β-catenin signaling activated pharmacologically?",
+      "answer": "Using lithium",
+      "source": null,
+      "context": "pharmacological activation of Wnt/β-catenin signaling using lithium",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0294",
+      "question": "What was the degradation efficiency of azithromycin under the given conditions?",
+      "answer": "83.3 ± 2.1%",
+      "source": null,
+      "context": "the nanocomposite achieved degradation efficiencies of 83.3 ± 2.1% for azithromycin and 93.3 ± 1.8% for ceftriaxone",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0295",
+      "question": "What percentage of TOC reduction was measured?",
+      "answer": "52%",
+      "source": null,
+      "context": "COD and TOC reductions were measured at 65.5% and 52%, respectively",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0296",
+      "question": "How many initial outcomes were identified in the scoping review?",
+      "answer": "37",
+      "source": null,
+      "context": "A scoping review identified 37 initial outcomes, with 2 additional outcomes developed from a focus group.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0297",
+      "question": "How many authors of studies from the scoping review participated in the Delphi survey?",
+      "answer": "9",
+      "source": null,
+      "context": "These were rated in a two-round Delphi survey completed by the focus group consisting of authors of studies from the scoping review (n = 9)",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0298",
+      "question": "What is the primary focus of this review?",
+      "answer": "The primary focus of this review is the prevalence, diagnostic challenges, associated comorbidities, and potential complications of early-onset glaucoma in individuals with Stickler syndrome.",
+      "source": null,
+      "context": "This review explores the prevalence, diagnostic challenges, associated comorbidities, and potential complications of early-onset glaucoma in individuals with Stickler syndrome.",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    },
+    {
+      "id": "qa_0299",
+      "question": "What does this review aim to achieve?",
+      "answer": "This review aims to enhance clinical awareness, improve patient outcomes, and highlight guidelines.",
+      "source": null,
+      "context": "By addressing these aspects, this review aims to enhance clinical awareness, improve patient outcomes and highlight",
+      "difficulty": "easy",
+      "type": "factual",
+      "validation": "pending"
+    }
+  ]
+}
