@@ -4,10 +4,10 @@ import os
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
 
-from src.knowledge_graph.graph_viz import GraphVisualizer
-from src.knowledge_graph.knowledge_graph import KnowledgeGraph
-from src.nlp.rag_chain import QueryEngine
-from src.nlp.vectorstore import VectorStore
+from medical_graph_rag.knowledge_graph.graph_viz import GraphVisualizer
+from medical_graph_rag.knowledge_graph.knowledge_graph import KnowledgeGraph
+from medical_graph_rag.nlp.rag_chain import QueryEngine
+from medical_graph_rag.nlp.vectorstore import VectorStore
 
 # Configure logging
 logging.basicConfig(

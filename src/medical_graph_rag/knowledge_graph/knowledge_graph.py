@@ -2,7 +2,6 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import List
 
 import networkx as nx
 import numpy as np
@@ -13,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from spacy.cli import download
 from tqdm import tqdm
 
-from src.core.utils import (
+from medical_graph_rag.core.utils import (
     CacheManager,
     calculate_edge_weight,
     create_text_hash,
@@ -25,7 +24,7 @@ from src.core.utils import (
 class Concepts:
     """Concepts class."""
 
-    concepts_list: List[str]
+    concepts_list: list[str]
 
 
 class KnowledgeGraph:
@@ -94,7 +93,7 @@ class KnowledgeGraph:
 
     def _create_embeddings(
         self,
-        splits: List[str],
+        splits: list[str],
         embedding_model="sentence-transformers/all-MiniLM-L6-v2",
     ):
         """Create Embeddings."""
@@ -122,7 +121,7 @@ class KnowledgeGraph:
                     batch_texts = [t[1] for t in batch]
                     batch_embs = model.embed_documents(batch_texts)
 
-                    for (idx, text, h), emb in zip(batch, batch_embs):
+                    for (idx, _text, h), emb in zip(batch, batch_embs, strict=False):
                         self.embeddings_cache[h] = emb
                         embeddings[idx] = emb
 
@@ -294,7 +293,9 @@ class KnowledgeGraph:
         edges_added = 0
 
         for i, j in tqdm(
-            zip(indices[0], indices[1]), desc="Adding edges", total=len(indices[0])
+            zip(indices[0], indices[1], strict=False),
+            desc="Adding edges",
+            total=len(indices[0]),
         ):
             shared = set(self.graph.nodes[i]["concepts"]) & set(
                 self.graph.nodes[j]["concepts"]

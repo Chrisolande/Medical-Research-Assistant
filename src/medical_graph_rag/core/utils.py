@@ -15,8 +15,8 @@ from typing import Any
 from langchain.globals import set_llm_cache
 from langchain_core.documents import Document
 
-from src.core.common_helpers import log_error, log_info
-from src.core.config import (
+from medical_graph_rag.core.common_helpers import log_error, log_info
+from medical_graph_rag.core.config import (
     DEFAULT_DATABASE_PATH,
     DEFAULT_FAISS_INDEX_PATH,
     DEFAULT_SIMILARITY_THRESHOLD,
@@ -40,7 +40,7 @@ def ensure_semantic_cache():
     """Ensure semantic cache is initialized globally."""
     global _semantic_cache_instance
     if _semantic_cache_instance is None:
-        from src.nlp.prompt_caching import SemanticCache
+        from medical_graph_rag.nlp.prompt_caching import SemanticCache
 
         _semantic_cache_instance = SemanticCache(
             database_path=DEFAULT_DATABASE_PATH,

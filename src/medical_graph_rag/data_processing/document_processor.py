@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from dotenv import load_dotenv
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -23,7 +23,7 @@ class DocumentProcessor:
     """DocumentProcessor class."""
 
     embeddings_model: str = "sentence-transformers/all-MiniLM-L6-v2"
-    metadata_fields: List[str] = field(
+    metadata_fields: list[str] = field(
         default_factory=lambda: [
             "pmid",
             "title",
@@ -53,8 +53,8 @@ class DocumentProcessor:
         logger.info(f"Initialized DocumentProcessor with {self.embeddings_model}")
 
     def metadata_func(
-        self, record: Dict[str, Any], metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, record: dict[str, Any], metadata: dict[str, Any]
+    ) -> dict[str, Any]:
         """Metadata Func."""
         metadata.update(
             {field: str(record.get(field, "")) for field in self.metadata_fields}
@@ -81,9 +81,9 @@ class DocumentProcessor:
         file_path: str,
         content_key: str = "abstract",
         jq_schema: str = ".[]",
-        max_docs: Optional[int] = None,
+        max_docs: int | None = None,
         min_chunk_size: int = 50,
-    ) -> List[Document]:
+    ) -> list[Document]:
         """Load and process documents."""
         try:
             validated_path, _ = self._validate_and_clean(file_path, "")
@@ -119,8 +119,8 @@ class DocumentProcessor:
             raise ValueError(f"Failed to process documents: {e}") from e
 
     def process_documents(
-        self, documents: List[Document], min_chunk_size: int = 50
-    ) -> List[Document]:
+        self, documents: list[Document], min_chunk_size: int = 50
+    ) -> list[Document]:
         """Processes a list of LangChain Document objects by splitting them into chunks
         and filtering based on minimum chunk size."""
         if not documents:
@@ -134,7 +134,7 @@ class DocumentProcessor:
         logger.info(f"Processed {len(documents)} docs into {len(final_chunks)} chunks.")
         return final_chunks
 
-    def get_stats(self, documents: List[Document]) -> Dict[str, Any]:
+    def get_stats(self, documents: list[Document]) -> dict[str, Any]:
         """Get Stats method."""
         if not documents:
             return {"total_chunks": 0, "total_characters": 0, "average_chunk_size": 0}
@@ -150,7 +150,7 @@ class DocumentProcessor:
         }
 
     def save_processed_documents(
-        self, documents: List[Document], output_path: str
+        self, documents: list[Document], output_path: str
     ) -> None:
         """Save proessed documents to a json format."""
         data = {

@@ -12,7 +12,7 @@ from langchain_community.cache import SQLiteCache
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from src.core.config import (
+from medical_graph_rag.core.config import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_DATABASE_PATH,
     DEFAULT_FAISS_INDEX_PATH,
@@ -23,7 +23,7 @@ from src.core.config import (
     EMBEDDING_MODEL_NAME,
     ENABLE_QUANTIZATION,
 )
-from src.core.utils import log_error, log_info, run_in_executor
+from medical_graph_rag.core.utils import log_error, log_info, run_in_executor
 
 
 @dataclass

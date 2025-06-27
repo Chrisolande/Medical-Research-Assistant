@@ -4,7 +4,6 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 import pandas as pd
 from Bio import Entrez
@@ -16,7 +15,7 @@ class PubMedEntrezDownloader:
     """PubMedEntrezDownloader class."""
 
     email: str
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
     def __post_init__(self):
         """Initialize post_init."""
@@ -123,7 +122,9 @@ class PubMedEntrezDownloader:
             handle.close()
 
             articles = []
-            for summary, record in zip(summaries, records["PubmedArticle"]):
+            for summary, record in zip(
+                summaries, records["PubmedArticle"], strict=False
+            ):
                 article_data = self._parse_article(summary, record)
                 if article_data:
                     articles.append(article_data)
@@ -142,7 +143,7 @@ class PubMedEntrezDownloader:
         pub_date = summary.get("PubDate", "")
 
         authors_list = summary.get("AuthorList", [])
-        authors = "; ".join([author for author in authors_list]) if authors_list else ""
+        authors = "; ".join(list(authors_list)) if authors_list else ""
 
         article = record["MedlineCitation"]["Article"]
 

@@ -3,14 +3,15 @@
 import asyncio
 import logging
 import time
+from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from threading import Semaphore
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any
 
 from langchain_core.documents import Document
 
-from src.core.config import (
+from medical_graph_rag.core.config import (
     MIN_ABSTRACT_CONTENT_LENGTH,
     PMC_BATCH_SIZE,
     PMC_INTER_BATCH_DELAY,
@@ -18,7 +19,11 @@ from src.core.config import (
     PMC_RETRY_ATTEMPTS,
     PMC_RETRY_DELAY,
 )
-from src.core.utils import create_batches, load_json_data, save_processing_results
+from medical_graph_rag.core.utils import (
+    create_batches,
+    load_json_data,
+    save_processing_results,
+)
 
 
 @dataclass
@@ -39,8 +44,8 @@ class PMCBatchProcessor:
         self.executor = ThreadPoolExecutor(max_workers=self.max_concurrent_batches)
 
     def load_pmc_data(
-        self, file_path: str, max_docs: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        self, file_path: str, max_docs: int | None = None
+    ) -> list[dict[str, Any]]:
         pmc_docs = load_json_data(file_path, max_docs)
 
         # Make sure that the documents(all of them have abstracts)
@@ -59,13 +64,13 @@ class PMCBatchProcessor:
         return valid_docs
 
     def create_document_batches(
-        self, pmc_docs: List[Dict[str, Any]], batch_size: Optional[int] = None
-    ) -> Generator[List[Dict[str, Any]], None, None]:
+        self, pmc_docs: list[dict[str, Any]], batch_size: int | None = None
+    ) -> Generator[list[dict[str, Any]], None, None]:
         """Split the documents to batches."""
         effective_batch_size = batch_size or self.batch_size
         yield from create_batches(pmc_docs, effective_batch_size)
 
-    def _process_batch_documents(self, batch: List[Dict[str, Any]]) -> List[Document]:
+    def _process_batch_documents(self, batch: list[dict[str, Any]]) -> list[Document]:
         documents = []
         for doc in batch:
             content = doc.get("abstract", " ").strip()
@@ -84,8 +89,8 @@ class PMCBatchProcessor:
         return processed_documents
 
     async def _process_batch_async(
-        self, batch: List[Dict[str, Any]], batch_num: int
-    ) -> Dict[str, Any]:
+        self, batch: list[dict[str, Any]], batch_num: int
+    ) -> dict[str, Any]:
         for attempt in range(self.retry_attempts):
             try:
                 self.logger.info(
@@ -126,11 +131,10 @@ class PMCBatchProcessor:
     async def process_pmc_file_async(
         self,
         file_path: str,
-        max_docs: Optional[int] = None,
-        batch_size: Optional[int] = None,
-        progress_callback: Optional[Callable[[int, int, Dict[str, Any]], None]] = None,
-    ) -> Dict[str, Any]:
-
+        max_docs: int | None = None,
+        batch_size: int | None = None,
+        progress_callback: Callable[[int, int, dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
         start_time = time.time()
         self.logger.info(f"Loading PMC data from {file_path}")
         pmc_docs = self.load_pmc_data(file_path, max_docs)
@@ -147,11 +151,7 @@ class PMCBatchProcessor:
         )
         self.logger.info(f"Max concurrent batches: {self.max_concurrent_batches}")
 
-        results = {
-            "successful_batches": [],
-            "failed_batches": [],
-            "all_documents": [],
-        }
+        results = {"successful_batches": [], "failed_batches": [], "all_documents": []}
 
         semaphore = asyncio.Semaphore(self.max_concurrent_batches)
 
@@ -236,7 +236,7 @@ class PMCBatchProcessor:
         """Sync wrapper for async method."""
         return await self.process_pmc_file_async(*args, **kwargs)
 
-    def _empty_result(self) -> Dict[str, Any]:
+    def _empty_result(self) -> dict[str, Any]:
         """Empty Result method."""
         return {
             "successful_batches": [],
@@ -256,7 +256,7 @@ class PMCBatchProcessor:
         }
 
     def save_results(
-        self, results: Dict[str, Any], output_dir: str, save_batch_details: bool = False
+        self, results: dict[str, Any], output_dir: str, save_batch_details: bool = False
     ) -> None:
         """Save results to file."""
         save_processing_results(

@@ -1,8 +1,8 @@
 # Project Configuration
 [project]
-name = "finalrag"
+name = "medical-graph-rag" # CHANGE: Renamed for consistent package naming
 version = "0.1.0"
-description = "Medical Retrieval-Augmented Generation (RAG) system summarizing learnings from the RAG series"
+description = "A Medical Graph Retrieval-Augmented Generation (RAG) system summarizing learnings from the RAG series" # CHANGE: Updated description
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -16,44 +16,53 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Medical Science/Research",
 ]
 
 # Core Dependencies
 dependencies = [
-    # AI/ML Core
+    # AI & Language Models (LLMs)
     "cohere>=5.15.0,<6.0.0",
     "langchain>=0.3.25,<0.4.0",
     "langchain-cohere>=0.4.4,<0.5.0",
     "langchain-community>=0.3.24,<0.4.0",
     "langchain-neo4j>=0.4.0,<0.5.0",
     "langchain-openai>=0.3.19,<0.4.0",
+    "langchain-huggingface>=0.3.0",
     "langgraph>=0.4.8,<0.5.0",
-    # Scientific Computing
+    "sentence-transformers>=2.7.0",
+    "spacy>=3.8.7",
+    "flashrank>=0.2.10",
+
+    # Data Science & Scientific Computing
     "numpy>=2.0.0,<3.0.0",
     "scikit-learn>=1.5.0,<2.0.0",
+    "pandas>=2.3.0",
     "faiss-cpu>=1.8.0,<2.0.0",
-    # Document Processing
+
+    # Document & Text Processing
     "pdf2image>=1.17.0,<2.0.0",
-    # Utilities
+    "nltk>=3.9.1",
+    "bio>=1.8.0",
+    "biopython>=1.85",
+
+    # Visualization & Graphing
+    "matplotlib>=3.10.3",
+    "networkx>=3.5",
+    "plotly>=6.1.2",
+
+    # Utilities & System
     "python-dotenv>=1.0.0,<2.0.0",
     "tenacity>=8.0.0,<10.0.0",
     "tqdm>=4.65.0,<5.0.0",
-    "bio>=1.8.0",
-    "biopython>=1.85",
-    "flashrank>=0.2.10",
-    "langchain-huggingface>=0.3.0",
-    "matplotlib>=3.10.3",
-    "networkx>=3.5",
-    "nltk>=3.9.1",
-    "pandas>=2.3.0",
-    "pytest>=8.4.1",
     "pydantic>=2.11.5",
-    "spacy>=3.8.7",
+
+    # Application Framework
     "streamlit>=1.46.0",
-    "plotly>=6.1.2",
-    "sentence-transformers>=2.7.0"
 ]
 
+# Optional Dependencies
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
@@ -70,6 +79,15 @@ test = [
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
 ]
+
+# Build System
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+# Setuptools Configuration
+[tool.setuptools.packages.find]
+where = ["src"] # Look for packages inside the 'src' directory
 
 # Development Tools Configuration
 [tool.ruff]
@@ -92,7 +110,7 @@ select = [
     "UP",  # pyupgrade
 ]
 ignore = [
-    "E501",  # Line too long (handled by formatter)
+    "E501",  # Line too long
     "B008",  # Do not perform function calls in argument defaults
 ]
 
@@ -103,7 +121,7 @@ skip-magic-trailing-comma = true
 line-ending = "auto"
 
 [tool.ruff.lint.isort]
-known-first-party = ["finalrag"]
+known-first-party = ["medical_graph_rag"] # CHANGE: Updated to match internal package name
 
 # Type Checking
 [tool.mypy]
@@ -127,7 +145,7 @@ minversion = "7.0"
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=finalrag",
+    "--cov=medical_graph_rag", # CHANGE: Updated to match internal package name
     "--cov-report=html",
     "--cov-report=term-missing",
 ]
@@ -139,7 +157,7 @@ markers = [
 
 # Coverage Configuration
 [tool.coverage.run]
-source = ["finalrag"]
+source = ["medical_graph_rag"] # CHANGE: Updated to match internal package name
 omit = [
     "*/tests/*",
     "*/venv/*",
@@ -157,4 +175,4 @@ exclude_lines = [
 
 # Security Configuration
 [tool.bandit]
-exclude = ["B403"]  # Excludes 'import pickle' warning
+exclude = ["B403"]

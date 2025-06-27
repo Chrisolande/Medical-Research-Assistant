@@ -6,8 +6,8 @@ import matplotlib.patches as patches
 import networkx as nx
 from matplotlib import pyplot as plt
 
-from src.core.config import EdgeStyle, NodeStyle, VisualizationConfig
-from src.core.utils import print_filtered_content
+from medical_graph_rag.core.config import EdgeStyle, NodeStyle, VisualizationConfig
+from medical_graph_rag.core.utils import print_filtered_content
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"

@@ -1,10 +1,8 @@
 # config.py
 """Config module."""
 
-
 import os
 from dataclasses import dataclass
-from typing import Tuple
 
 from pydantic import BaseModel, Field  # # Added for AnswerCheck
 
@@ -17,7 +15,7 @@ from pydantic import BaseModel, Field  # # Added for AnswerCheck
 class VisualizationConfig:
     """Configuration for graph visualization parameters."""
 
-    figure_size: Tuple[int, int] = (16, 12)
+    figure_size: tuple[int, int] = (16, 12)
     node_size: int = 3000
     edge_width: int = 2
     traversal_edge_width: int = 3

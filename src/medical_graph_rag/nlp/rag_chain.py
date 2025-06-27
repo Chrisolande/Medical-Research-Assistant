@@ -5,7 +5,7 @@ from typing import Any
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.documents import Document
 
-from src.core.config import (
+from medical_graph_rag.core.config import (
     LLM_MAX_CONTEXT_LENGTH,
     MAX_NODES_TO_TRAVERSE,
     MIN_NODES_TO_TRAVERSE,

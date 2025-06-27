@@ -7,7 +7,6 @@ import os
 import shutil
 from asyncio import Semaphore
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 from flashrank import Ranker
 from langchain.retrievers import ContextualCompressionRetriever
@@ -25,7 +24,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
 
-from src.core.config import (
+from medical_graph_rag.core.config import (
     BATCH_SIZE,
     EMBEDDING_MODEL_NAME,
     FLASHRANK_CACHE_DIR,
@@ -39,7 +38,7 @@ from src.core.config import (
     RERANKER_MODEL_NAME,
     RERANKER_TOP_N,
 )
-from src.core.utils import ensure_semantic_cache, pretty_print_docs
+from medical_graph_rag.core.utils import ensure_semantic_cache, pretty_print_docs
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -62,11 +61,11 @@ class VectorStore:
     # Reranker settings
     use_reranker: bool = True
     reranker_model: str = RERANKER_MODEL_NAME
-    reranker_top_n: Optional[int] = RERANKER_TOP_N
+    reranker_top_n: int | None = RERANKER_TOP_N
 
     # Internal state
-    vector_index: Optional[FAISS] = None
-    compression_retriever: Optional[ContextualCompressionRetriever] = None
+    vector_index: FAISS | None = None
+    compression_retriever: ContextualCompressionRetriever | None = None
     added_doc_hashes: set = field(default_factory=set)
     semaphore: Semaphore = None
 
@@ -151,7 +150,7 @@ class VectorStore:
             else ""
         )
 
-    def _update_doc_hashes(self, batch: List[Document]):
+    def _update_doc_hashes(self, batch: list[Document]):
         """Update Doc Hashes method."""
         for doc in batch:
             self.added_doc_hashes.add(self._get_document_hash(doc))
@@ -171,7 +170,7 @@ class VectorStore:
         ) and doc_hash not in self.added_doc_hashes
 
     # ============ DOCUMENT PROCESSING ============
-    def _filter_valid_docs(self, documents: List[Document]) -> List[Document]:
+    def _filter_valid_docs(self, documents: list[Document]) -> list[Document]:
         """Filter Valid Docs method."""
         valid_docs = [
             doc for doc in documents if doc.page_content and doc.page_content.strip()
@@ -182,14 +181,14 @@ class VectorStore:
             )
         return valid_docs
 
-    def _create_batches(self, documents: List[Document]) -> List[List[Document]]:
+    def _create_batches(self, documents: list[Document]) -> list[list[Document]]:
         """Create Batches method."""
         return [
             documents[i : i + self.batch_size]
             for i in range(0, len(documents), self.batch_size)
         ]
 
-    async def _add_batch_and_persist(self, batch: List[Document]):
+    async def _add_batch_and_persist(self, batch: list[Document]):
         """Add to batch and save."""
         if not batch:
             logger.warning("Attempted to add an empty batch.")
@@ -213,7 +212,7 @@ class VectorStore:
                 )
                 return 0
 
-    async def _create_vector_index(self, documents: List[Document]):
+    async def _create_vector_index(self, documents: list[Document]):
         """Build the vector index."""
         if not documents:
             logger.info("No documents provided to create/update vector index.")
@@ -260,7 +259,7 @@ class VectorStore:
             self.use_reranker = False
 
     # ============ SEARCH OPERATIONS ============
-    async def _perform_reranked_search(self, query: str, k: int = 4) -> List[Document]:
+    async def _perform_reranked_search(self, query: str, k: int = 4) -> list[Document]:
         """Perform reranked search."""
         if self.use_reranker and self.compression_retriever:
             self.compression_retriever.base_compressor.top_n = k
@@ -300,7 +299,7 @@ class VectorStore:
             )
             return []
 
-    async def batch_query(self, queries: List[str], k: int = 4):
+    async def batch_query(self, queries: list[str], k: int = 4):
         """Process multiple queries at once."""
         if not self.vector_index:
             logger.warning(
