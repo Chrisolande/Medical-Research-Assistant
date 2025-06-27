@@ -1,6 +1,6 @@
 import heapq
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.documents import Document
@@ -49,7 +49,7 @@ class QueryEngine:
 
         return prompt | self.llm.with_structured_output(AnswerCheck)
 
-    def _check_answer(self, query: str, context: str) -> Tuple[bool, str]:
+    def _check_answer(self, query: str, context: str) -> tuple[bool, str]:
         """Check if the query is fully answerable with the provided context."""
         # Ensure sufficient context for a meaningful check
         if len(context.split("\n")) < 3:
@@ -61,13 +61,64 @@ class QueryEngine:
                 {"query": query, "context": context}
             )
             return response.is_complete, response.answer
+        except ValueError as e:
+            if "Structured Output response does not have a 'parsed' field" in str(e):
+                logger.warning(
+                    "LLM returned unstructured response, falling back to text parsing"
+                )
+                # Fallback: use the chain without structured output
+                fallback_prompt = ChatPromptTemplate.from_template(
+                    """
+                    Given the query: "{query}"
+                    And the context:
+                    {context}
+
+                    IMPORTANT: Only mark as complete if you have comprehensive, detailed information that fully addresses ALL aspects of the query.
+                    If there's ANY uncertainty or if more context could provide better insights, mark as incomplete.
+
+                    Based on the provided context, is the query fully answerable with comprehensive detail?
+                    Answerable: [Yes/No]
+                    Complete Answer (if Yes):
+                    """
+                )
+                fallback_chain = fallback_prompt | self.llm
+                response = fallback_chain.invoke({"query": query, "context": context})
+
+                # Parse the text response
+                response_text = (
+                    response.content if hasattr(response, "content") else str(response)
+                )
+                is_complete = "answerable: yes" in response_text.lower()
+
+                # Extract answer if marked as complete
+                answer = ""
+                if is_complete and "complete answer" in response_text.lower():
+                    lines = response_text.split("\n")
+                    answer_started = False
+                    answer_lines = []
+                    for line in lines:
+                        if "complete answer" in line.lower():
+                            answer_started = True
+                            # Check if answer is on same line
+                            if ":" in line:
+                                answer_part = line.split(":", 1)[1].strip()
+                                if answer_part:
+                                    answer_lines.append(answer_part)
+                        elif answer_started and line.strip():
+                            answer_lines.append(line.strip())
+                    answer = "\n".join(answer_lines)
+
+                return is_complete, answer
+            else:
+                logger.error(f"Error during answer check: {e}", exc_info=True)
+                return False, ""
         except Exception as e:
             logger.error(f"Error during answer check: {e}", exc_info=True)
-            return False, ""  # Assume incomplete on error
+            return False, ""
 
     async def _initialize_traversal(
-        self, relevant_docs: List[Document]
-    ) -> Tuple[List[Tuple[float, Any]], Dict[Any, float]]:
+        self, relevant_docs: list[Document]
+    ) -> tuple[list[tuple[float, Any]], dict[Any, float]]:
         """Initialize the graph traversal."""
         priority_queue = []
         distances = {}
@@ -111,11 +162,11 @@ class QueryEngine:
         current_node: Any,
         query: str,
         expanded_context: str,
-        traversal_path: List[Any],
+        traversal_path: list[Any],
         visited_concepts: set,
-        filtered_content: Dict[Any, str],
+        filtered_content: dict[Any, str],
         step: int,
-    ) -> Tuple[str, List[Any], Dict[Any, str], str, bool]:
+    ) -> tuple[str, list[Any], dict[Any, str], str, bool]:
         """Process a node in the graph traversal."""
         node_data = self.knowledge_graph.graph.nodes[current_node]
         node_content = node_data.get("content", "")
@@ -160,9 +211,9 @@ class QueryEngine:
         self,
         current_node: Any,
         current_priority: float,
-        traversal_path: List[Any],
-        distances: Dict[Any, float],
-        priority_queue: List[Tuple[float, Any]],
+        traversal_path: list[Any],
+        distances: dict[Any, float],
+        priority_queue: list[tuple[float, Any]],
     ) -> None:
         """Explore the neighbors of a node in the graph traversal and update priority
         queue."""
@@ -183,8 +234,8 @@ class QueryEngine:
                 )
 
     async def _expand_context(
-        self, query: str, relevant_docs: List[Document]
-    ) -> Tuple[str, List[Any], Dict[Any, str], str]:
+        self, query: str, relevant_docs: list[Document]
+    ) -> tuple[str, list[Any], dict[Any, str], str]:
         """Expand the context by traversing the knowledge graph."""
         expanded_context = ""
         traversal_path = []
@@ -263,7 +314,7 @@ class QueryEngine:
 
         return expanded_context, traversal_path, filtered_content, final_answer
 
-    async def query(self, query: str) -> Tuple[str, List[Any], Dict[Any, str]]:
+    async def query(self, query: str) -> tuple[str, list[Any], dict[Any, str]]:
         """Queries the knowledge graph to find an answer."""
         logger.info(f"Starting query for: '{query}'")
         # Retrieve initial relevant documents from the vector store
@@ -283,7 +334,7 @@ class QueryEngine:
 
         return final_answer, traversal_path, filtered_content
 
-    async def _analyze_chunk_distribution(self, relevant_docs: List[Document]) -> float:
+    async def _analyze_chunk_distribution(self, relevant_docs: list[Document]) -> float:
         """Analyzes chunk sizes to understand potential traversal limitations."""
         if not relevant_docs:
             logger.warning("No relevant documents to analyze chunk distribution.")
