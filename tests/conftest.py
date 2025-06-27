@@ -1,6 +1,6 @@
 import pytest
 
-from src.core.config import (
+from medical_graph_rag.core.config import (
     MIN_ABSTRACT_CONTENT_LENGTH,
     PMC_BATCH_SIZE,
     PMC_INTER_BATCH_DELAY,
@@ -8,7 +8,7 @@ from src.core.config import (
     PMC_RETRY_ATTEMPTS,
     PMC_RETRY_DELAY,
 )
-from src.data_processing.document_processor import DocumentProcessor
+from medical_graph_rag.data_processing.document_processor import DocumentProcessor
 
 
 @pytest.fixture(scope="session")
@@ -58,11 +58,7 @@ def test_data():
                 "title": "Why pure mathematics is useful",
                 "authors": "Cobain, K.",
             },
-            {
-                "pmid": "2039",
-                "title": "proof pi = 3 = e",
-                "authors": "Cobain, K.",
-            },
+            {"pmid": "2039", "title": "proof pi = 3 = e", "authors": "Cobain, K."},
         ],
         "metadata_fields": ["pmid", "title", "authors"],
         "embeddings_model": "sentence-transformers/all-MiniLM-L6-v2",

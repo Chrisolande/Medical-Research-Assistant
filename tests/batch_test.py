@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from langchain_core.documents import Document
 
-from src.data_processing.batch_processor import (
+from medical_graph_rag.data_processing.batch_processor import (
     MIN_ABSTRACT_CONTENT_LENGTH,
     PMCBatchProcessor,
 )
@@ -47,9 +47,7 @@ def batch_processor(document_processor, test_data):
 def test_init(document_processor, test_data):
     """Test initialization."""
     processor = PMCBatchProcessor(
-        document_processor=document_processor,
-        batch_size=5,
-        max_concurrent_batches=3,
+        document_processor=document_processor, batch_size=5, max_concurrent_batches=3
     )
 
     assert processor.document_processor == document_processor
@@ -60,8 +58,8 @@ def test_init(document_processor, test_data):
     assert processor.executor is not None
 
 
-@patch("src.data_processing.batch_processor.load_json_data")
-@patch("src.data_processing.batch_processor.logging.Logger.info")
+@patch("medical_graph_rag.data_processing.batch_processor.load_json_data")
+@patch("medical_graph_rag.data_processing.batch_processor.logging.Logger.info")
 def test_load_pmc_data_valid_docs(
     mock_logger, mock_load, batch_processor, temp_json_file, sample_pmc_data
 ):
@@ -93,7 +91,7 @@ def test_load_pmc_data_valid_docs(
         )
 
 
-@patch("src.data_processing.batch_processor.load_json_data")
+@patch("medical_graph_rag.data_processing.batch_processor.load_json_data")
 def test_load_pmc_data_max_docs_limit(
     mock_load, batch_processor, temp_json_file, sample_pmc_data
 ):
@@ -199,7 +197,9 @@ async def test_process_pmc_file_async_complete_flow(
     batch_processor, temp_json_file, sample_pmc_data
 ):
     """Test complete async processing flow."""
-    with patch("src.data_processing.batch_processor.load_json_data") as mock_load:
+    with patch(
+        "medical_graph_rag.data_processing.batch_processor.load_json_data"
+    ) as mock_load:
         mock_load.return_value = sample_pmc_data
 
         result = await batch_processor.process_pmc_file_async(
@@ -220,7 +220,9 @@ async def test_process_pmc_file_async_complete_flow(
 @pytest.mark.asyncio
 async def test_process_pmc_file_async_no_valid_docs(batch_processor, temp_json_file):
     """Test processing with no valid documents."""
-    with patch("src.data_processing.batch_processor.load_json_data") as mock_load:
+    with patch(
+        "medical_graph_rag.data_processing.batch_processor.load_json_data"
+    ) as mock_load:
         mock_load.return_value = []
 
         result = await batch_processor.process_pmc_file_async(temp_json_file)
@@ -240,7 +242,9 @@ async def test_process_pmc_file_async_with_progress_callback(
     def progress_callback(completed, total, result):
         callback_calls.append((completed, total, result))
 
-    with patch("src.data_processing.batch_processor.load_json_data") as mock_load:
+    with patch(
+        "medical_graph_rag.data_processing.batch_processor.load_json_data"
+    ) as mock_load:
         mock_load.return_value = sample_pmc_data[:1]
 
         await batch_processor.process_pmc_file_async(
@@ -281,7 +285,7 @@ def test_save_results(batch_processor, tmp_path):
     }
 
     with patch(
-        "src.data_processing.batch_processor.save_processing_results"
+        "medical_graph_rag.data_processing.batch_processor.save_processing_results"
     ) as mock_save:
         batch_processor.save_results(results, str(tmp_path))
 

@@ -8,8 +8,8 @@ import pytest
 from langchain.schema import Generation
 from langchain_community.vectorstores import FAISS
 
-from src.core.config import DUMMY_DOC_CONTENT
-from src.nlp.prompt_caching import SemanticCache
+from medical_graph_rag.core.config import DUMMY_DOC_CONTENT
+from medical_graph_rag.nlp.prompt_caching import SemanticCache
 
 
 # Fixtures
@@ -38,7 +38,7 @@ def cache_config(temp_dir):
 @pytest.fixture
 def mock_embeddings():
     """Mock HuggingFaceEmbeddings."""
-    with patch("src.nlp.prompt_caching.HuggingFaceEmbeddings") as mock:
+    with patch("medical_graph_rag.nlp.prompt_caching.HuggingFaceEmbeddings") as mock:
         mock_instance = mock.return_value
         mock_instance.embed_query.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
         yield mock_instance
@@ -47,7 +47,7 @@ def mock_embeddings():
 @pytest.fixture
 def mock_faiss():
     """Mock FAISS vector store."""
-    with patch("src.nlp.prompt_caching.FAISS") as mock:
+    with patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock:
         mock_instance = mock.return_value
         mock_instance.load_local.return_value = MagicMock(spec=FAISS)
         mock_instance.from_texts.return_value = MagicMock(spec=FAISS)
@@ -101,7 +101,7 @@ class TestLazyLoading:
 
     def test_lazy_load_vector_store_new_index(self, semantic_cache):
         """Test lazy loading for new FAISS index."""
-        with patch("src.nlp.prompt_caching.FAISS") as mock_faiss_class:
+        with patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock_faiss_class:
             mock_faiss_instance = MagicMock()
             mock_faiss_class.from_texts.return_value = mock_faiss_instance
 
@@ -117,7 +117,7 @@ class TestLazyLoading:
 
     def test_lazy_load_vector_store_existing_index(self, semantic_cache):
         """Test lazy loading for existing FAISS index."""
-        with patch("src.nlp.prompt_caching.FAISS") as mock_faiss_class:
+        with patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock_faiss_class:
             mock_faiss_instance = MagicMock()
             mock_faiss_class.load_local.return_value = mock_faiss_instance
 
@@ -236,7 +236,7 @@ class TestLookupOperations:
         semantic_cache._lazy_loaded = True
         with (
             patch("langchain_community.cache.SQLiteCache.lookup", return_value=None),
-            patch("src.nlp.prompt_caching.log_error") as mock_log_error,
+            patch("medical_graph_rag.nlp.prompt_caching.log_error") as mock_log_error,
         ):
             result = semantic_cache.lookup(prompt, llm_string)
             assert result is None
@@ -256,7 +256,9 @@ class TestUpdateOperations:
         semantic_cache._lazy_loaded = True
         with (
             patch("langchain_community.cache.SQLiteCache.update") as mock_parent_update,
-            patch("src.nlp.prompt_caching.run_in_executor") as mock_executor,
+            patch(
+                "medical_graph_rag.nlp.prompt_caching.run_in_executor"
+            ) as mock_executor,
             patch.object(semantic_cache, "_remove_dummy_doc_async"),
             patch.object(semantic_cache, "_save_vector_store_async"),
         ):
@@ -341,7 +343,7 @@ class TestQuantization:
         metadatas = [{"type": "test"}] * 150
 
         with (
-            patch("src.nlp.prompt_caching.FAISS") as mock_faiss_class,
+            patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock_faiss_class,
             patch("faiss.IndexFlatL2") as mock_index_flat,
             patch("faiss.IndexIVFPQ") as mock_index_ivf_class,
         ):

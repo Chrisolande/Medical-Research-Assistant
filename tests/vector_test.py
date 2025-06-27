@@ -8,7 +8,7 @@ from langchain.embeddings import DeterministicFakeEmbedding
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
 
-from src.nlp.vectorstore import VectorStore
+from medical_graph_rag.nlp.vectorstore import VectorStore
 
 
 @pytest.fixture
@@ -47,39 +47,44 @@ def mock_faiss_index():
 @pytest.fixture(autouse=True)
 def mock_dependencies(temp_persist_dir):
     with (
-        patch("src.nlp.vectorstore.HuggingFaceEmbeddings") as MockEmbeddings,
-        patch("src.nlp.vectorstore.ChatOpenAI") as MockChatOpenAI,
-        patch("src.nlp.vectorstore.FAISS.load_local") as MockFAISSLoadLocal,
         patch(
-            "src.nlp.vectorstore.os.path.exists", return_value=False
+            "medical_graph_rag.nlp.vectorstore.HuggingFaceEmbeddings"
+        ) as MockEmbeddings,
+        patch("medical_graph_rag.nlp.vectorstore.ChatOpenAI") as MockChatOpenAI,
+        patch(
+            "medical_graph_rag.nlp.vectorstore.FAISS.load_local"
+        ) as MockFAISSLoadLocal,
+        patch(
+            "medical_graph_rag.nlp.vectorstore.os.path.exists", return_value=False
         ) as mock_os_path_exists,
-        patch("src.nlp.vectorstore.ensure_semantic_cache"),
-        patch("src.nlp.vectorstore.ranker", autospec=True),
+        patch("medical_graph_rag.nlp.vectorstore.ensure_semantic_cache"),
+        patch("medical_graph_rag.nlp.vectorstore.ranker", autospec=True),
         patch(
-            "src.nlp.vectorstore.ContextualCompressionRetriever"
+            "medical_graph_rag.nlp.vectorstore.ContextualCompressionRetriever"
         ) as MockContextualCompressionRetriever,
         patch(
-            "src.nlp.vectorstore.CrossEncoderReranker", autospec=True
+            "medical_graph_rag.nlp.vectorstore.CrossEncoderReranker", autospec=True
         ) as MockCrossEncoderReranker,
         patch(
-            "src.nlp.vectorstore.HuggingFaceCrossEncoder", autospec=True
+            "medical_graph_rag.nlp.vectorstore.HuggingFaceCrossEncoder", autospec=True
         ) as MockHuggingFaceCrossEncoder,
         patch(
-            "src.nlp.vectorstore.EmbeddingsFilter", autospec=True
+            "medical_graph_rag.nlp.vectorstore.EmbeddingsFilter", autospec=True
         ) as MockEmbeddingsFilter,
         patch(
-            "src.nlp.vectorstore.EmbeddingsRedundantFilter", autospec=True
+            "medical_graph_rag.nlp.vectorstore.EmbeddingsRedundantFilter", autospec=True
         ) as MockEmbeddingsRedundantFilter,
         patch(
-            "src.nlp.vectorstore.FlashrankRerank", autospec=True
+            "medical_graph_rag.nlp.vectorstore.FlashrankRerank", autospec=True
         ) as MockFlashrankRerank,
         patch(
-            "src.nlp.vectorstore.LLMChainExtractor", autospec=True
+            "medical_graph_rag.nlp.vectorstore.LLMChainExtractor", autospec=True
         ) as MockLLMChainExtractor,
         patch(
-            "src.nlp.vectorstore.DocumentCompressorPipeline", autospec=True
+            "medical_graph_rag.nlp.vectorstore.DocumentCompressorPipeline",
+            autospec=True,
         ) as MockDocumentCompressorPipeline,
-        patch("src.nlp.vectorstore.shutil.rmtree") as mock_shutil_rmtree,
+        patch("medical_graph_rag.nlp.vectorstore.shutil.rmtree") as mock_shutil_rmtree,
     ):
         MockEmbeddings.return_value = DeterministicFakeEmbedding(size=10)
         MockChatOpenAI.return_value = MagicMock()
@@ -166,7 +171,9 @@ class TestVectorStore:
         vec_store = VectorStore(persist_directory=temp_persist_dir)
         docs = [Document(page_content="Hello world")]
 
-        with patch("src.nlp.vectorstore.FAISS.from_documents") as MockFAISSFromDocs:
+        with patch(
+            "medical_graph_rag.nlp.vectorstore.FAISS.from_documents"
+        ) as MockFAISSFromDocs:
             MockFAISSFromDocs.return_value = MagicMock(spec=FAISS)
             MockFAISSFromDocs.return_value.save_local = MagicMock()
             await vec_store._create_vector_index(docs)
@@ -210,7 +217,9 @@ class TestVectorStore:
         vec_store = VectorStore(persist_directory=temp_persist_dir)
         docs = [Document(page_content="error doc")]
 
-        with patch("src.nlp.vectorstore.FAISS.from_documents") as MockFAISSFromDocs:
+        with patch(
+            "medical_graph_rag.nlp.vectorstore.FAISS.from_documents"
+        ) as MockFAISSFromDocs:
             MockFAISSFromDocs.side_effect = Exception("Batch add error")
             added_count = await vec_store._add_batch_and_persist(docs)
             assert added_count == 0
@@ -384,7 +393,7 @@ class TestVectorStore:
     ):
         _, _, _, _, _, _ = mock_dependencies
         with patch(
-            "src.nlp.vectorstore.HuggingFaceCrossEncoder"
+            "medical_graph_rag.nlp.vectorstore.HuggingFaceCrossEncoder"
         ) as MockHuggingFaceCrossEncoder:
             MockHuggingFaceCrossEncoder.side_effect = Exception("Reranker init error")
             vec_store = VectorStore(
