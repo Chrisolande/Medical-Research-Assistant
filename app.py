@@ -61,7 +61,7 @@ class StreamlitApp:
             st.error(f"Failed to process documents: {str(e)}")
             return False
 
-    async def execute_query(self, query):
+    async def _execute_query(self, query):
         try:
             with st.spinner("Processing query..."):
                 result = await self.main_engine.query(query)
@@ -190,9 +190,21 @@ class StreamlitApp:
                         if success:
                             st.session_state.cache_available = True
                             st.rerun()
-        # self._render_query_interface()
-        # self._render_upload_interface()
-        # self._render_results(response, traversal_path, filtered_content)
+        else:
+            # If no cache is available then only show the upload interface
+            st.info(
+                "No existing knowledge base found. Please upload documents to get started."
+            )
+            uploaded_files = self._render_upload_interface()
+            if uploaded_files:
+                documents = await self.doc_handler.process_uploaded_files(
+                    uploaded_files
+                )
+                if documents:
+                    success = await self._process_and_build(documents)
+                    if success:
+                        st.session_state.cache_available = True
+                        st.rerun()
 
 
 async def main():
