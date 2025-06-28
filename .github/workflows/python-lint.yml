@@ -4,12 +4,14 @@ on:
     branches: ["main", "develop"]
   pull_request:
     branches: ["main", "develop"]
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.13"]
+
     steps:
       - uses: actions/checkout@v4
 
@@ -34,12 +36,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-py${{ matrix.python-version }}-lint-
 
-      # Install dependencies and linting tools matching pre-commit versions
+      # Optimized dependency installation
       - name: Install dependencies
         run: |
-          uv venv
+          # Only create venv if it doesn't exist or is invalid
+          if [ ! -d ".venv" ] || [ ! -f ".venv/pyvenv.cfg" ]; then
+            echo "Creating new virtual environment..."
+            uv venv
+          else
+            echo "Using cached virtual environment..."
+            # Verify the venv is compatible with current Python version
+            if ! .venv/bin/python --version | grep -q "${{ matrix.python-version }}"; then
+              echo "Python version mismatch, recreating venv..."
+              rm -rf .venv
+              uv venv
+            fi
+          fi
+
+          # Install linting tools (UV will use cached packages when available)
           uv add black==24.8.0 isort==5.13.2 ruff==0.6.9 bandit==1.7.9 \
                 autoflake==2.3.1 pyupgrade==3.17.0 --group dev
+
+          # Sync project dependencies if needed
           if [ -f pyproject.toml ]; then uv sync --extra dev; fi
           if [ -f requirements.txt ]; then uv pip install -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then uv pip install -r requirements-dev.txt; fi
