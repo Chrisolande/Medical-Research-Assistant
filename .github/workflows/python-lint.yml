@@ -1,72 +1,111 @@
 name: Python Linting
 on:
- push:
-   branches: ["main", "develop"]
- pull_request:
-   branches: ["main", "develop"]
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
 jobs:
- lint:
-   runs-on: ubuntu-latest
-   strategy:
-     matrix:
-       python-version: ["3.13"]
-   steps:
-     - uses: actions/checkout@v4
-     - name: Set up Python ${{ matrix.python-version }}
-       uses: actions/setup-python@v5
-       with:
-         python-version: ${{ matrix.python-version }}
-     - name: Cache pip dependencies
-       uses: actions/cache@v4
-       with:
-         path: ~/.cache/pip
-         key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt') }}
-         restore-keys: |
-           ${{ runner.os }}-pip-
-     - name: Install dependencies
-       run: |
-         python -m pip install --upgrade pip
-         pip install flake8 black isort bandit
-         if [ -f pyproject.toml ]; then pip install -e .; fi
-         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-     - name: Run linting tools
-       run: |
-         # Store exit codes
-         EXIT_CODE=0
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    steps:
+      - uses: actions/checkout@v4
 
-         # Run flake8 for errors (fail on issues)
-         echo "Running flake8 error checks..."
-         if ! flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics; then
-           EXIT_CODE=1
-         fi
+      # Python with UV for ultra-fast installs
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
 
-         # Run flake8 for warnings (don't fail)
-         echo "Running flake8 complexity checks..."
-         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
-         # Run black
-         echo "Running black..."
-         if ! black --check --diff .; then
-           EXIT_CODE=1
-         fi
+      # Comprehensive dependency and linting tools caching
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        id: deps-cache
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: ${{ runner.os }}-py${{ matrix.python-version }}-lint-${{ hashFiles('pyproject.toml', 'uv.lock', '**/requirements*.txt') }}-v2
+          restore-keys: |
+            ${{ runner.os }}-py${{ matrix.python-version }}-lint-
 
-         # Run isort
-         echo "Running isort..."
-         if ! isort --check-only --diff .; then
-           EXIT_CODE=1
-         fi
+      # Install dependencies and linting tools matching pre-commit versions
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv add black==24.8.0 isort==5.13.2 ruff==0.6.9 bandit==1.7.9 \
+                autoflake==2.3.1 pyupgrade==3.17.0 --group dev
+          if [ -f pyproject.toml ]; then uv sync --extra dev; fi
+          if [ -f requirements.txt ]; then uv pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then uv pip install -r requirements-dev.txt; fi
 
-         # Run bandit
-         echo "Running bandit..."
-         bandit -r . -f json -o bandit-report.json || true
+      - name: Run linting tools
+        run: |
+          # Store exit codes
+          EXIT_CODE=0
 
-         # Exit with error if any critical tool failed
-         exit $EXIT_CODE
-     - name: Upload bandit report
-       uses: actions/upload-artifact@v4
-       if: always()
-       with:
-         name: bandit-report-${{ github.run_id }}
-         path: bandit-report.json
-         if-no-files-found: warn
+          # Run pyupgrade (modernize Python syntax)
+          echo "Running pyupgrade..."
+          if ! find . -name "*.py" -not -path "./.venv/*" -not -path "./venv/*" -not -path "./.git/*" \
+              -exec uv run pyupgrade --py310-plus {} +; then
+            EXIT_CODE=1
+          fi
+
+          # Run autoflake (remove unused imports/variables)
+          echo "Running autoflake..."
+          if ! uv run autoflake --remove-all-unused-imports --remove-unused-variables \
+              --remove-duplicate-keys --check-diff --recursive \
+              --exclude=.venv,venv,env,.git,__pycache__ .; then
+            EXIT_CODE=1
+          fi
+
+          # Run isort (import sorting)
+          echo "Running isort..."
+          if ! uv run isort --check-only --diff --profile=black --line-length=88 \
+              --skip-glob="**/.venv/**,**/venv/**,**/env/**" .; then
+            EXIT_CODE=1
+          fi
+
+          # Run black (code formatting)
+          echo "Running black..."
+          if ! uv run black --check --diff --line-length=88 \
+              --exclude="\.venv|venv|env|\.git|__pycache__|\.pytest_cache|build|dist|\.eggs|.*\.egg-info" .; then
+            EXIT_CODE=1
+          fi
+
+          # Run ruff (linting and formatting)
+          echo "Running ruff check..."
+          if ! uv run ruff check . --exclude=".venv,venv,env,.git,__pycache__,.pytest_cache,build,dist,.eggs,*.egg-info"; then
+            EXIT_CODE=1
+          fi
+
+          echo "Running ruff format check..."
+          if ! uv run ruff format --check . --exclude=".venv,venv,env,.git,__pycache__,.pytest_cache,build,dist,.eggs,*.egg-info"; then
+            EXIT_CODE=1
+          fi
+
+          # Run bandit (security scanning)
+          echo "Running bandit..."
+          if [ -f pyproject.toml ]; then
+            uv run bandit -r . -f json -o bandit-report.json -c pyproject.toml -ll \
+                --skip=B101,B403,B601 --exclude .venv,venv,env,.git,__pycache__ || true
+          else
+            uv run bandit -r . -f json -o bandit-report.json -ll \
+                --skip=B101,B403,B601 --exclude .venv,venv,env,.git,__pycache__ || true
+          fi
+
+          # Exit with error if any critical tool failed
+          exit $EXIT_CODE
+
+      - name: Upload bandit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report-${{ github.run_id }}
+          path: bandit-report.json
+          if-no-files-found: warn
