@@ -24,6 +24,9 @@ class AppConfig:
     faiss_index_dir: str = "/home/olande/Desktop/FinalRAG/faiss_index"
 
 
+# TODO: Implement a class to handle the document uploads either by importing the document processing class or building a new one
+
+
 class StreamlitApp:
     def __init__(self):
         self.config = AppConfig()
@@ -58,7 +61,7 @@ class StreamlitApp:
             st.error(f"Failed to process documents: {str(e)}")
             return False
 
-    async def execute_query(self, query):
+    async def _execute_query(self, query):
         try:
             with st.spinner("Processing query..."):
                 result = await self.main_engine.query(query)
@@ -126,6 +129,18 @@ class StreamlitApp:
 
             return None
 
+    def _render_results(self, response, traversal_path, filtered_content):
+        st.subheader("Response")
+        st.divider()
+
+        if traversal_path:
+            with st.expander("Traversal Path", expanded=False):
+                st.json(traversal_path)
+
+        if filtered_content:
+            with st.expander("Filtered Content", expanded=False):
+                st.json(filtered_content)
+
     async def run(self):
         st.set_page_config(
             page_title="Medical RAG System",
@@ -137,9 +152,59 @@ class StreamlitApp:
         st.title("🏥 Medical RAG System")
         st.markdown("Retrieval-Augmented Generation for Medical Documents")
 
+        # Render sidebar
         self._render_sidebar()
-        self._render_query_interface()
-        self._render_upload_interface()
+
+        # Initialize the engine
+        if "engine_initialized" not in st.session_state:
+            with st.spinner("Initializing RAG engine..."):
+                cache_loaded = await self._initialize_engine()
+                st.session_state.engine_initialized = True
+                st.session_state.cache_available = cache_loaded
+                if cache_loaded:
+                    st.success("Loaded existing knowledge base from cache!")
+                else:
+                    st.info(
+                        "No cache found. Please upload documents to build knowledge base."
+                    )
+
+        # Main interface tabs
+        if st.session_state.get("cache_available", False):
+            tab1, tab2 = st.tabs(["Query System", "Upload New Documents"])
+            with tab1:
+                query = self._render_query_interface()
+                if query:
+                    result = await self._execute_query(query)
+                    if result:
+                        response, traversal_path, filtered_content = result
+                        self._render_results(response, traversal_path, filtered_content)
+
+            with tab2:
+                uploaded_files = self._render_upload_interface()
+                if uploaded_files:
+                    documents = await self.doc_handler.process_uploaded_files(
+                        uploaded_files
+                    )
+                    if documents:
+                        success = await self._process_and_build(documents)
+                        if success:
+                            st.session_state.cache_available = True
+                            st.rerun()
+        else:
+            # If no cache is available then only show the upload interface
+            st.info(
+                "No existing knowledge base found. Please upload documents to get started."
+            )
+            uploaded_files = self._render_upload_interface()
+            if uploaded_files:
+                documents = await self.doc_handler.process_uploaded_files(
+                    uploaded_files
+                )
+                if documents:
+                    success = await self._process_and_build(documents)
+                    if success:
+                        st.session_state.cache_available = True
+                        st.rerun()
 
 
 async def main():
