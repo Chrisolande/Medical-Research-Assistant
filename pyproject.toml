@@ -117,7 +117,7 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
-skip-magic-trailing-comma = true
+skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint.isort]
@@ -176,3 +176,6 @@ exclude_lines = [
 # Security Configuration
 [tool.bandit]
 exclude = ["B403"]
+
+[tool.isort]
+split_on_trailing_comma = false
