@@ -25,6 +25,7 @@ if "main" not in st.session_state:
     st.session_state.default_data_path = (
         "data/output/processed_pmc_data/pmc_chunks.json"
     )
+    st.session_state.conversation_history = []
 
 
 def initialize_pipeline():
@@ -146,6 +147,17 @@ async def handle_query(query):
         response, traversal_path, filtered_content = await st.session_state.main.query(
             query
         )
+        st.session_state.conversation_history.append(
+            {
+                "query": query,
+                "response": (
+                    response.content if hasattr(response, "content") else str(response)
+                ),
+                "timestamp": asyncio.get_event_loop().time(),
+                "traversal_path": traversal_path,
+                "filtered_content": filtered_content,
+            }
+        )
         return response, traversal_path, filtered_content
     except Exception as e:
         st.error(f"Error during query processing: {str(e)}")
@@ -197,6 +209,20 @@ def main():
     # Main content area
     if st.session_state.main:
         st.header("Query the Knowledge Graph")
+        if st.session_state.conversation_history:
+            with st.expander("Conversation History", expanded=False):
+                for i, conv in enumerate(
+                    reversed(st.session_state.conversation_history[-5:])
+                ):  # Show last 5
+                    st.write(
+                        f"**Q{len(st.session_state.conversation_history)-i}:** {conv['query']}"
+                    )
+                    st.write(f"**A:** {conv['response'][:200]}...")
+                    st.divider()
+
+                if st.button("Clear History"):
+                    st.session_state.conversation_history = []
+                    st.rerun()
         query = st.text_input(
             "Enter your query:",
             placeholder="e.g., What are the effects of the Gaza war on children?",
