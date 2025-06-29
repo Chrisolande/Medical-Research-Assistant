@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Any
 
@@ -313,13 +312,52 @@ class GraphVisualizer:
             raise
 
     def visualize_traversal(self, graph, traversal_path):
-        """Synchronous wrapper to run the async visualization."""
+        """Synchronous visualization that returns image buffer for Streamlit."""
+        import io
+
         try:
-            # loop = asyncio.get_event_loop()
-            asyncio.create_task(self.visualize_traversal_async(graph, traversal_path))
+            logger.info(
+                f"Starting visualization for path of length {len(traversal_path)}"
+            )
+
+            if not traversal_path:
+                logger.warning("Empty traversal path provided")
+                return None
+
+            traversal_graph = self._create_traversal_graph(graph, traversal_path)
+            pos = self._generate_optimized_layout(traversal_graph)
+            labels = self._prepare_node_labels(traversal_graph, traversal_path)
+
+            fig, ax = plt.subplots(figsize=self.config.figure_size)
+
+            edge_weights = self._draw_base_graph(traversal_graph, pos, ax)
+            self._draw_traversal_path(traversal_path, pos, ax)
+            self._highlight_special_nodes(traversal_graph, pos, traversal_path, ax)
+
+            nx.draw_networkx_labels(
+                traversal_graph,
+                pos,
+                labels,
+                font_size=self.config.font_size,
+                font_weight="bold",
+                ax=ax,
+            )
+
+            self._add_visualization_elements(fig, ax, edge_weights)
+
+            plt.tight_layout()
+
+            # Save to buffer for Streamlit
+            buf = io.BytesIO()
+            plt.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+            buf.seek(0)
+            plt.close(fig)
+
+            logger.info("Visualization completed successfully")
+            return buf
 
         except Exception as e:
-            logger.error(f"Error in synchronous visualization: {str(e)}")
+            logger.error(f"Error in visualization: {str(e)}")
             raise
 
     def print_filtered_content(
