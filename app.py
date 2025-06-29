@@ -1,217 +1,168 @@
 import asyncio
+import json
 import logging
 import os
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Optional
 
 import streamlit as st
+from langchain_core.documents import Document
 
 from medical_graph_rag.core.main import Main
+from medical_graph_rag.data_processing.batch_processor import PMCBatchProcessor
+from medical_graph_rag.data_processing.document_processor import DocumentProcessor
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Set page configuration
+st.set_page_config(page_title="Medical RAG Knowledge Graph", layout="wide")
 
-@dataclass
-class AppConfig:
-    """Application configuration."""
+# Initialize session state
+if "main" not in st.session_state:
+    st.session_state.main = None
+    st.session_state.documents_processed = False
+    st.session_state.cache_dir = "/home/olande/Desktop/FinalRAG/my_cache"
+    st.session_state.default_data_path = (
+        "data/output/processed_pmc_data/pmc_chunks.json"
+    )
 
-    cache_dir: str = "my_cache"
-    faiss_index_dir: str = "/home/olande/Desktop/FinalRAG/faiss_index"
+
+def initialize_pipeline():
+    try:
+        st.session_state.main = Main(cache_dir=st.session_state.cache_dir)
+        st.success("Pipeline initialized successfully!")
+    except Exception as e:
+        st.error(f"Failed to initialize pipeline: {str(e)}")
 
 
-# TODO: Implement a class to handle the document uploads either by importing the document processing class or building a new one
+def validate_json_file(file_path):
+    try:
+        with open(file_path, encoding="utf-8") as f:
+            data = json.load(f)
 
-
-class StreamlitApp:
-    def __init__(self):
-        self.config = AppConfig()
-        self.main_engine: Optional | Main = None
-
-    def _check_cache_exists(self):
-        faiss_exists = Path(self.config.faiss_index_dir).exists()
-        cache_exists = Path(self.config.cache_dir).exists()
-        return cache_exists, faiss_exists
-
-    async def _initialize_engine(self):
-        try:
-            if self.main_engine is None:
-                self.main_engine = Main(cache_dir=self.config.cache_dir)
-
-            # Try loading the cache first
-            cache_loaded = await self.main_engine.load_from_cache()
-            return cache_loaded
-        except Exception as e:
-            logger.error(f"Engine initialization failed: {str(e)}")
-            st.error(f"Failed to initialize RAG engine: {str(e)}")
-            return False
-
-    async def _process_and_build(self, documents: list[dict[str, Any]]) -> bool:
-        try:
-            with st.spinner("Building knowledge graph and vector store ..."):
-                await self.main_engine.process_documents(documents)
-            st.success("Documents processed successfully!")
-            return True
-        except Exception as e:
-            logger.error(f"Document processing failed: {str(e)}")
-            st.error(f"Failed to process documents: {str(e)}")
-            return False
-
-    async def _execute_query(self, query):
-        try:
-            with st.spinner("Processing query..."):
-                result = await self.main_engine.query(query)
-            return result
-        except Exception as e:
-            logger.error(f"Failed to process query: {str(e)}")
-            st.error(f"Query failed: {str(e)}")
-            return None
-
-    def _render_sidebar(self):
-        st.sidebar.title("System status")
-
-        faiss_exists, cache_exists = self._check_cache_exists()
-
-        # Cache status
-        st.sidebar.subheader("Cache Status")
-        st.sidebar.write(f"FAISS Index: {'✅' if faiss_exists else '❌'}")
-        st.sidebar.write(f"Knowledge Graph: {'✅' if cache_exists else '❌'}")
-
-        # Environment check
-        st.sidebar.subheader("Environment")
-        api_key_set = bool(os.getenv("OPENROUTER_API_KEY"))
-        st.sidebar.write(f"API Key: {'✅' if api_key_set else '❌'}")
-
-    def _render_query_interface(self):
-        st.subheader("Query Interface")
-        st.divider()
-
-        query = st.text_input(
-            "Enter your query:",
-            placeholder="Ask a question about your documents...",
-            help="Enter a natural language query to search through your documents",
-        )
-
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            query_button = st.button("Query", type="primary", use_container_width=True)
-
-        if query_button and query.strip():
-            return query.strip()
-        elif query_button:
-            st.warning("Please enter a query")
-
-        return None
-
-    def _render_upload_interface(self):
-        st.subheader("Document Upload")
-        st.divider()
-
-        uploaded_files = st.file_uploader(
-            "Upload PDF documents",
-            type=["pdf", "txt"],
-            accept_multiple_files=True,
-            help="Upload PDF files to build a new knowledge base",
-        )
-
-        if uploaded_files:
-            st.write(f"Selected {len(uploaded_files)} file(s):")
-            for file in uploaded_files:
-                mb_size = file.size / (1024 * 1024)
-                st.write(f"- {file.name} ({mb_size:.2f} MB)")
-
-            if st.button("Process Documents", type="primary"):
-                return uploaded_files
-
-            return None
-
-    def _render_results(self, response, traversal_path, filtered_content):
-        st.subheader("Response")
-        st.divider()
-
-        if traversal_path:
-            with st.expander("Traversal Path", expanded=False):
-                st.json(traversal_path)
-
-        if filtered_content:
-            with st.expander("Filtered Content", expanded=False):
-                st.json(filtered_content)
-
-    async def run(self):
-        st.set_page_config(
-            page_title="Medical RAG System",
-            page_icon="🏥",
-            layout="wide",
-            initial_sidebar_state="expanded",
-        )
-
-        st.title("🏥 Medical RAG System")
-        st.markdown("Retrieval-Augmented Generation for Medical Documents")
-
-        # Render sidebar
-        self._render_sidebar()
-
-        # Initialize the engine
-        if "engine_initialized" not in st.session_state:
-            with st.spinner("Initializing RAG engine..."):
-                cache_loaded = await self._initialize_engine()
-                st.session_state.engine_initialized = True
-                st.session_state.cache_available = cache_loaded
-                if cache_loaded:
-                    st.success("Loaded existing knowledge base from cache!")
-                else:
-                    st.info(
-                        "No cache found. Please upload documents to build knowledge base."
-                    )
-
-        # Main interface tabs
-        if st.session_state.get("cache_available", False):
-            tab1, tab2 = st.tabs(["Query System", "Upload New Documents"])
-            with tab1:
-                query = self._render_query_interface()
-                if query:
-                    result = await self._execute_query(query)
-                    if result:
-                        response, traversal_path, filtered_content = result
-                        self._render_results(response, traversal_path, filtered_content)
-
-            with tab2:
-                uploaded_files = self._render_upload_interface()
-                if uploaded_files:
-                    documents = await self.doc_handler.process_uploaded_files(
-                        uploaded_files
-                    )
-                    if documents:
-                        success = await self._process_and_build(documents)
-                        if success:
-                            st.session_state.cache_available = True
-                            st.rerun()
-        else:
-            # If no cache is available then only show the upload interface
-            st.info(
-                "No existing knowledge base found. Please upload documents to get started."
-            )
-            uploaded_files = self._render_upload_interface()
-            if uploaded_files:
-                documents = await self.doc_handler.process_uploaded_files(
-                    uploaded_files
+        # Check for pre-chunked structure: "documents" key with "content" and "metadata"
+        if (
+            isinstance(data, dict)
+            and "documents" in data
+            and isinstance(data["documents"], list)
+        ):
+            if all(
+                isinstance(doc, dict) and "content" in doc and "metadata" in doc
+                for doc in data["documents"]
+            ):
+                return (
+                    True,
+                    True,
+                    data.get("processing_info", {}),
+                    data.get("summary", {}),
                 )
-                if documents:
-                    success = await self._process_and_build(documents)
-                    if success:
-                        st.session_state.cache_available = True
-                        st.rerun()
+
+        # Check for raw PMC data structure
+        if isinstance(data, list) and all(
+            isinstance(doc, dict) and "abstract" in doc for doc in data
+        ):
+            return True, False, {}, {}
+
+    except Exception as e:
+        logger.error(f"Error validating JSON file: {str(e)}")
+        return False, False, {}, {}
 
 
-async def main():
-    """Application entry point."""
-    app = StreamlitApp()
-    await app.run()
+async def process_file(file_path, progress_bar):
+    try:
+        # Validate file
+        is_valid, is_chunked, processing_info, summary = validate_json_file(file_path)
+        if not is_valid:
+            st.error(
+                f"Invalid JSON file structure at {file_path}. Expected a 'documents' key with a list of objects containing 'content' and 'metadata' or a list of objects with 'abstract'."
+            )
+            return
+
+        if is_chunked:
+            # Load pre-chunked data
+            with open(file_path, encoding="utf-8") as f:
+                data = json.load(f)
+
+            processed_docs = [
+                Document(page_content=doc["content"], metadata=doc["metadata"])
+                for doc in data["documents"]
+                if doc["content"].strip()
+            ]
+
+            st.write(
+                f"Loaded {len(processed_docs)} pre-chunked documents from {file_path}"
+            )
+            progress_bar.progress(1.0, text="Loaded pre-chunked documents")
+
+            # Display processing info and summary
+            if processing_info or summary:
+                st.write("### File Processing Info")
+                if processing_info:
+                    st.json(processing_info)
+                if summary:
+                    st.json(summary)
+        # Use the PMCBatch processor for raw JSON processing
+        else:
+            document_processor = DocumentProcessor()
+            batch_processor = PMCBatchProcessor(document_processor=document_processor)
+
+            # Progress callback
+            def progress_callback(completed, total, result):
+                progress = completed / total
+                progress_bar.progress(
+                    progress, text=f"Processing batch {completed}/{total}"
+                )
+                if result["success"]:
+                    st.write(
+                        f"Batch {result['batch_num']}: {result['chunk_count']} chunks from {result['original_count']} documents"
+                    )
+                else:
+                    st.error(f"Batch {result['batch_num']} failed: {result['error']}")
+
+            # Process the file
+            results = await batch_processor.process_pmc_file_async(
+                file_path=file_path, progress_callback=progress_callback
+            )
+            processed_docs = results["all_documents"]
+
+            # Save results
+            os.makedirs(st.session_state.cache_dir, exist_ok=True)
+            batch_processor.save_results(results, st.session_state.cache_dir)
+            st.write("### Processing Summary")
+            st.json(results["processing_summary"])
+
+            # Build knowledge graph and vector store
+        await st.session_state.main.process_documents(processed_docs)
+        st.session_state.documents_processed = True
+        st.success(f"Processed {len(processed_docs)} document chunks successfully!")
+
+    except Exception as e:
+        st.error(f"Error while processing the json file: {str(e)}")
+        logger.error(f"Error while processing the json file: {str(e)}")
+
+
+def main():
+    st.title("Medical RAG Knowledge Graph Explorer")
+    with st.sidebar:
+        st.header("Configuration")
+        if st.button("Initialize Pipeline"):
+            initialize_pipeline()
+
+        st.header("Load documents")
+        # Button to load default file
+        if st.button("Load pmc_chunks.json"):
+            if st.session_state.main:
+                default_path = st.session_state.default_data_path
+                if os.path.exists(default_path):
+                    progress_bar = st.progress(0, text="Starting processing...")
+                    with st.spinner(f"Processing {default_path}..."):
+                        asyncio.run(process_file(default_path, progress_bar))
+                    progress_bar.empty()
+                else:
+                    st.error(f"File not found: {default_path}")
+            else:
+                st.warning("Please initialize the pipeline first.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
