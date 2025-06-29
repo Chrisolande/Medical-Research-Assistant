@@ -131,7 +131,7 @@ async def process_file(file_path, progress_bar):
             st.write("### Processing Summary")
             st.json(results["processing_summary"])
 
-            # Build knowledge graph and vector store
+        # Build knowledge graph and vector store
         await st.session_state.main.process_documents(processed_docs)
         st.session_state.documents_processed = True
         st.success(f"Processed {len(processed_docs)} document chunks successfully!")
@@ -139,6 +139,18 @@ async def process_file(file_path, progress_bar):
     except Exception as e:
         st.error(f"Error while processing the json file: {str(e)}")
         logger.error(f"Error while processing the json file: {str(e)}")
+
+
+async def handle_query(query):
+    try:
+        response, traversal_path, filtered_content = await st.session_state.main.query(
+            query
+        )
+        return response, traversal_path, filtered_content
+    except Exception as e:
+        st.error(f"Error during query processing: {str(e)}")
+        logger.error(f"Error during query processing: {str(e)}")
+        return None, None, None
 
 
 def main():
