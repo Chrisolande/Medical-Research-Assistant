@@ -175,6 +175,94 @@ def main():
             else:
                 st.warning("Please initialize the pipeline first.")
 
+        # File uploader for other JSON files
+        st.header("Upload Custom JSON")
+        uploaded_file = st.file_uploader(
+            "Upload JSON file with medical documents", type=["json"]
+        )
+        if uploaded_file and st.session_state.main:
+            temp_file_path = os.path.join(
+                st.session_state.cache_dir, uploaded_file.name
+            )
+            os.makedirs(st.session_state.cache_dir, exist_ok=True)
+            with open(temp_file_path, "wb") as f:
+                f.write(uploaded_file.read())
+
+            progress_bar = st.progress(0, text="Starting processing...")
+            with st.spinner("Processing uploaded file..."):
+                asyncio.run(process_file(temp_file_path, progress_bar))
+            progress_bar.empty()
+            os.remove(temp_file_path)
+
+    # Main content area
+    if st.session_state.main:
+        st.header("Query the Knowledge Graph")
+        query = st.text_input(
+            "Enter your query:",
+            placeholder="e.g., What are the effects of the Gaza war on children?",
+        )
+
+        if query and st.session_state.documents_processed:
+            with st.spinner("Processing query..."):
+                response, traversal_path, filtered_content = asyncio.run(
+                    handle_query(query)
+                )
+
+                if response:
+                    st.subheader("Query Response")
+                    st.write(
+                        response.content
+                        if hasattr(response, "content")
+                        else str(response)
+                    )
+
+                    # Get the traversal path
+                    if traversal_path:
+                        st.subheader("Traversal Path")
+                        st.write(f"Nodes traversed: {traversal_path}")
+
+                        # Display the filtered content
+                        st.subheader("Relevant Content")
+                        for node_id, content in filtered_content.items():
+                            st.write(f"**Node {node_id}**: {content[:200]}...")
+
+                    # Display knowledge graph statistics
+                    st.subheader("Knowledge Graph Statistics")
+                    stats = st.session_state.main.knowledge_graph.get_stats()
+                    st.json(stats)
+
+                    # Visualize graph
+                    if traversal_path:
+                        st.subheader("Graph Visualization")
+                        try:
+                            graph_image_buffer = (
+                                st.session_state.main.visualizer.visualize_traversal(
+                                    st.session_state.main.knowledge_graph.graph,
+                                    traversal_path,
+                                )
+                            )
+
+                            if graph_image_buffer:
+                                st.image(
+                                    graph_image_buffer,
+                                    caption="Knowledge Graph Traversal",
+                                )
+                            else:
+                                st.warning("No visualization generated.")
+
+                        except Exception as e:
+                            st.error(f"Failed to visualize graph: {str(e)}")
+                            logger.error(f"Failed to visualize graph: {str(e)}")
+
+                else:
+                    st.warning(
+                        "No response generated. Please check the query or document processing."
+                    )
+        elif query and not st.session_state.documents_processed:
+            st.warning("Please load or upload and process documents before querying.")
+    else:
+        st.info("Please initialize the pipeline from the sidebar.")
+
 
 if __name__ == "__main__":
     main()
