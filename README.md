@@ -1,9 +1,6 @@
 # Medical Graph RAG: A Comprehensive RAG Pipeline for Knowledge Discovery
-[![Work in Progress](https://img.shields.io/badge/Status-Work%20in%20Progress-yellow)](https://github.com/chrisolande/finalrag)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/chrisolande/finalrag/blob/main/LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-
-> **⚠️ Work in Progress**: This project is under heavy active development. Features like Neo4j integration, Streamlit UI, change from using Disjkra's algorithm to A* + Pagerank combination for the graph traversal and advanced reranking are incomplete.
 
 Medical Graph RAG is a Python-based project that implements a Retrieval Augmented Generation (RAG) pipeline. It's designed to process documents, build a knowledge graph, and utilize this graph along with vector search and reranking to answer queries based on the ingested information. The primary goal is to provide a robust and extensible framework for knowledge discovery from a corpus of documents.
 
@@ -49,37 +46,46 @@ Medical Graph RAG is a Python-based project that implements a Retrieval Augmente
     OPENROUTER_API_KEY="your_openrouter_api_key"
     # Add other environment variables as needed
     ```
-    Refer to `src/core/config.py` for potential environment variables to set.
+    Refer to `src/medical_graph_rag/core/config.py` for potential environment variables to set.
 
 ## Usage
 
-The main entry point for the application is `src/core/main.py`.
+The primary way to interact with this project is through the Streamlit web application.
 
-To run the project:
+**Running the Application:**
 
-```bash
-python src/core/main.py
-```
+1.  Ensure you have completed the [Installation](#installation) steps.
+2.  Navigate to the root directory of the project.
+3.  Run the Streamlit application:
+    ```bash
+    streamlit run app.py
+    ```
+    This will start the web server and open the application in your default web browser.
 
-(Further details on command-line arguments, specific workflows, or example use cases will be added as the project evolves. Currently, `main.py` has a placeholder print statement.)
+**Application Workflow:**
 
-### Example Workflow (Conceptual)
-
-1.  **Data Ingestion:**
-    -   Place your input documents in the `data/input/` directory.
-    -   The system processes these documents (e.g., using `src/data_processing/pubmed_downloader.py` and `src/data_processing/document_processor.py`).
-2.  **Knowledge Graph & Vector Store Population:**
-    -   Processed data is used to build/update the knowledge graph (`src/knowledge_graph/knowledge_graph.py`).
-    -   Document embeddings are stored in a vector store (`src/nlp/vectorstore.py`).
-3.  **Querying:**
-    -   Use the system to ask questions. The RAG chain (`src/nlp/rag_chain.py`) will:
-        -   Retrieve relevant documents using vector search and graph traversal.
-        -   Rerank the retrieved documents.
-        -   Generate an answer using an LLM, augmented with the retrieved context.
+1.  **Initialize Pipeline:**
+    -   In the sidebar, click the "Initialize Pipeline" button. This sets up the backend components, including the knowledge graph and query engine.
+2.  **Load Documents:**
+    -   **Default Data:** Click "Load pmc_chunks.json" in the sidebar to process a pre-defined dataset (`data/output/processed_pmc_data/pmc_chunks.json`). This file can be pre-chunked or raw JSON data from PMC.
+    -   **Custom Data:** Alternatively, use the "Upload Custom JSON" file uploader in the sidebar to process your own JSON document. The application supports:
+        -   Pre-chunked JSON files (a dictionary with a "documents" key, where each document has "content" and "metadata").
+        -   Raw JSON files (a list of documents, each typically containing an "abstract").
+    -   The application will process the documents, build the knowledge graph, and populate the vector store. Progress will be displayed.
+3.  **Query the Knowledge Graph:**
+    -   Once documents are processed, use the text input field in the main area to enter your query (e.g., "What are the effects of the Gaza war on children?").
+    -   The system will:
+        -   Retrieve relevant information using a combination of vector search and knowledge graph traversal.
+        -   Generate a comprehensive answer using a Large Language Model (LLM), augmented with the retrieved context.
+        -   Display the answer, the traversal path through the graph, and snippets of the relevant content.
+        -   Show statistics about the knowledge graph.
+        -   Optionally, visualize the graph traversal path.
+4.  **Conversation History:**
+    -   Recent queries and their responses are stored and can be viewed in the "Conversation History" expander. You can also clear this history.
 
 ## Configuration
 
-The project's behavior can be customized through environment variables and configuration settings defined primarily in `src/core/config.py`.
+The project's behavior can be customized through environment variables and configuration settings defined primarily in `src/medical_graph_rag/core/config.py`.
 
 Key configurable aspects include:
 
@@ -106,17 +112,19 @@ Key configurable aspects include:
     -   `MIN_NODES_TO_TRAVERSE`, `MAX_NODES_TO_TRAVERSE`: For graph traversal during querying.
     -   `LLM_MAX_CONTEXT_LENGTH`: Maximum context length for the LLM.
 
-To modify these settings:
+To modify these settings for the core backend pipeline:
 
-1.  **Environment Variables:** Set environment variables (e.g., in a `.env` file) for API keys and other sensitive or environment-specific data.
-2.  **`src/core/config.py`:** For more persistent or default changes, you can modify the values directly in this file. However, using environment variables is recommended for flexibility.
+1.  **Environment Variables:** Set environment variables (e.g., in a `.env` file) for API keys and other sensitive or environment-specific data. These are loaded by `src/medical_graph_rag/core/config.py`.
+2.  **`src/medical_graph_rag/core/config.py`:** For more persistent or default changes to the backend pipeline, you can modify the values directly in this file. However, using environment variables is generally recommended for flexibility.
+
+Note: The Streamlit application (`app.py`) also manages some paths internally for UI operations and temporary file storage, such as a cache directory for uploaded files and processing outputs.
 
 ## Project Structure
 
 The project is organized into the following main directories:
 
--   `src/`: Contains the core source code.
-    -   `core/`: Core application logic, configuration (`config.py`), and main entry point (`main.py`).
+-   `src/medical_graph_rag/`: Contains the core source code.
+    -   `core/`: Core application logic, configuration (`config.py`), and the main pipeline class (`main.py`) used by the Streamlit app.
     -   `data_processing/`: Modules for downloading, parsing, and processing documents (e.g., `pubmed_downloader.py`, `document_processor.py`).
     -   `knowledge_graph/`: Code related to building, managing, and visualizing the knowledge graph (e.g., `knowledge_graph.py`, `graph_viz.py`).
     -   `nlp/`: Natural Language Processing components, including vector store management (`vectorstore.py`), RAG chain implementation (`rag_chain.py`), and semantic caching (`prompt_caching.py`).
@@ -125,6 +133,7 @@ The project is organized into the following main directories:
     -   `output/`: Directory for processed data, such as knowledge graph serializations or intermediate files.
 -   `notebooks/`: Jupyter notebooks for experimentation, exploration, and visualization (e.g., `notebook.ipynb`, `playground.ipynb`).
 -   `tests/`: Contains unit and integration tests for the project.
+-   `app.py`: The Streamlit web application entry point.
 -   `pyproject.toml`: Project metadata and dependency management using Poetry.
 -   `.gitignore`: Specifies intentionally untracked files that Git should ignore.
 -   `README.md`: This file.
