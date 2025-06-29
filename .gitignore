@@ -1,21 +1,30 @@
-# Ignore environment variables file
+# Environment and Configuration
 .env
 
-# Ignore Python bytecode
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
 
-# Ignore VS Code specific files
+# IDE and Editor
 .vscode/
+.idea/
+*.swp
+*.swo
 
-# Ignore embedding cache directory
+# Application Cache and Data
 embedding_cache/
-
-# Ignore generated output chunks
-output/
-
-# Ignore Reranking cache
+semantic_cache_index/
 ~/.cache/
 .langchain.db
+.my_semantic_cache.db
 
-semantic_cache_index/
+# Generated Output
+output/
