@@ -198,7 +198,7 @@ def extract_and_parse_json(text: str) -> dict[str, list[str]] | None:
 
     for pattern in json_patterns:
         matches = re.findall(pattern, text, re.DOTALL)
-        for match in matches:  # CHANGE: Fixed variable name from _match to match
+        for match in matches:
             try:
                 cleaned = match.strip()
                 cleaned = re.sub(r"^[^{]*(\{)", r"\1", cleaned)
@@ -218,7 +218,7 @@ def extract_and_parse_json(text: str) -> dict[str, list[str]] | None:
     # Line-by-line extraction
     concept_dict = {}
     lines = text.split("\n")
-    for line in lines:  # CHANGE: Fixed variable name from _line to line
+    for line in lines:
         line = line.strip()
         if not line:
             continue
@@ -325,9 +325,7 @@ def load_json_data(
         logger.error(
             f"Error loading JSON data from {file_path}: {str(e)}", exc_info=True
         )
-        raise ValueError(
-            f"Failed to load data from {file_path}: {str(e)}"
-        ) from e  # CHANGE: Added 'from e'
+        raise ValueError(f"Failed to load data from {file_path}: {str(e)}") from e
 
 
 def create_batches(

@@ -19,12 +19,20 @@ __pycache__/
 *.swp
 *.swo
 
+# Package Build Artifacts
+src/medical_graph_rag.egg-info/
+dist/
+build/
+*.egg-info/
+
 # Application Cache and Data
 embedding_cache/
 semantic_cache_index/
 ~/.cache/
 .langchain.db
 .my_semantic_cache.db
+my_cache/
+faiss_index/
 
 # Generated Output
 output/

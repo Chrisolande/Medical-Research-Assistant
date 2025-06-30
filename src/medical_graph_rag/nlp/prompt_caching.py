@@ -4,6 +4,7 @@ import os
 import shutil
 import threading
 import time
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -41,7 +42,7 @@ class SemanticCache(SQLiteCache):
     def __post_init__(self):
         """Initialize post_init."""
         super().__init__(self.database_path)
-        self.embedding_cache = {}
+        self.embedding_cache = OrderedDict()
         self.memory_cache = {}
         self.metrics = {
             "cache_hits": 0,
@@ -158,8 +159,7 @@ class SemanticCache(SQLiteCache):
         """Cache Embedding method."""
         # Perform LRU eviction
         if len(self.embedding_cache) >= self.memory_cache_size:
-            first_item = next(iter(self.embedding_cache))
-            self.embedding_cache.pop(first_item)
+            self.embedding_cache.popitem(last=False)
 
         self.embedding_cache[text] = embedding
 
