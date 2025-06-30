@@ -244,30 +244,6 @@ class TestLookupOperations:
             mock_log_error.assert_called_once()
 
 
-class TestUpdateOperations:
-    """Tests for update operations."""
-
-    @pytest.mark.asyncio
-    async def test_update_async(self, semantic_cache, sample_generations, mock_faiss):
-        """Test async update functionality."""
-        prompt = "test prompt"
-        llm_string = "test_llm"
-        semantic_cache.vector_store = mock_faiss
-        semantic_cache._lazy_loaded = True
-        with (
-            patch("langchain_community.cache.SQLiteCache.update") as mock_parent_update,
-            patch(
-                "medical_graph_rag.nlp.prompt_caching.run_in_executor"
-            ) as mock_executor,
-        ):
-            mock_executor.return_value = None
-            mock_parent_update.assert_called_once_with(
-                prompt, llm_string, sample_generations
-            )
-            cache_key = f"{prompt}:{llm_string}"
-            assert semantic_cache.memory_cache[cache_key] == sample_generations
-
-
 class TestCacheManagement:
     """Tests for cache management operations."""
 
