@@ -1,7 +1,6 @@
 """Knowledge Graph module."""
 
 import asyncio
-from dataclasses import dataclass
 
 import networkx as nx
 import numpy as np
@@ -18,13 +17,6 @@ from medical_graph_rag.core.utils import (
     create_text_hash,
     extract_and_parse_json,
 )
-
-
-@dataclass
-class Concepts:
-    """Concepts class."""
-
-    concepts_list: list[str]
 
 
 class KnowledgeGraph:

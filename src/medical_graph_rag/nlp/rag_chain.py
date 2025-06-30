@@ -38,83 +38,112 @@ class QueryEngine:
             And the context:
             {context}
 
-            IMPORTANT: Only mark as complete if you have comprehensive, detailed information that fully addresses ALL aspects of the query.
-            If there's ANY uncertainty or if more context could provide better insights, mark as incomplete.
+            Review the context provided. If it contains sufficient information to form a coherent and informative answer to the query, please synthesize that answer.
+            If the context is insufficient or irrelevant, indicate that a good answer cannot be formed.
 
-            Based on the provided context, is the query fully answerable with comprehensive detail?
-            Answerable: [Yes/No]
-            Complete Answer (if Yes):
+            Is there sufficient information in the context to answer the query informatively?
+            Sufficient: [Yes/No]
+            Synthesized Answer (if Yes):
             """
         )
 
         return prompt | self.llm.with_structured_output(AnswerCheck)
 
     def _check_answer(self, query: str, context: str) -> tuple[bool, str]:
-        """Check if the query is fully answerable with the provided context."""
+        """Check if the query is answerable with sufficient information from the
+        provided context."""
+        logger.debug(f"[_check_answer] Query: {query}\nContext:\n{context}")
         # Ensure sufficient context for a meaningful check
         if len(context.split("\n")) < 3:
-            logger.debug("Context too short for comprehensive answer check.")
+            logger.debug(
+                "[_check_answer] Context too short for comprehensive answer check."
+            )
             return False, ""
 
+        is_sufficient_result = False
+        synthesized_answer_result = ""
+
         try:
-            response = self.answer_check_chain.invoke(
+            raw_response = self.answer_check_chain.invoke(
                 {"query": query, "context": context}
             )
-            return response.is_complete, response.answer
+            logger.debug(f"[_check_answer] Raw LLM structured response: {raw_response}")
+            # Assuming raw_response is the Pydantic model instance if successful
+            is_sufficient_result = raw_response.is_sufficient
+            synthesized_answer_result = raw_response.synthesized_answer
         except ValueError as e:
-            if "Structured Output response does not have a 'parsed' field" in str(e):
+            if "Structured Output response does not have a 'parsed' field" in str(
+                e
+            ) or "Failed to parse" in str(e):
                 logger.warning(
-                    "LLM returned unstructured response, falling back to text parsing"
+                    f"[_check_answer] LLM structured output parsing failed: {e}. Falling back to text parsing."
                 )
-                # Fallback: use the chain without structured output
-                fallback_prompt = ChatPromptTemplate.from_template(
-                    """
+                # The 'raw_response' in this specific case might be an AIMessage if the LLM failed to structure but still responded.
+                # We need to re-invoke with a non-structured chain to get the text content for parsing.
+
+                fallback_prompt_template = """
                     Given the query: "{query}"
                     And the context:
                     {context}
 
-                    IMPORTANT: Only mark as complete if you have comprehensive, detailed information that fully addresses ALL aspects of the query.
-                    If there's ANY uncertainty or if more context could provide better insights, mark as incomplete.
+                    Review the context provided. If it contains sufficient information to form a coherent and informative answer to the query, please synthesize that answer.
+                    If the context is insufficient or irrelevant, indicate that a good answer cannot be formed.
 
-                    Based on the provided context, is the query fully answerable with comprehensive detail?
-                    Answerable: [Yes/No]
-                    Complete Answer (if Yes):
+                    Is there sufficient information in the context to answer the query informatively?
+                    Sufficient: [Yes/No]
+                    Synthesized Answer (if Yes):
                     """
+                fallback_prompt = ChatPromptTemplate.from_template(
+                    fallback_prompt_template
                 )
                 fallback_chain = fallback_prompt | self.llm
-                response = fallback_chain.invoke({"query": query, "context": context})
-
-                # Parse the text response
-                response_text = (
-                    response.content if hasattr(response, "content") else str(response)
+                raw_text_response_obj = fallback_chain.invoke(
+                    {"query": query, "context": context}
                 )
-                is_complete = "answerable: yes" in response_text.lower()
+                raw_text_response = (
+                    raw_text_response_obj.content
+                    if hasattr(raw_text_response_obj, "content")
+                    else str(raw_text_response_obj)
+                )
+                logger.debug(
+                    f"[_check_answer] Raw LLM text response for fallback: {raw_text_response}"
+                )
 
-                # Extract answer if marked as complete
-                answer = ""
-                if is_complete and "complete answer" in response_text.lower():
-                    lines = response_text.split("\n")
+                is_sufficient_result = "sufficient: yes" in raw_text_response.lower()
+
+                if (
+                    is_sufficient_result
+                    and "synthesized answer" in raw_text_response.lower()
+                ):
+                    lines = raw_text_response.split("\n")
                     answer_started = False
                     answer_lines = []
                     for line in lines:
-                        if "complete answer" in line.lower():
+                        if "synthesized answer" in line.lower():
                             answer_started = True
-                            # Check if answer is on same line
                             if ":" in line:
                                 answer_part = line.split(":", 1)[1].strip()
                                 if answer_part:
                                     answer_lines.append(answer_part)
                         elif answer_started and line.strip():
                             answer_lines.append(line.strip())
-                    answer = "\n".join(answer_lines)
-
-                return is_complete, answer
+                    synthesized_answer_result = "\n".join(answer_lines)
             else:
-                logger.error(f"Error during answer check: {e}", exc_info=True)
-                return False, ""
+                logger.error(
+                    f"[_check_answer] Error during answer check: {e}", exc_info=True
+                )
+                # Keep default False, ""
         except Exception as e:
-            logger.error(f"Error during answer check: {e}", exc_info=True)
-            return False, ""
+            logger.error(
+                f"[_check_answer] Unexpected error during answer check: {e}",
+                exc_info=True,
+            )
+            # Keep default False, ""
+
+        logger.debug(
+            f"[_check_answer] Result: is_sufficient={is_sufficient_result}, synthesized_answer='{synthesized_answer_result[:100]}...'"
+        )
+        return is_sufficient_result, synthesized_answer_result
 
     async def _initialize_traversal(
         self, relevant_docs: list[Document]
@@ -173,7 +202,6 @@ class QueryEngine:
         node_concepts = node_data.get("concepts", [])
 
         # Check if adding this node's content would exceed max context length
-        # This is a simple word count check, consider a token count for more accuracy
         if len((expanded_context + node_content).split()) > self.max_context_length:
             logger.info(f"Skipping node {current_node}: context length limit reached.")
             return (
@@ -197,9 +225,15 @@ class QueryEngine:
         print(f"Concepts: {', '.join(node_concepts)}")
         print("-" * 50)
 
-        is_complete, answer = self._check_answer(query, expanded_context)
-        if is_complete:
-            return expanded_context, traversal_path, filtered_content, answer, True
+        is_sufficient, synthesized_answer = self._check_answer(query, expanded_context)
+        if is_sufficient:
+            return (
+                expanded_context,
+                traversal_path,
+                filtered_content,
+                synthesized_answer,
+                True,
+            )
 
         node_concepts_set = {
             self.knowledge_graph._lemmatize_concept(c) for c in node_concepts
@@ -263,7 +297,7 @@ class QueryEngine:
                 traversal_path,
                 filtered_content,
                 current_node_answer,
-                is_complete_now,
+                is_sufficient_now,
             ) = self._process_node(
                 current_node,
                 query,
@@ -274,16 +308,15 @@ class QueryEngine:
                 step,
             )
 
-            # Only check for completion after minimum nodes and every 3rd node after that
-            should_check_completion = (
-                len(traversal_path) >= self.min_nodes_to_traverse
-                and (len(traversal_path) - self.min_nodes_to_traverse) % 3 == 0
-            )
+            # Check for completion more frequently: every node after min_nodes_to_traverse
+            should_check_completion = len(traversal_path) >= self.min_nodes_to_traverse
 
-            if is_complete_now and should_check_completion:
+            if is_sufficient_now and should_check_completion:
                 final_answer = current_node_answer
-                logger.info(f"Found complete answer after {len(traversal_path)} nodes.")
-                break  # Exit traversal loop if answer is complete
+                logger.info(
+                    f"Found sufficient answer after {len(traversal_path)} nodes."
+                )
+                break  # Exit traversal loop if answer is sufficient
 
             self._explore_neighbors(
                 current_node,
@@ -302,11 +335,13 @@ class QueryEngine:
                     "Priority queue exhausted without finding a complete answer."
                 )
 
-        if not final_answer:  # If no complete answer was found during traversal
-            logger.info("Generating final answer from accumulated context.")
+        if not final_answer:  # If no sufficient answer was found during traversal
+            logger.info(
+                "No sufficient answer found during traversal. Generating final answer from accumulated context."
+            )
             response_prompt = PromptTemplate(
                 input_variables=["query", "context"],
-                template="Based on the following context, please answer the query.\n\nContext: {context}\n\nQuery: {query}\n\nAnswer:",
+                template="You are a helpful assistant. Analyze the following context and use it to provide a comprehensive answer to the query. If the context allows, try to synthesize information rather than just extracting it. If the context is insufficient, clearly state that.\n\nContext: {context}\n\nQuery: {query}\n\nAnswer:",
             )
             response_chain = response_prompt | self.llm
             input_data = {"query": query, "context": expanded_context}

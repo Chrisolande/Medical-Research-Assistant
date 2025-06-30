@@ -6,7 +6,6 @@ import time
 from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from threading import Semaphore
 from typing import Any
 
 from langchain_core.documents import Document
@@ -40,7 +39,7 @@ class PMCBatchProcessor:
     def __post_init__(self):
         """Initialize post_init."""
         self.logger = logging.getLogger(__name__)
-        self.processing_semaphore = Semaphore(self.max_concurrent_batches)
+        # self.processing_semaphore = Semaphore(self.max_concurrent_batches)
         self.executor = ThreadPoolExecutor(max_workers=self.max_concurrent_batches)
 
     def load_pmc_data(
@@ -231,10 +230,6 @@ class PMCBatchProcessor:
         self.executor.shutdown(wait=True)
 
         return results
-
-    async def process_pmc_file(self, *args, **kwargs):
-        """Sync wrapper for async method."""
-        return await self.process_pmc_file_async(*args, **kwargs)
 
     def _empty_result(self) -> dict[str, Any]:
         """Empty Result method."""

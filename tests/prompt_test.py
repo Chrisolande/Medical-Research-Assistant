@@ -259,11 +259,8 @@ class TestUpdateOperations:
             patch(
                 "medical_graph_rag.nlp.prompt_caching.run_in_executor"
             ) as mock_executor,
-            patch.object(semantic_cache, "_remove_dummy_doc_async"),
-            patch.object(semantic_cache, "_save_vector_store_async"),
         ):
             mock_executor.return_value = None
-            await semantic_cache.update_async(prompt, llm_string, sample_generations)
             mock_parent_update.assert_called_once_with(
                 prompt, llm_string, sample_generations
             )
