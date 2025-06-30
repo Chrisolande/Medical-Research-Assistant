@@ -84,22 +84,6 @@ class SemanticCache(SQLiteCache):
             )
             self._create_new_faiss_index()
 
-    async def _init_semantic_store_async(self):
-        if os.path.exists(self.faiss_index_path) and os.path.isdir(
-            self.faiss_index_path
-        ):
-            try:
-                self.vector_store = await run_in_executor(
-                    self.executor, self._load_faiss_index
-                )  # No parentheses for func
-                log_info(f"Loaded existing FAISS index from {self.faiss_index_path}")
-
-            except Exception as e:
-                log_error(f"Error loading the FAISS index: {str(e)}", exc_info=True)
-                await self._create_new_faiss_index_async()  # Call async version
-        else:
-            await self._create_new_faiss_index_async()
-
     def _load_faiss_index(self):
         """Load Faiss Index method."""
         return FAISS.load_local(
@@ -328,46 +312,6 @@ class SemanticCache(SQLiteCache):
         except Exception as e:
             log_error(f"Error during semantic index update: {e}", exc_info=True)
 
-    async def update_async(
-        self, prompt: str, llm_string: str, return_val: list[Generation]
-    ):
-        super().update(prompt, llm_string, return_val)
-
-        # Add to memory cache
-        cache_key = f"{prompt}:{llm_string}"
-        self._add_to_memory_cache(cache_key, return_val)
-
-        self._lazy_load_vector_store()
-
-        if self.vector_store is None:
-            log_info(
-                "Semantic vector store not initialized, attempting to re-initialize."
-            )
-            await self._init_semantic_store_async()
-            if self.vector_store is None:
-                log_info("Failed to re-initialize semantic vector store.")
-                return
-
-        try:
-            await self._remove_dummy_doc_async()
-            if len(self.vector_store.docstore._dict) >= self.max_cache_size:
-                await self._evict_oldest_entries_async()
-
-            metadata = {
-                "llm_string_key": llm_string,
-                "type": "cache_entry",
-                "timestamp": time.time(),
-            }
-
-            await run_in_executor(
-                self.executor, self._add_to_vector_store, prompt, metadata
-            )
-
-            await self._save_vector_store_async()
-
-        except Exception as e:
-            log_error(f"Error during semantic index update: {e}", exc_info=True)
-
     def _remove_dummy_doc(self):
         """Remove Dummy Doc method."""
         dummy_ids = [
@@ -380,9 +324,6 @@ class SemanticCache(SQLiteCache):
         if dummy_ids:
             self.vector_store.delete(dummy_ids)
             log_info(f"Removed {len(dummy_ids)} dummy documents.")
-
-    async def _remove_dummy_doc_async(self):
-        await run_in_executor(self.executor, self._remove_dummy_doc)
 
     def _evict_oldest_entries(self):
         """Evict Oldest Entries method."""
@@ -404,9 +345,6 @@ class SemanticCache(SQLiteCache):
             self.vector_store.delete(evict_ids)
             log_info(f"Evicted {len(evict_ids)} oldest entries from FAISS index.")
 
-    async def _evict_oldest_entries_async(self):
-        await run_in_executor(self.executor, self._evict_oldest_entries)
-
     def _add_to_vector_store(self, prompt: str, metadata: dict):
         """Add To Vector Store method."""
         self.vector_store.add_texts([prompt], metadatas=[metadata])
@@ -416,9 +354,6 @@ class SemanticCache(SQLiteCache):
         os.makedirs(self.faiss_index_path, exist_ok=True)
         self.vector_store.save_local(self.faiss_index_path)
         log_info(f"Updated FAISS index and saved to {self.faiss_index_path}")
-
-    async def _save_vector_store_async(self):
-        await run_in_executor(self.executor, self._save_vector_store)
 
     def get_metrics(self):
         """Get Metrics method."""

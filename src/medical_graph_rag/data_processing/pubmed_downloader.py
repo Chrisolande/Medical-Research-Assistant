@@ -5,7 +5,6 @@ import json
 import time
 from dataclasses import dataclass
 
-import pandas as pd
 from Bio import Entrez
 from tqdm.asyncio import tqdm
 
@@ -207,16 +206,6 @@ class PubMedEntrezDownloader:
             "pubmed_url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
             "doi_url": f"https://doi.org/{doi}" if doi else "",
         }
-
-    def save_to_csv(self, articles, filename):
-        """Save To Csv method."""
-        if articles:
-            pd.DataFrame(articles).to_csv(filename, index=False, encoding="utf-8")
-
-    def save_to_excel(self, articles, filename):
-        """Save To Excel method."""
-        if articles:
-            pd.DataFrame(articles).to_excel(filename, index=False, engine="openpyxl")
 
     def save_to_json(self, articles, filename):
         """Save To Json method."""

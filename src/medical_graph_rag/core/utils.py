@@ -267,13 +267,6 @@ def create_text_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()  # nosec
 
 
-def clean_concepts(concepts: list[str]) -> list[str]:
-    """Cleans and deduplicates a list of concept strings."""
-    # Ensure each concept is stripped and non-empty, then convert to list from set for deduplication
-    cleaned_set = {c.strip() for c in concepts if c and c.strip()}
-    return sorted(cleaned_set)  # CHANGE: Removed unnecessary list() call
-
-
 # ---------------------------------------------------------------------------- #
 #                               Graph Utilities                                #
 # ---------------------------------------------------------------------------- #

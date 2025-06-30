@@ -103,7 +103,7 @@ class FileProcessor:
 
     @staticmethod
     async def _process_raw_data(
-        file_path: str, progress_bar, cache_dir: str, app_state
+        file_path: str, progress_bar, app_state: AppState
     ) -> list[Document]:
         """Process raw PMC data."""
         document_processor = DocumentProcessor()

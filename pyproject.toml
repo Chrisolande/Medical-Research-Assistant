@@ -179,3 +179,7 @@ exclude = ["B403"]
 
 [tool.isort]
 split_on_trailing_comma = false
+
+[tool.vulture]
+paths = ["src/", "app.py", "notebooks/"]
+min_confidence = 0

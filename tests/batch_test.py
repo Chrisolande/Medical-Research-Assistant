@@ -54,7 +54,6 @@ def test_init(document_processor, test_data):
     assert processor.batch_size == 5
     assert processor.max_concurrent_batches == 3
     assert processor.logger is not None
-    assert processor.processing_semaphore is not None
     assert processor.executor is not None
 
 
@@ -72,7 +71,7 @@ def test_load_pmc_data_valid_docs(
         if doc.get("abstract", "").strip() and len(doc.get("abstract", "")) >= 50
     )
 
-    # assertions
+    # perform assertions
     assert isinstance(result, list)
     print(f"Expected a list, got {type(result)}")
     assert len(result) == expected_count
@@ -109,7 +108,7 @@ def test_load_pmc_data_max_docs_limit(
         and len(doc.get("abstract", "").strip()) >= MIN_ABSTRACT_CONTENT_LENGTH
     )
 
-    # Assertions
+    # perform assertions
     assert isinstance(result, list), f"Expected list, got {type(result)}"
     assert (
         len(result) == expected_count
@@ -131,7 +130,7 @@ def test_create_document_batches(batch_processor, sample_pmc_data):
 
     batches = list(batch_processor.create_document_batches(docs, batch_size=2))
 
-    # assertion
+    # perform assertions
     assert len(batches) == 3
     assert len(batches[0]) == 2
     assert len(batches[1]) == 2
@@ -153,7 +152,7 @@ def test_process_batch_documents(batch_processor, sample_pmc_data):
 
     result = batch_processor._process_batch_documents(batch)
 
-    # Check that documents were processed
+    # perform assertions
     assert len(result) >= 1  # At least some documents should be processed
     for doc in result:
         assert isinstance(doc, Document)
@@ -168,6 +167,7 @@ async def test_process_batch_async_success(batch_processor, sample_pmc_data):
 
     result = await batch_processor._process_batch_async(batch, 1)
 
+    # perform assertions
     assert result["success"] is True
     assert result["batch_num"] == 1
     assert result["original_count"] == 1

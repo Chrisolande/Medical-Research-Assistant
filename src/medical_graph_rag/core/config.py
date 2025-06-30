@@ -21,7 +21,7 @@ class VisualizationConfig:
     traversal_edge_width: int = 3
     font_size: int = 8
     curve_radius: float = 0.3
-    edge_offset: float = 0.1
+    # edge_offset: float = 0.1
     layout_iterations: int = 50
     layout_k: float = 1
     max_label_length: int = 20
@@ -46,7 +46,7 @@ class EdgeStyle:
     regular_color: str = "blue"
     traversal_color: str = "red"
     traversal_style: str = "--"
-    colormap: str = "Blues"  # Colormap for edge weights
+    # colormap: str = "Blues"  # Colormap for edge weights
 
 
 # ---------------------------------------------------------------------------- #
@@ -135,7 +135,12 @@ LLM_MAX_CONTEXT_LENGTH = 4000  # Max context length for the LLM
 
 
 class AnswerCheck(BaseModel):
-    """Check if a query is fully answerable with the provided context."""
+    """Check if a query is answerable with sufficient information from the provided
+    context."""
 
-    is_complete: bool = Field(description="Whether the answer is complete or not")
-    answer: str = Field(description="The current answer based on the context")
+    is_sufficient: bool = Field(
+        description="Whether the context provides sufficient information."
+    )
+    synthesized_answer: str = Field(
+        description="The synthesized answer based on the context."
+    )
