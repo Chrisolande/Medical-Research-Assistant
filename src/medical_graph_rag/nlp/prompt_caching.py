@@ -165,15 +165,21 @@ class SemanticCache(SQLiteCache):
 
     def _get_embedding_with_cache(self, text: str):
         """Get Embedding With Cache method."""
-        cached = self._get_cached_embedding(text)
-        if cached:
-            return cached
+        # Check cache first
+        if text in self.embedding_cache:
+            self.embedding_cache.move_to_end(text)  # Move to end (most recent)
+            return self.embedding_cache[text]
 
+        # Generate embedding
         start_time = time.time()
         embedding = self.embeddings.embed_query(text)
         self.metrics["embedding_time"] += time.time() - start_time
 
-        self._cache_embedding(text, embedding)
+        # Cache with LRU eviction
+        if len(self.embedding_cache) >= self.memory_cache_size:
+            self.embedding_cache.popitem(last=False)  # Remove oldest
+        self.embedding_cache[text] = embedding
+
         return embedding
 
     def lookup(self, prompt: str, llm_string: str):

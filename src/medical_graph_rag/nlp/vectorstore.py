@@ -38,7 +38,7 @@ from medical_graph_rag.core.config import (
     RERANKER_MODEL_NAME,
     RERANKER_TOP_N,
 )
-from medical_graph_rag.core.utils import pretty_print_docs
+from medical_graph_rag.core.utils import ensure_semantic_cache, pretty_print_docs
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -75,7 +75,7 @@ class VectorStore:
 
     def __post_init__(self):
         """Initialize post_init."""
-        # ensure_semantic_cache()  # Ensure semantic cache is initialized
+        ensure_semantic_cache()  # Ensure semantic cache is initialized
         self.semaphore = Semaphore(self.max_concurrent)
         self.llm = ChatOpenAI(
             model=self.model_name,
