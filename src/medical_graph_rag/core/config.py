@@ -65,7 +65,7 @@ LLM_MODEL_NAME_PROTOTYPE = "meta-llama/llama-3.1-8b-instruct"
 # ---------------------------------------------------------------------------- #
 
 # General vector store persistence directory
-PERSIST_DIRECTORY = "/home/olande/Desktop/FinalRAG/faiss_index"
+PERSIST_DIRECTORY = "faiss_index"
 # Cache directory for FlashRank models
 FLASHRANK_CACHE_DIR = os.path.expanduser("~/.cache/flashrank")
 

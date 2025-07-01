@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI
 
 from medical_graph_rag.core.config import (
     EMBEDDING_MODEL_NAME,
-    LLM_MODEL_NAME_PROTOTYPE,
+    LLM_MODEL_NAME,
     OPENROUTER_API_BASE,
 )
 from medical_graph_rag.knowledge_graph.graph_viz import GraphVisualizer
@@ -46,7 +46,7 @@ class Main:
             raise ValueError("OPENROUTER_API_KEY environment variable not set")
 
         return ChatOpenAI(
-            model=LLM_MODEL_NAME_PROTOTYPE,
+            model=LLM_MODEL_NAME,
             api_key=api_key,
             openai_api_base=OPENROUTER_API_BASE,
             temperature=0,
@@ -115,10 +115,7 @@ class Main:
             else:
                 logger.info("No traversal path to visualize")
 
-            response_content = (
-                response.content if hasattr(response, "content") else str(response)
-            )
-            return response_content, traversal_path, filtered_content
+            return response, traversal_path, filtered_content
 
         except Exception as e:
             logger.error(f"Query processing failed: {str(e)}")

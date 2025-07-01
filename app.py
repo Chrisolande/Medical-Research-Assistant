@@ -30,7 +30,7 @@ class ConversationEntry:
 class AppState:
     main: Main | None = None
     documents_processed: bool = False
-    cache_dir: str = "/home/olande/Desktop/FinalRAG/my_cache"
+    cache_dir: str = "my_cache"
     default_data_path: str = "data/output/processed_pmc_data/pmc_chunks.json"
     conversation_history: list[ConversationEntry] = field(default_factory=list)
 
@@ -171,7 +171,9 @@ class QueryHandler:
 
             conversation_entry = ConversationEntry(
                 query=query,
-                response=response,
+                response=(
+                    response.content if hasattr(response, "content") else str(response)
+                ),
                 timestamp=datetime.now(),
                 traversal_path=traversal_path,
                 filtered_content=filtered_content,
