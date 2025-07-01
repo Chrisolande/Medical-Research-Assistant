@@ -176,7 +176,7 @@ class TestVectorStore:
         ) as MockFAISSFromDocs:
             MockFAISSFromDocs.return_value = MagicMock(spec=FAISS)
             MockFAISSFromDocs.return_value.save_local = MagicMock()
-            await vec_store._create_vector_index(docs)
+            await vec_store.create_vector_index(docs)
             MockFAISSFromDocs.assert_called_once()
             assert vec_store.vector_index is not None
             assert vec_store._get_document_hash(docs[0]) in vec_store.added_doc_hashes
@@ -191,7 +191,7 @@ class TestVectorStore:
         vec_store = VectorStore(persist_directory=temp_persist_dir)
 
         docs = [Document(page_content="Another document")]
-        await vec_store._create_vector_index(docs)
+        await vec_store.create_vector_index(docs)
 
         mock_faiss_index.add_documents.assert_called_once_with(docs)
         assert vec_store._get_document_hash(docs[0]) in vec_store.added_doc_hashes

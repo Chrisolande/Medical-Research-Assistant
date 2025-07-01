@@ -61,7 +61,7 @@ def test_data():
             {"pmid": "2039", "title": "proof pi = 3 = e", "authors": "Cobain, K."},
         ],
         "metadata_fields": ["pmid", "title", "authors"],
-        "embeddings_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "embeddings_model": "abhinand/MedEmbed-small-v0.1",
         "config": {
             "batch_size": PMC_BATCH_SIZE,
             "max_concurrent_batches": PMC_MAX_CONCURRENT_BATCHES,

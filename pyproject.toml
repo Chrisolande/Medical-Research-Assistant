@@ -1,8 +1,8 @@
 # Project Configuration
 [project]
-name = "medical-graph-rag" # CHANGE: Renamed for consistent package naming
+name = "medical-graph-rag"
 version = "0.1.0"
-description = "A Medical Graph Retrieval-Augmented Generation (RAG) system summarizing learnings from the RAG series" # CHANGE: Updated description
+description = "A Medical Graph Retrieval-Augmented Generation (RAG) system summarizing learnings from the RAG series"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -121,7 +121,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint.isort]
-known-first-party = ["medical_graph_rag"] # CHANGE: Updated to match internal package name
+known-first-party = ["medical_graph_rag"]
 
 # Type Checking
 [tool.mypy]
@@ -145,7 +145,7 @@ minversion = "7.0"
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=medical_graph_rag", # CHANGE: Updated to match internal package name
+    "--cov=medical_graph_rag",
     "--cov-report=html",
     "--cov-report=term-missing",
 ]
@@ -157,7 +157,7 @@ markers = [
 
 # Coverage Configuration
 [tool.coverage.run]
-source = ["medical_graph_rag"] # CHANGE: Updated to match internal package name
+source = ["medical_graph_rag"]
 omit = [
     "*/tests/*",
     "*/venv/*",

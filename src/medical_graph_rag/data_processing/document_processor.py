@@ -13,6 +13,8 @@ from langchain_community.document_loaders import JSONLoader
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 
+from medical_graph_rag.core.config import EMBEDDING_MODEL_NAME
+
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 class DocumentProcessor:
     """DocumentProcessor class."""
 
-    embeddings_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embeddings_model: str = EMBEDDING_MODEL_NAME
     metadata_fields: list[str] = field(
         default_factory=lambda: [
             "pmid",

@@ -53,10 +53,11 @@ class EdgeStyle:
 #                                 Model Names                                  #
 # ---------------------------------------------------------------------------- #
 
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL_NAME = "abhinand/MedEmbed-small-v0.1"
 RERANKER_MODEL_NAME = "jinaai/jina-reranker-v1-turbo-en"
 LLM_MODEL_NAME = "meta-llama/llama-3.3-70b-instruct"
 FLASHRANK_MODEL_NAME = "ms-marco-MiniLM-L-12-v2"
+LLM_MODEL_NAME_PROTOTYPE = "meta-llama/llama-3.1-8b-instruct"
 
 
 # ---------------------------------------------------------------------------- #

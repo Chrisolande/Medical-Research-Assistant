@@ -9,6 +9,8 @@ import backoff
 from langchain.schema import HumanMessage
 from langchain_openai import ChatOpenAI
 
+from medical_graph_rag.core.config import LLM_MODEL_NAME, OPENROUTER_API_BASE
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
@@ -34,9 +36,9 @@ class QATriple:
 
 @dataclass
 class LLMConfig:
-    model: str = "meta-llama/llama-3.3-70b-instruct"
+    model: str = LLM_MODEL_NAME
     api_key: str | None = None
-    base_url: str = "https://openrouter.ai/api/v1"
+    base_url: str = OPENROUTER_API_BASE
     temperature: float = 0.7
     max_tokens: int = 2000
     max_concurrent: int = 5

@@ -1,9 +1,14 @@
 import logging
 import os
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
 
+from medical_graph_rag.core.config import (
+    EMBEDDING_MODEL_NAME,
+    LLM_MODEL_NAME_PROTOTYPE,
+    OPENROUTER_API_BASE,
+)
 from medical_graph_rag.knowledge_graph.graph_viz import GraphVisualizer
 from medical_graph_rag.knowledge_graph.knowledge_graph import KnowledgeGraph
 from medical_graph_rag.nlp.rag_chain import QueryEngine
@@ -41,9 +46,9 @@ class Main:
             raise ValueError("OPENROUTER_API_KEY environment variable not set")
 
         return ChatOpenAI(
-            model="meta-llama/llama-3.3-70b-instruct",
+            model=LLM_MODEL_NAME_PROTOTYPE,
             api_key=api_key,
-            openai_api_base="https://openrouter.ai/api/v1",
+            openai_api_base=OPENROUTER_API_BASE,
             temperature=0,
             streaming=False,
             max_retries=3,
@@ -53,7 +58,7 @@ class Main:
     def _initialize_embeddings(self) -> HuggingFaceEmbeddings:
         """Initialize the embedding model."""
         return HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_name=EMBEDDING_MODEL_NAME,
             model_kwargs={"device": "cpu"},  # or 'cuda' if available
             encode_kwargs={"normalize_embeddings": True},
         )
@@ -68,7 +73,10 @@ class Main:
             logger.info(f"Processing {len(documents)} documents")
 
             # Build knowledge graph
-            await self.knowledge_graph.build_knowledge_graph(documents, self.llm)
+            self.knowledge_graph.build_knowledge_graph(documents)
+
+            await self.vector_store.create_vector_index(documents)
+            logger.info(f"Added {len(documents)} documents to vector store")
 
             # Initialize query engine
             self.query_engine = QueryEngine(

@@ -212,7 +212,7 @@ class VectorStore:
                 )
                 return 0
 
-    async def _create_vector_index(self, documents: list[Document]):
+    async def create_vector_index(self, documents: list[Document]):
         """Build the vector index."""
         if not documents:
             logger.info("No documents provided to create/update vector index.")
