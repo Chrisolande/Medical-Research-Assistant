@@ -171,9 +171,7 @@ class QueryHandler:
 
             conversation_entry = ConversationEntry(
                 query=query,
-                response=(
-                    response.content if hasattr(response, "content") else str(response)
-                ),
+                response=response,
                 timestamp=datetime.now(),
                 traversal_path=traversal_path,
                 filtered_content=filtered_content,

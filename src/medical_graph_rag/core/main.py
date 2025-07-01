@@ -115,7 +115,10 @@ class Main:
             else:
                 logger.info("No traversal path to visualize")
 
-            return response, traversal_path, filtered_content
+            response_content = (
+                response.content if hasattr(response, "content") else str(response)
+            )
+            return response_content, traversal_path, filtered_content
 
         except Exception as e:
             logger.error(f"Query processing failed: {str(e)}")

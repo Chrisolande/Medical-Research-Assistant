@@ -127,7 +127,7 @@ MIN_ABSTRACT_CONTENT_LENGTH = 50  # Minimum content length for a valid document 
 #                               Query Engine Settings                          #
 # ---------------------------------------------------------------------------- #
 MIN_NODES_TO_TRAVERSE = 8
-MAX_NODES_TO_TRAVERSE = 15
+MAX_NODES_TO_TRAVERSE = 25
 LLM_MAX_CONTEXT_LENGTH = 4000  # Max context length for the LLM
 
 # ---------------------------------------------------------------------------- #

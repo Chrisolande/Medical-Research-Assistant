@@ -364,7 +364,7 @@ class QueryEngine:
             query, relevant_docs
         )
 
-        logger.info(f"Final Answer: {final_answer[:200]}...")
+        logger.info(f"Final Answer: {final_answer.content[:200]}...")
 
         return final_answer, traversal_path, filtered_content
 
