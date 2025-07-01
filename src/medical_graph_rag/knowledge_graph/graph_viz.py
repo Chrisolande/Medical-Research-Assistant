@@ -248,6 +248,15 @@ class GraphVisualizer:
                 markersize=15,
                 label="End Node",
             ),
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                markerfacecolor=self.node_style.regular,
+                markersize=15,
+                label="Neighbor Node",
+            ),
         ]
 
         legend = ax.legend(
