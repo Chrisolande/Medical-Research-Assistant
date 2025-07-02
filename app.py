@@ -8,6 +8,7 @@ from datetime import datetime
 import streamlit as st
 from langchain_core.documents import Document
 
+from medical_graph_rag.core.config import DEFAULT_SIMILARITY_THRESHOLD
 from medical_graph_rag.core.main import Main
 from medical_graph_rag.data_processing.batch_processor import PMCBatchProcessor
 from medical_graph_rag.data_processing.document_processor import DocumentProcessor
@@ -33,6 +34,9 @@ class AppState:
     cache_dir: str = "my_cache"
     default_data_path: str = "data/output/processed_pmc_data/pmc_chunks.json"
     conversation_history: list[ConversationEntry] = field(default_factory=list)
+
+    use_cache: bool = True
+    similarity_threshold = DEFAULT_SIMILARITY_THRESHOLD
 
 
 class FileProcessor:
@@ -192,19 +196,23 @@ class UIComponents:
     def render_sidebar(app_state: AppState):
         """Render sidebar with configuration and file loading options."""
         with st.sidebar:
+            st.markdown("# :dna: Medical RAG Config")
             UIComponents._render_configuration(app_state)
+            st.divider()
             UIComponents._render_file_loading(app_state)
+            st.divider()
             UIComponents._render_custom_upload(app_state)
+            st.divider()
 
     @staticmethod
     def render_main_content(app_state: AppState):
         """Render main content area."""
         if app_state.main:
-            st.header("Query the Knowledge Graph")
+            st.header(":mag: Query the Knowledge Graph")
             UIComponents._render_conversation_history(app_state)
             UIComponents._render_query_interface(app_state)
         else:
-            st.info("Please initialize the pipeline from the sidebar.")
+            st.info(":point_left: Please initialize the pipeline from the sidebar.")
 
     @staticmethod
     def _render_configuration(app_state: AppState):
@@ -215,9 +223,14 @@ class UIComponents:
     @staticmethod
     def _render_file_loading(app_state: AppState):
         """Render default file loading section."""
-        st.header("Load documents")
+        st.markdown("### :open_file_folder: Load Documents")
+        # Status indicator
+        status_color = "🟢" if app_state.documents_processed else "🔴"
+        st.markdown(
+            f"{status_color} **Status:** {'Loaded' if app_state.documents_processed else 'Not Loaded'}"
+        )
         # Button to load default file
-        if st.button("Load pmc_chunks.json"):
+        if st.button(":page_with_curl: Load pmc_chunks.json", use_container_width=True):
             if app_state.main:
                 if os.path.exists(app_state.default_data_path):
                     progress_bar = st.progress(0, text="Starting processing...")
@@ -236,9 +249,11 @@ class UIComponents:
     @staticmethod
     def _render_custom_upload(app_state: AppState):
         # File uploader for other JSON files
-        st.header("Upload Custom JSON")
+        st.markdown("### 📤 Upload Custom JSON")
         uploaded_file = st.file_uploader(
-            "Upload JSON file with medical documents", type=["json"]
+            "Upload JSON file with medical documents",
+            type=["json"],
+            help="Supports both raw PMC data and pre-chunked documents",
         )
         if uploaded_file and app_state.main:
             temp_file_path = os.path.join(app_state.cache_dir, uploaded_file.name)
@@ -267,7 +282,10 @@ class UIComponents:
     def _render_conversation_history(app_state: AppState):
         """Render conversation history with improved layout."""
         if app_state.conversation_history:
-            with st.expander("Conversation History", expanded=False):
+            with st.expander(
+                f":speech_balloon: Conversation History ({len(app_state.conversation_history)} queries)",
+                expanded=False,
+            ):
                 for i, conv in enumerate(reversed(app_state.conversation_history[-5:])):
                     col1, col2 = st.columns([3, 1])
                     with col1:
@@ -279,20 +297,34 @@ class UIComponents:
                         st.caption(conv.timestamp.strftime("%Y-%m-%d %H:%M:%S"))
                     st.divider()
 
-                if st.button("Clear History"):
+                if st.button(":wastebasket: Clear History"):
                     app_state.conversation_history = []
                     st.rerun()
 
     @staticmethod
     def _render_query_interface(app_state: AppState):
         """Render query input and response interface."""
+        st.markdown("### :brain: Ask a Question")
+        # Suggestions
+        suggestions = [
+            "What are the effects of the Gaza war on children?",
+            "How does Covid-19 affect mental health?",
+            "What are the latest treatments for diabetes?",
+            "How has machine learning revolutionized health care?",
+        ]
+        selected_suggestion = st.selectbox(
+            ":bulb: Quick suggestions (optional):",
+            [""] + suggestions,
+            help="Select a suggestion or type your own query below",
+        )
         query = st.text_input(
             "Enter your query:",
-            placeholder="e.g., What are the effects of the Gaza war on children?",
+            value=selected_suggestion,
+            placeholder="Enter your medical research question ...",
         )
 
         if query and app_state.documents_processed:
-            with st.spinner("Processing query..."):
+            with st.spinner(":mag: Processing query..."):
                 response, traversal_path, filtered_content = asyncio.run(
                     QueryHandler.handle_query(query, app_state)
                 )
@@ -313,22 +345,22 @@ class UIComponents:
         response, traversal_path, filtered_content, app_state: AppState
     ):
         """Render query results with improved layout."""
-        st.subheader("Query Response")
+        st.subheader(":clipboard: Query Response")
         st.write(response.content if hasattr(response, "content") else str(response))
 
         if traversal_path:
             col1, col2 = st.columns(2)
 
             with col1:
-                st.subheader("Traversal Path")
+                st.subheader(":map: Traversal Path")
                 st.write(f"Nodes traversed: {traversal_path}")
 
-                st.subheader("Knowledge Graph Statistics")
+                st.subheader(":bar_chart: Knowledge Graph Statistics")
                 stats = app_state.main.knowledge_graph.get_stats()
                 st.json(stats)
 
             with col2:
-                st.subheader("Relevant Content")
+                st.subheader(":page_with_curl: Relevant Content")
                 for node_id, content in filtered_content.items():
                     with st.expander(f"Node {node_id}"):
                         st.write(
@@ -340,7 +372,7 @@ class UIComponents:
     @staticmethod
     def _render_graph_visualization(traversal_path, app_state: AppState):
         """Render graph visualization."""
-        st.subheader("Graph Visualization")
+        st.subheader("🕸️ Graph Visualization")
         try:
             graph_image_buffer = app_state.main.visualizer.visualize_traversal(
                 app_state.main.knowledge_graph.graph, traversal_path
@@ -360,7 +392,11 @@ class MedicalRAGApp:
     """Main application class."""
 
     def __init__(self):
-        st.set_page_config(page_title="Medical RAG Knowledge Graph", layout="wide")
+        st.set_page_config(
+            page_title="Medical RAG Knowledge Graph",
+            layout="wide",
+            initial_sidebar_state="expanded",
+        )
         self.app_state = self._initialize_session_state()
 
     def _initialize_session_state(self) -> AppState:
@@ -371,7 +407,7 @@ class MedicalRAGApp:
 
     def run(self):
         """Run the main application."""
-        st.title("Medical RAG Knowledge Graph Explorer")
+        st.title(":dna: Medical RAG Knowledge Graph Explorer")
         UIComponents.render_sidebar(self.app_state)
         UIComponents.render_main_content(self.app_state)
 
