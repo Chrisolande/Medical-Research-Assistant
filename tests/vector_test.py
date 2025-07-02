@@ -57,7 +57,6 @@ def mock_dependencies(temp_persist_dir):
         patch(
             "medical_graph_rag.nlp.vectorstore.os.path.exists", return_value=False
         ) as mock_os_path_exists,
-        patch("medical_graph_rag.nlp.vectorstore.ensure_semantic_cache"),
         patch("medical_graph_rag.nlp.vectorstore.ranker", autospec=True),
         patch(
             "medical_graph_rag.nlp.vectorstore.ContextualCompressionRetriever"
