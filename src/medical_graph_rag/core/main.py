@@ -47,7 +47,7 @@ class Main:
 
         return ChatOpenAI(
             model=LLM_MODEL_NAME,
-            api_key=api_key,
+            openai_api_key=api_key,
             openai_api_base=OPENROUTER_API_BASE,
             temperature=0,
             streaming=False,
