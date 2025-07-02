@@ -189,7 +189,8 @@ class QueryHandler:
         except Exception as e:
             st.error(f"Error during query processing: {str(e)}")
             logger.error(f"Error during query processing: {str(e)}")
-            return None, None, None
+            # return None, None, None
+            raise
 
 
 class UIComponents:
