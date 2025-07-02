@@ -41,9 +41,11 @@ class Main:
 
     def _initialize_llm(self) -> ChatOpenAI:
         """Initialize the LLM with configuration."""
-        api_key = os.getenv("OPENROUTER_API_KEY")
+        api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError("OPENROUTER_API_KEY environment variable not set")
+            raise ValueError(
+                "OPENROUTER_API_KEY or OPENAI_API_KEY environment variable not set"
+            )
 
         return ChatOpenAI(
             model=LLM_MODEL_NAME,

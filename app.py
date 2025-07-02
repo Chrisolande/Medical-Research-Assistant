@@ -198,6 +198,8 @@ class UIComponents:
         """Render sidebar with configuration and file loading options."""
         with st.sidebar:
             st.markdown("# :dna: Medical RAG Config")
+            UIComponents._render_api_key_input(app_state)
+            st.divider()
             UIComponents._render_configuration(app_state)
             st.divider()
             UIComponents._render_settings(app_state)
@@ -278,15 +280,42 @@ class UIComponents:
             st.rerun()
 
     @staticmethod
+    def _render_api_key_input(app_state: AppState):
+        st.markdown("### :key: API Configuration")
+
+        api_key_exists = bool(os.getenv("OPENROUTER_API_KEY"))
+        if api_key_exists:
+            st.success(":white_check_mark: API key found in environment")
+        else:
+            st.warning(":warning: API key not found in environment")
+
+            api_key = st.text_input(
+                "Openrouter API Key",
+                type="password",
+                help="Enter your openrouter API Key",
+            )
+
+            if api_key:
+                # Set the environment variable temporarily
+                os.environ["OPENAI_API_KEY"] = api_key
+                os.environ["OPENROUTER_API_KEY"] = api_key
+                st.success(":white_check_mark: API key set successfully")
+
+                if app_state.main:
+                    st.info("Reinitializing the entire system with the new API key")
+                    try:
+                        app_state.main = Main(cache_dir=app_state.cache_dir)
+                        st.success("Pipeline reinitialized with the new API key")
+
+                    except Exception as e:
+                        st.error(f"Failed to reinitialize: {str(e)}")
+
+    @staticmethod
     def _render_file_loading(app_state: AppState):
         """Render default file loading section."""
         st.markdown("### :open_file_folder: Load Documents")
         # Status indicator
-        status_color = (
-            ":large_green_circle: "
-            if app_state.documents_processed
-            else ":red_circle: "
-        )
+        status_color = "🟢 " if app_state.documents_processed else ":red_circle: "
         st.markdown(
             f"{status_color} **Status:** {'Loaded' if app_state.documents_processed else 'Not Loaded'}"
         )
@@ -378,6 +407,7 @@ class UIComponents:
             ":bulb: Quick suggestions (optional):",
             [""] + suggestions,
             help="Select a suggestion or type your own query below",
+            index=3,
         )
         query = st.text_input(
             "Enter your query:",
@@ -414,7 +444,7 @@ class UIComponents:
             col1, col2 = st.columns(2)
 
             with col1:
-                st.subheader(":map: Traversal Path")
+                st.subheader(":world_map: Traversal Path")
                 st.write(f"Nodes traversed: {traversal_path}")
 
                 st.subheader(":bar_chart: Knowledge Graph Statistics")

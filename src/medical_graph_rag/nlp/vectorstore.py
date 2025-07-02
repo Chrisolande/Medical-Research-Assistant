@@ -33,7 +33,6 @@ from medical_graph_rag.core.config import (
     LLM_MODEL_NAME,
     MAX_CONCURRENT,
     OPENROUTER_API_BASE,
-    OPENROUTER_API_KEY,
     PERSIST_DIRECTORY,
     RERANKER_MODEL_NAME,
     RERANKER_TOP_N,
@@ -77,10 +76,13 @@ class VectorStore:
         """Initialize post_init."""
         # ensure_semantic_cache()  # Ensure semantic cache is initialized
         self.semaphore = Semaphore(self.max_concurrent)
+        api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY or OPENAI_API_KEY not found!")
         self.llm = ChatOpenAI(
             model=self.model_name,
             max_tokens=LLM_MAX_TOKENS,
-            openai_api_key=OPENROUTER_API_KEY,
+            openai_api_key=api_key,
             openai_api_base=OPENROUTER_API_BASE,
             temperature=0,
         )
