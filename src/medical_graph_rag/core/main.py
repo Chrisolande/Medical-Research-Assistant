@@ -9,7 +9,6 @@ from medical_graph_rag.core.config import (
     LLM_MODEL_NAME,
     OPENROUTER_API_BASE,
 )
-from medical_graph_rag.core.utils import ensure_semantic_cache
 from medical_graph_rag.knowledge_graph.graph_viz import GraphVisualizer
 from medical_graph_rag.knowledge_graph.knowledge_graph import KnowledgeGraph
 from medical_graph_rag.nlp.rag_chain import QueryEngine
@@ -36,7 +35,6 @@ class Main:
             self.vector_store = VectorStore()
             self.query_engine = None
             self.visualizer = GraphVisualizer()
-            ensure_semantic_cache()
         except Exception as e:
             logger.error(f"Initialization failed: {str(e)}")
             raise

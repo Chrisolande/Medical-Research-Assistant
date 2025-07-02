@@ -38,6 +38,9 @@ class AppState:
 
     use_cache: bool = False
     similarity_threshold = DEFAULT_SIMILARITY_THRESHOLD
+    openrouter_api_key: str = field(
+        default_factory=lambda: os.getenv("OPENROUTER_API_KEY")
+    )
 
 
 class FileProcessor:
@@ -235,6 +238,14 @@ class UIComponents:
     @staticmethod
     def _render_settings(app_state: AppState):
         st.markdown("### :control_knobs: Settings")
+        if not os.getenv("OPENROUTER_API_KEY"):
+            app_state.openrouter_api_key = st.textinput(
+                ":key: Openrouter API Key",
+                type="password",
+                help="Enter your openrouter API key",
+                value=app_state.openrouter_api_key,
+            )
+
         # Cache toggling
         new_cache = st.toggle(
             ":floppy_disk: Use Cache",
@@ -273,11 +284,7 @@ class UIComponents:
         """Render default file loading section."""
         st.markdown("### :open_file_folder: Load Documents")
         # Status indicator
-        status_color = (
-            ":large_green_circle: "
-            if app_state.documents_processed
-            else ":red_circle: "
-        )
+        status_color = "🟢 " if app_state.documents_processed else ":red_circle: "
         st.markdown(
             f"{status_color} **Status:** {'Loaded' if app_state.documents_processed else 'Not Loaded'}"
         )
@@ -326,6 +333,8 @@ class UIComponents:
     def _initialize_pipeline(app_state: AppState):
         """Initialize the main pipeline."""
         try:
+            if app_state.openrouter_api_key and not os.getenv("OPENROUTER_API_KEY"):
+                os["OPENROUTER_API_KEY"] = app_state.openrouter_api_key
             app_state.main = Main(cache_dir=app_state.cache_dir)
             st.success("Pipeline initialized successfully!")
         except Exception as e:
@@ -405,7 +414,7 @@ class UIComponents:
             col1, col2 = st.columns(2)
 
             with col1:
-                st.subheader(":map: Traversal Path")
+                st.subheader(":world_map: Traversal Path")
                 st.write(f"Nodes traversed: {traversal_path}")
 
                 st.subheader(":bar_chart: Knowledge Graph Statistics")
