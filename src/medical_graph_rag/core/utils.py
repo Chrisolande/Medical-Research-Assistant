@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 _semantic_cache_instance = None
 
 
-def ensure_semantic_cache():
+def ensure_semantic_cache(similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD):
     """Ensure semantic cache is initialized globally."""
     global _semantic_cache_instance
     if _semantic_cache_instance is None:
@@ -45,7 +45,7 @@ def ensure_semantic_cache():
         _semantic_cache_instance = SemanticCache(
             database_path=DEFAULT_DATABASE_PATH,
             faiss_index_path=DEFAULT_FAISS_INDEX_PATH,
-            similarity_threshold=DEFAULT_SIMILARITY_THRESHOLD,
+            similarity_threshold=similarity_threshold,
             enable_quantization=ENABLE_QUANTIZATION,
         )
         set_llm_cache(_semantic_cache_instance)

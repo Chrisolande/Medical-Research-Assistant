@@ -10,6 +10,7 @@ from langchain_core.documents import Document
 
 from medical_graph_rag.core.config import DEFAULT_SIMILARITY_THRESHOLD
 from medical_graph_rag.core.main import Main
+from medical_graph_rag.core.utils import ensure_semantic_cache
 from medical_graph_rag.data_processing.batch_processor import PMCBatchProcessor
 from medical_graph_rag.data_processing.document_processor import DocumentProcessor
 
@@ -35,7 +36,7 @@ class AppState:
     default_data_path: str = "data/output/processed_pmc_data/pmc_chunks.json"
     conversation_history: list[ConversationEntry] = field(default_factory=list)
 
-    use_cache: bool = True
+    use_cache: bool = False
     similarity_threshold = DEFAULT_SIMILARITY_THRESHOLD
 
 
@@ -199,6 +200,8 @@ class UIComponents:
             st.markdown("# :dna: Medical RAG Config")
             UIComponents._render_configuration(app_state)
             st.divider()
+            UIComponents._render_settings(app_state)
+            st.divider()
             UIComponents._render_file_loading(app_state)
             st.divider()
             UIComponents._render_custom_upload(app_state)
@@ -216,16 +219,64 @@ class UIComponents:
 
     @staticmethod
     def _render_configuration(app_state: AppState):
-        st.header("Configuration")
-        if st.button("Initialize Pipeline"):
-            UIComponents._initialize_pipeline(app_state)
+        st.markdown("### :gear: Pipeline Control")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Initialize Pipeline", use_container_width=True):
+                UIComponents._initialize_pipeline(app_state)
+
+        with col2:
+            if app_state.main and st.button("Reset Pipeline", use_container_width=True):
+                app_state.main = None
+                app_state.documents_processed = False
+                st.rerun()
+
+    @staticmethod
+    def _render_settings(app_state: AppState):
+        st.markdown("### :control_knobs: Settings")
+        # Cache toggling
+        new_cache = st.toggle(
+            ":floppy_disk: Use Cache",
+            value=app_state.use_cache,
+            help="Enable/disable caching for faster repeated queries",
+        )
+        # Similarity threshold
+        new_threshold = st.slider(
+            ":dart: Similarity Threshold",
+            min_value=0.0,
+            max_value=1.0,
+            value=app_state.similarity_threshold,
+            step=0.05,
+            help="Higher values equals more precise matches",
+        )
+
+        if (
+            new_cache != app_state.use_cache
+            or new_threshold != app_state.similarity_threshold
+        ):
+            # Initialize them to the new values
+            app_state.use_cache = new_cache
+            app_state.new_threshold = new_threshold
+            if app_state.use_cache and app_state.main:
+                global _semantic_cache_instance
+                _semantic_cache_instance = None  # Reset cache
+                ensure_semantic_cache(
+                    similarity_threshold=app_state.similarity_threshold
+                )
+                st.success(
+                    f"Semantic cache reinitialized with similarity threshold {app_state.similarity_threshold}"
+                )
 
     @staticmethod
     def _render_file_loading(app_state: AppState):
         """Render default file loading section."""
         st.markdown("### :open_file_folder: Load Documents")
         # Status indicator
-        status_color = "🟢" if app_state.documents_processed else "🔴"
+        status_color = (
+            ":large_green_circle: "
+            if app_state.documents_processed
+            else ":red_circle: "
+        )
         st.markdown(
             f"{status_color} **Status:** {'Loaded' if app_state.documents_processed else 'Not Loaded'}"
         )
@@ -249,7 +300,7 @@ class UIComponents:
     @staticmethod
     def _render_custom_upload(app_state: AppState):
         # File uploader for other JSON files
-        st.markdown("### 📤 Upload Custom JSON")
+        st.markdown("### :outbox_tray: Upload Custom JSON")
         uploaded_file = st.file_uploader(
             "Upload JSON file with medical documents",
             type=["json"],
@@ -266,6 +317,7 @@ class UIComponents:
                 asyncio.run(
                     FileProcessor.process_file(temp_file_path, progress_bar, app_state)
                 )
+
             progress_bar.empty()
             os.remove(temp_file_path)
 
