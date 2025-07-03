@@ -265,7 +265,7 @@ class UIComponents:
             max_value=1.0,
             value=app_state.similarity_threshold,
             step=0.05,
-            help="Higher values equals more precise matches",
+            help="Lower values = precise matches",
         )
 
         if (
