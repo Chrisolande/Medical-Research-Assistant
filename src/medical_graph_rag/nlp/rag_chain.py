@@ -1,5 +1,6 @@
 import heapq
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -150,6 +151,7 @@ class QueryEngine:
         visited_concepts: set,
         filtered_content: dict[Any, str],
         step: int,
+        streaming_callback: Callable | None = None,
     ) -> tuple[str, list[Any], dict[Any, str], str, bool]:
         node_data = self.knowledge_graph.graph.nodes[current_node]
         node_content = node_data.get("content", "")
@@ -166,6 +168,9 @@ class QueryEngine:
             else node_content
         )
         traversal_path.append(current_node)
+
+        if streaming_callback:
+            streaming_callback(step, current_node, node_content[:100], node_concepts)
 
         print(f"\nStep {step} - Node {current_node}:")
         print(f"Content: {node_content[:100]}...")
@@ -211,7 +216,10 @@ class QueryEngine:
                 )
 
     async def _expand_context(
-        self, query: str, relevant_docs: list[Document]
+        self,
+        query: str,
+        relevant_docs: list[Document],
+        streaming_callback: Callable | None = None,
     ) -> tuple[str, list[Any], dict[Any, str], str]:
         expanded_context = ""
         traversal_path = []
@@ -247,6 +255,7 @@ class QueryEngine:
                 visited_concepts,
                 filtered_content,
                 step,
+                streaming_callback,
             )
 
             should_check_completion = len(traversal_path) >= self.min_nodes_to_traverse
@@ -289,7 +298,9 @@ class QueryEngine:
 
         return expanded_context, traversal_path, filtered_content, final_answer
 
-    async def query(self, query: str) -> tuple[str, list[Any], dict[Any, str]]:
+    async def query(
+        self, query: str, streaming_callback: Callable | None = None
+    ) -> tuple[str, list[Any], dict[Any, str]]:
         logger.info(f"Starting query for: '{query}'")
         relevant_docs = self.vector_store.retrieve_relevant_documents(query)
         if not relevant_docs:
@@ -299,7 +310,7 @@ class QueryEngine:
         await self._analyze_chunk_distribution(relevant_docs)
 
         _, traversal_path, filtered_content, final_answer = await self._expand_context(
-            query, relevant_docs
+            query, relevant_docs, streaming_callback
         )
 
         answer_text = (

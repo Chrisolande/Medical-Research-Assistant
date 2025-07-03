@@ -24,7 +24,7 @@ class VisualizationConfig:
     # edge_offset: float = 0.1
     layout_iterations: int = 50
     layout_k: float = 1
-    max_label_length: int = 20
+    max_label_length: int = 40
     content_preview_length: int = 200
 
 

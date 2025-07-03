@@ -90,7 +90,9 @@ class Main:
             logger.error(f"Document processing failed: {str(e)}")
             raise
 
-    async def query(self, query: str) -> tuple[str, list | None, dict | None]:
+    async def query(
+        self, query: str, streaming_callback=None
+    ) -> tuple[str, list | None, dict | None]:
         """Execute a query against the knowledge graph.
 
         Args:
@@ -106,8 +108,9 @@ class Main:
                 )
 
             logger.info(f"Processing query: '{query}'")
+
             response, traversal_path, filtered_content = await self.query_engine.query(
-                query
+                query, streaming_callback=streaming_callback
             )
 
             if traversal_path:

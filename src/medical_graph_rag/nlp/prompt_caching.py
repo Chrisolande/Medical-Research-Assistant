@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 import threading
 import time
 from collections import OrderedDict
@@ -347,7 +348,7 @@ class SemanticCache(SQLiteCache):
 
         # Clear FAISS index
         if os.path.exists(self.faiss_index_path):
-            os.remove(self.faiss_index_path)
+            shutil.rmtree(self.faiss_index_path)
             log_info(f"Deleted FAISS index: {self.faiss_index_path}")
 
         # Reset state

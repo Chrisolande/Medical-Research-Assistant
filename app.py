@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -13,6 +14,7 @@ from medical_graph_rag.core.main import Main
 from medical_graph_rag.core.utils import ensure_semantic_cache
 from medical_graph_rag.data_processing.batch_processor import PMCBatchProcessor
 from medical_graph_rag.data_processing.document_processor import DocumentProcessor
+from streaming import StreamingNodeDisplay
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +37,9 @@ class AppState:
     cache_dir: str = "my_cache"
     default_data_path: str = "data/output/processed_pmc_data/pmc_chunks.json"
     conversation_history: list[ConversationEntry] = field(default_factory=list)
-
+    streaming_display: StreamingNodeDisplay = field(
+        default_factory=StreamingNodeDisplay
+    )
     use_cache: bool = False
     similarity_threshold = DEFAULT_SIMILARITY_THRESHOLD
 
@@ -170,9 +174,19 @@ class QueryHandler:
     @staticmethod
     async def handle_query(query: str, app_state: AppState):
         try:
+            # Start streaming display
+            app_state.streaming_display.start_streaming()
+
+            # Create streaming callback function
+            def streaming_callback(step, node_id, content, concepts):
+                app_state.streaming_display.add_node(step, node_id, content, concepts)
+
             response, traversal_path, filtered_content = await app_state.main.query(
-                query
+                query, streaming_callback=streaming_callback
             )
+
+            time.sleep(1)
+            app_state.streaming_display.stop_streaming()
 
             conversation_entry = ConversationEntry(
                 query=query,
@@ -186,7 +200,9 @@ class QueryHandler:
 
             app_state.conversation_history.append(conversation_entry)
             return response, traversal_path, filtered_content
+
         except Exception as e:
+            app_state.streaming_display.stop_streaming()
             st.error(f"Error during query processing: {str(e)}")
             logger.error(f"Error during query processing: {str(e)}")
             return None, None, None
@@ -407,7 +423,6 @@ class UIComponents:
             ":bulb: Quick suggestions (optional):",
             [""] + suggestions,
             help="Select a suggestion or type your own query below",
-            index=3,
         )
         query = st.text_input(
             "Enter your query:",
