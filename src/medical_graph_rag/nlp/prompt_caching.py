@@ -196,7 +196,7 @@ class SemanticCache(SQLiteCache):
             self.metrics["search_time"] += time.time() - start_time
 
             for doc, score in docs_with_score:
-                if self._is_dummy_doc(doc) or score > self.similarity_threshold:
+                if self._is_dummy_doc(doc) or score < self.similarity_threshold:
                     continue
 
                 cached_llm_string = doc.metadata.get("llm_string_key")
@@ -259,7 +259,7 @@ class SemanticCache(SQLiteCache):
         """Check if vector store contains only dummy documents."""
         if len(self.vector_store.index_to_docstore_id) <= 1:
             for doc_id in self.vector_store.index_to_docstore_id.values():
-                doc = self.vector_store.docstore.get(doc_id)
+                doc = self.vector_store.docstore.search(doc_id)
                 return self._is_dummy_doc(doc) if doc else False
         return False
 
