@@ -330,11 +330,12 @@ class SemanticCache(SQLiteCache):
         }
 
     def clear_cache(self):
-        """Clear all cache layers including SQLite."""
-        # Clear SQLite database completely
-        super().clear()
+        """Clear all caches and reset state."""
+        # Clear memory caches
+        self.memory_cache.clear()
+        self.embedding_cache.clear()
 
-        # Also delete the SQLite database file
+        # Delete the SQLite database file FIRST
         if os.path.exists(self.database_path):
             try:
                 os.remove(self.database_path)
@@ -342,9 +343,12 @@ class SemanticCache(SQLiteCache):
             except Exception as e:
                 log_error(f"Error deleting SQLite database: {e}")
 
-        # Clear memory caches
-        self.memory_cache.clear()
-        self.embedding_cache.clear()
+        # Then try to clear SQLite cache
+        try:
+            super().clear()
+        except Exception:
+            # Ignore errors since we already deleted the file
+            pass
 
         # Clear FAISS index
         if os.path.exists(self.faiss_index_path):
@@ -355,7 +359,6 @@ class SemanticCache(SQLiteCache):
         self.vector_store = None
         self._lazy_loaded = False
         self.metrics = {k: 0 for k in self.metrics}
-
         log_info("All caches cleared completely")
 
     def __del__(self):
