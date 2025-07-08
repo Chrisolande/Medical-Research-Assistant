@@ -45,6 +45,12 @@ def mock_faiss_index():
 
 
 @pytest.fixture(autouse=True)
+def mock_api_key():
+    with patch.dict(os.environ, {"OPENROUTER_API_KEY": "fake-test-key"}):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def mock_dependencies(temp_persist_dir):
     with (
         patch(
