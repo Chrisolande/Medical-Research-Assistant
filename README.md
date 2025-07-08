@@ -13,8 +13,9 @@ Medical Graph RAG is a Python-based project that implements a Retrieval Augmente
 - **Interactive Streamlit Application:** User-friendly interface with dynamic API key input, pipeline control, real-time graph traversal visualization, conversation history, and quick query suggestions.
 - **Semantic Caching:** LLM response caching with configurable similarity thresholds using Langchain's SQLite and FAISS-backed cache.
 - **Modular Design:** Highly configurable via environment variables and extensible framework for knowledge discovery.
-- 
-[![Watch the demo](https://img.youtube.com/vi/YOUTUBE_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID)
+
+## Demo
+[![Video Title](https://img.youtube.com/vi/euVsXqd9A5c/maxresdefault.jpg)](https://youtu.be/euVsXqd9A5c)
 
 ## Installation
 
