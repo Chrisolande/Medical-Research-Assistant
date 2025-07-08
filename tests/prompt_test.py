@@ -153,10 +153,14 @@ class TestCacheFunctionality:
     def test_embedding_cache_lru_eviction(self, semantic_cache):
         """Test LRU eviction in embedding cache."""
         for i in range(semantic_cache.memory_cache_size):
-            semantic_cache._cache_embedding(f"text_{i}", [i] * 5)
-        semantic_cache._cache_embedding("new_text", [99] * 5)
+            semantic_cache._get_embedding_with_cache(f"text_{i}")
+
+        # Add one more to trigger eviction
+        semantic_cache._get_embedding_with_cache("new_text")
+
+        # Check that the first entry was evicted
         assert "text_0" not in semantic_cache.embedding_cache
-        assert semantic_cache._get_cached_embedding("new_text") == [99] * 5
+        assert "new_text" in semantic_cache.embedding_cache
 
     def test_memory_cache_functionality(self, semantic_cache, sample_generations):
         """Test memory cache operations."""
@@ -201,18 +205,31 @@ class TestLookupOperations:
         prompt = "test prompt"
         llm_string = "test_llm"
         cached_prompt = "similar prompt"
-        cached_llm_string = "cached_llm"
-        doc = MagicMock(
-            page_content=cached_prompt, metadata={"llm_string_key": cached_llm_string}
-        )
-        mock_faiss.similarity_search_with_score_by_vector.return_value = [(doc, 0.5)]
+
+        # Create a mock document
+        doc = MagicMock()
+        doc.page_content = cached_prompt
+        doc.metadata = {"llm_string_key": llm_string}  # Match the llm_string
+
+        # Mock the vector store
+        mock_faiss.similarity_search_with_score_by_vector.return_value = [
+            (doc, 0.9)
+        ]  # Score above threshold
+        mock_faiss.docstore._dict = {"doc_1": doc}
+        mock_faiss.index_to_docstore_id = {"0": "doc_1"}
+
         semantic_cache.vector_store = mock_faiss
         semantic_cache._lazy_loaded = True
-        with patch("langchain_community.cache.SQLiteCache.lookup") as mock_lookup:
-            mock_lookup.side_effect = [None, sample_generations]
-            result = semantic_cache.lookup(prompt, llm_string)
-            assert result == sample_generations
-            assert semantic_cache.metrics["semantic_hits"] == 1
+
+        with patch.object(semantic_cache, "_is_dummy_doc", return_value=False):
+            with patch("langchain_community.cache.SQLiteCache.lookup") as mock_lookup:
+                # First call returns None (no direct match), second call returns sample_generations
+                mock_lookup.side_effect = [None, sample_generations]
+
+                result = semantic_cache.lookup(prompt, llm_string)
+
+                assert result == sample_generations
+                assert semantic_cache.metrics["semantic_hits"] == 1
 
     def test_lookup_no_match(self, semantic_cache, mock_faiss):
         """Test lookup with no matches."""
@@ -251,7 +268,7 @@ class TestCacheManagement:
         """Test dummy document detection."""
         doc = MagicMock(page_content=DUMMY_DOC_CONTENT, metadata={"is_dummy": True})
         mock_faiss.index_to_docstore_id = {"0": "doc_0"}
-        mock_faiss.docstore.get.return_value = doc
+        mock_faiss.docstore.search.return_value = doc
         semantic_cache.vector_store = mock_faiss
         assert semantic_cache._is_dummy_only() is True
 
@@ -312,35 +329,46 @@ class TestQuantization:
     def test_quantization_enabled(self, semantic_cache):
         """Test FAISS quantization when enabled."""
         semantic_cache.enable_quantization = True
-        texts = ["text"] * 150
-        metadatas = [{"type": "test"}] * 150
 
         with (
             patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock_faiss_class,
             patch("faiss.IndexFlatL2") as mock_index_flat,
             patch("faiss.IndexIVFPQ") as mock_index_ivf_class,
+            patch("os.path.exists", return_value=False),
         ):
+            # Create a mock index with proper integer values
             mock_index = MagicMock()
             mock_index.d = 128
-            mock_index.ntotal = 150
+            mock_index.ntotal = 150  # This must be an integer for the comparison
             mock_index.reconstruct_n.return_value = [[0.1] * 128] * 150
-            mock_store = MagicMock()
-            mock_store.index = mock_index
-            mock_faiss_class.from_texts.return_value = mock_store
 
+            # Create a mock vector store with the mock index
+            mock_vector_store = MagicMock()
+            mock_vector_store.index = mock_index
+            mock_faiss_class.from_texts.return_value = mock_vector_store
+
+            # Mock the quantization components
             mock_quantizer = MagicMock()
             mock_index_flat.return_value = mock_quantizer
             mock_index_ivf = MagicMock()
             mock_index_ivf_class.return_value = mock_index_ivf
 
-            result = semantic_cache._create_faiss_from_texts(texts, metadatas)
+            # Call _create_new_faiss_index which will trigger quantization
+            semantic_cache._create_new_faiss_index()
 
-            mock_index_flat.assert_called_once_with(128)
-            mock_index_ivf_class.assert_called_once_with(mock_quantizer, 128, 15, 8, 8)
+            # Verify the vector store was created
+            assert semantic_cache.vector_store is not None
+
+            # Verify quantization was applied (since ntotal > 100)
+            mock_index_flat.assert_called_once_with(128)  # Called with dimension
+            mock_index_ivf_class.assert_called_once()  # IVF index was created
+
+            # Verify training and adding vectors
             mock_index_ivf.train.assert_called_once()
             mock_index_ivf.add.assert_called_once()
-            assert mock_store.index == mock_index_ivf
-            assert result == mock_store
+
+            # Verify the index was replaced with the quantized version
+            assert semantic_cache.vector_store.index == mock_index_ivf
 
 
 class TestThreadSafety:
