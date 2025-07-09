@@ -36,3 +36,4 @@ faiss_index/
 
 # Generated Output
 output/
+.markdownlint.json
