@@ -201,7 +201,7 @@ class TestLookupOperations:
         prompt = "test prompt"
         llm_string = "test_llm"
         cached_prompt = "similar prompt"
-        cached_llm_string = "cached_llm"
+        cached_llm_string = llm_string
         doc = MagicMock(
             page_content=cached_prompt, metadata={"llm_string_key": cached_llm_string}
         )

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import matplotlib.patches as patches
 import networkx as nx
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class GraphVisualizer:
     """GraphVisualizer class."""
 
-    def __init__(self, config: Optional[VisualizationConfig] = None):
+    def __init__(self, config: VisualizationConfig | None = None):
         """Initialize init."""
         self.config = config or VisualizationConfig()
         self.node_style = NodeStyle()
@@ -28,7 +28,7 @@ class GraphVisualizer:
 
     # === GRAPH TRAVERSAL ===
     def _create_traversal_graph(
-        self, graph: nx.Graph, traversal_path: List[int]
+        self, graph: nx.Graph, traversal_path: list[int]
     ) -> nx.Graph:
         """Create traveral graph."""
         logger.info("Creating the traversal subgraph with neighbors...")
@@ -44,7 +44,7 @@ class GraphVisualizer:
         )
         return traversal_graph
 
-    def _generate_optimized_layout(self, graph: nx.Graph) -> Dict[Any, List[float]]:
+    def _generate_optimized_layout(self, graph: nx.Graph) -> dict[Any, list[float]]:
         """Generate Optimized Layout method."""
         logger.info("Generating optimized graph layout")
         return nx.spring_layout(
@@ -55,8 +55,8 @@ class GraphVisualizer:
         )
 
     def _prepare_node_labels(
-        self, graph: nx.Graph, traversal_path: List[int]
-    ) -> Dict[Any, str]:
+        self, graph: nx.Graph, traversal_path: list[int]
+    ) -> dict[Any, str]:
         """Prepare node labels."""
         logger.info("Preparing node labels ...")
         labels = {}
@@ -78,7 +78,7 @@ class GraphVisualizer:
 
         return labels
 
-    def _draw_base_graph(self, graph: nx.Graph, pos: Dict, ax: plt.Axes) -> List[float]:
+    def _draw_base_graph(self, graph: nx.Graph, pos: dict, ax: plt.Axes) -> list[float]:
         """Draw Base Graph method."""
         logger.info("Drawing basic graph ...")
 
@@ -90,7 +90,7 @@ class GraphVisualizer:
             pos,
             edgelist=edges,
             edge_color=edge_weights,
-            edge_cmap=getattr(plt.cm, self.edge_style.colormap),
+            edge_cmap=plt.cm.viridis,
             width=self.config.edge_width,
             ax=ax,
             alpha=0.6,
@@ -108,7 +108,7 @@ class GraphVisualizer:
         return edge_weights
 
     def _draw_traversal_path(
-        self, traversal_path: List[int], pos: Dict, ax: plt.Axes
+        self, traversal_path: list[int], pos: dict, ax: plt.Axes
     ) -> None:
         """Draw the traversal path on the graph visualization.
 
@@ -141,11 +141,7 @@ class GraphVisualizer:
             ax.add_patch(arrow)
 
     def _highlight_special_nodes(
-        self,
-        graph: nx.Graph,
-        pos,
-        traversal_path: List[int],
-        ax: plt.Axes,
+        self, graph: nx.Graph, pos, traversal_path: list[int], ax: plt.Axes
     ) -> None:
         """Highlight special nodes in the graph visualization.
 
@@ -194,14 +190,14 @@ class GraphVisualizer:
         )
 
     def _add_visualization_elements(
-        self, fig: plt.Figure, ax: plt.Axes, edge_weights: List[float]
+        self, fig: plt.Figure, ax: plt.Axes, edge_weights: list[float]
     ) -> None:
         """Add colorbar, legend, and title to the visualization."""
         logger.info("Adding visualization elements")
 
         if edge_weights:
             sm = plt.cm.ScalarMappable(
-                cmap=getattr(plt.cm, self.edge_style.colormap),
+                cmap=plt.cm.viridis,
                 norm=plt.Normalize(vmin=min(edge_weights), vmax=max(edge_weights)),
             )
             sm.set_array([])
@@ -265,7 +261,7 @@ class GraphVisualizer:
 
     # === MAIN VISUALIZATION ===
     async def visualize_traversal_async(
-        self, graph: nx.Graph, traversal_path: List[int]
+        self, graph: nx.Graph, traversal_path: list[int]
     ) -> None:
         """Asynchronously visualize the traversal of a graph.
 
@@ -327,7 +323,7 @@ class GraphVisualizer:
             raise
 
     def print_filtered_content(
-        self, traversal_path: List[int], filtered_content: Dict[int, str]
+        self, traversal_path: list[int], filtered_content: dict[int, str]
     ) -> None:
         """Print the filtered content of visited nodes in traversal order."""
         print_filtered_content(

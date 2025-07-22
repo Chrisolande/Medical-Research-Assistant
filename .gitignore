@@ -19,3 +19,6 @@ output/
 .langchain.db
 
 semantic_cache_index/
+
+.vincent/
+my_knowledge_graph.pkl

@@ -72,7 +72,7 @@ class Main:
 
             # Initialize query engine
             self.query_engine = QueryEngine(
-                self.vector_store, self.knowledge_graph, self.llm, self.embedding_model
+                self.vector_store, self.knowledge_graph, self.llm
             )
 
             logger.info("Document processing completed successfully")
@@ -112,12 +112,3 @@ class Main:
         except Exception as e:
             logger.error(f"Query processing failed: {str(e)}")
             raise
-
-    async def close(self):
-        """Clean up resources."""
-        try:
-            if hasattr(self, "knowledge_graph"):
-                await self.knowledge_graph.close()
-            logger.info("Resources cleaned up successfully")
-        except Exception as e:
-            logger.error(f"Cleanup failed: {str(e)}")
