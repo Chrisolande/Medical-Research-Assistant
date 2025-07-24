@@ -196,7 +196,7 @@ class SemanticCache(SQLiteCache):
             self.metrics["search_time"] += time.time() - start_time
 
             for doc, score in docs_with_score:
-                if self._is_dummy_doc(doc) or score < self.similarity_threshold:
+                if self._is_dummy_doc(doc) or score > self.similarity_threshold:
                     continue
 
                 cached_llm_string = doc.metadata.get("llm_string_key")
