@@ -54,7 +54,7 @@ jobs:
           import time
           try:
               # Import your config to use the same model
-              from src.core.config import FLASHRANK_MODEL_NAME, FLASHRANK_CACHE_DIR
+              from medical_graph_rag.core.config import FLASHRANK_MODEL_NAME, FLASHRANK_CACHE_DIR
               from flashrank import Ranker, RerankRequest
               print(f'Pre-downloading flashrank model: {FLASHRANK_MODEL_NAME}...')
               ranker = Ranker(model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR)
