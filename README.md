@@ -2,6 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/chrisolande/Medical-Graph-RAG/blob/main/LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![wakatime](https://wakatime.com/badge/github/Chrisolande/Medical-Graph-RAG.svg)](https://wakatime.com/badge/github/Chrisolande/Medical-Graph-RAG)
 
 Medical Graph RAG is a Python-based project that implements a Retrieval Augmented Generation (RAG) pipeline. It's designed to process documents, build a knowledge graph, and utilize this graph along with vector search and reranking to answer queries based on the ingested information.
 
