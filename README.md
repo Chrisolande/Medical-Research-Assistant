@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Chrisolande/Medical-Research-Assistant/blob/main/LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![wakatime](https://wakatime.com/badge/github/Chrisolande/Medical-Research-Assistant.svg)](https://wakatime.com/badge/github/Chrisolande/Medical-Research-Assistant)
+[![wakatime](https://wakatime.com/badge/user/c31184d5-02d4-4117-8619-29f018aa2840/project/feb670b2-23b5-4fe9-8d32-ed4f8e615b99.svg)](https://wakatime.com/badge/user/c31184d5-02d4-4117-8619-29f018aa2840/project/feb670b2-23b5-4fe9-8d32-ed4f8e615b99)
 
 Medical research assistant is a Python-based project that implements a Retrieval Augmented Generation (RAG) pipeline. It's designed to process documents, build a knowledge graph, and utilize this graph along with vector search and reranking to answer queries based on the ingested information.
 
@@ -25,7 +25,7 @@ Medical research assistant is a Python-based project that implements a Retrieval
 
     ```bash
     git clone https://github.com/Chrisolande/Medical-Research-Assistant.git
-    cd medical-research-assistant
+    cd medical_graph_rag
     python3 -m venv venv  # Python 3.11+ required
     source venv/bin/activate  # Windows: venv\Scripts\activate
     ```
