@@ -11,12 +11,14 @@ Medical research assistant is a Python-based project that implements a Retrieval
 - **Comprehensive Document Processing:** Ingests documents from various sources with focus on medical literature (PubMed Central). Supports Raw PMC JSON and Pre-chunked JSON formats with batch processing for large datasets.
 - **Knowledge Graph Construction:** Builds dynamic knowledge graphs representing entities, concepts, and relationships.
 - **Advanced Retrieval System:** FAISS vector store integration with reranking (Jina AI, FlashRank) for improved relevance.
+- **Pre-built FAISS Index:** Includes a pre-built FAISS index (`faiss_index/`) for immediate use, based on the default dataset (`data/output/processed_pmc_data/pmc_chunks.json`), saving setup time.
 - **Retrieval Augmented Generation:** Combines vector search and knowledge graph traversal with LLMs for comprehensive answers.
 - **Interactive Streamlit Application:** User-friendly interface with dynamic API key input, pipeline control, real-time graph traversal visualization, conversation history, and quick query suggestions.
 - **Semantic Caching:** LLM response caching with configurable similarity thresholds using Langchain's SQLite and FAISS-backed cache.
 - **Modular Design:** Highly configurable via environment variables and extensible framework for knowledge discovery.
 
 ## Demo
+
 [![Video Title](https://img.youtube.com/vi/euVsXqd9A5c/maxresdefault.jpg)](https://youtu.be/euVsXqd9A5c)
 
 ## Installation
@@ -62,12 +64,15 @@ Medical research assistant is a Python-based project that implements a Retrieval
 
 ## Usage
 
+**Note on the Pre-built FAISS Index:** This repository includes a pre-built FAISS index located in the `faiss_index/` directory. This index is based on the default dataset (`data/output/processed_pmc_data/pmc_chunks.json`) and allows you to start querying immediately after initializing the pipeline without needing to process the documents first.
+
 **Quick Start:**
 
 1. Run the Streamlit application: `streamlit run app.py`
 2. Enter API key in sidebar if not in environment
 3. Click "Initialize Pipeline"
-4. Load documents (default: `pmc_chunks.json` or upload custom JSON)
+4. **To use the pre-built index:** You can skip loading documents and proceed directly to querying the knowledge graph (Step 5).
+   **To use your own data:** Load your documents (e.g., the default `pmc_chunks.json` or a custom JSON file) to build a new index.
 5. Query the knowledge graph
 
 **Application Workflow:**
@@ -89,6 +94,17 @@ Medical research assistant is a Python-based project that implements a Retrieval
 - **Query Input:** Ask questions with real-time graph traversal visualization
 - **Results:** LLM answers, traversal paths, content snippets, and graph statistics
 - **Conversation History:** Session-based query/response tracking
+
+## Pre-built FAISS Index
+
+This repository includes a pre-built FAISS index located in the `faiss_index/` directory. The index consists of two files:
+
+- `index.faiss`: The FAISS index itself, containing the vector embeddings of the documents.
+- `index.pkl`: A serialized Python pickle file that stores the mapping between the vector embeddings and the document chunks.
+
+This pre-built index is based on the default dataset provided in `data/output/processed_pmc_data/pmc_chunks.json`. By using this index, you can start querying the knowledge graph immediately after initializing the pipeline, without the need to process the documents and build the index from scratch.
+
+If you choose to use your own dataset or want to rebuild the index for any reason, you can do so by loading your documents through the Streamlit application. This will overwrite the existing index with a new one based on your data.
 
 ## Configuration
 
