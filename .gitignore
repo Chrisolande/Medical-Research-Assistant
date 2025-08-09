@@ -32,7 +32,6 @@ semantic_cache_index/
 .langchain.db
 .my_semantic_cache.db
 my_cache/
-faiss_index/
 
 # Generated Output
 output/
