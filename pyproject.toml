@@ -25,11 +25,13 @@ dependencies = [
     # AI & Language Models (LLMs)
     "cohere>=5.15.0,<6.0.0",
     "langchain>=0.3.25,<0.4.0",
+    "langchain-core>=0.3.74,<0.4.0",
     "langchain-cohere>=0.4.4,<0.5.0",
     "langchain-community>=0.3.24,<0.4.0",
     "langchain-neo4j>=0.4.0,<0.5.0",
     "langchain-openai>=0.3.19,<0.4.0",
     "langchain-huggingface>=0.3.0",
+    "transformers>=4.55.0",
     "langgraph>=0.4.8,<0.5.0",
     "sentence-transformers>=2.7.0",
     "spacy>=3.8.7",
@@ -181,5 +183,5 @@ exclude = ["B403"]
 split_on_trailing_comma = false
 
 [tool.vulture]
-paths = ["src/", "app.py", "notebooks/"]
+paths = ["src/", "app.py"]
 min_confidence = 0
