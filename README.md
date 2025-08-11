@@ -32,181 +32,83 @@ Medical research assistant is a Python-based project that implements a Retrieval
     source venv/bin/activate  # Windows: venv\Scripts\activate
     ```
 
-2. **Install dependencies (choose one):**
+2. **Install dependencies:**
 
-    **Poetry (Recommended):**
-
-    ```bash
-    pip install poetry
-    poetry install --with dev,test  # Or just: poetry install
-    ```
-
-    **Using uv:**
-
+    **Using uv (Recommended):**
     ```bash
     pip install uv
-    uv pip sync pyproject.toml --all-extras
+    uv sync --all-extras
     ```
 
-    **Traditional pip:**
-
+    **Using pip:**
     ```bash
-    poetry export -f requirements.txt --output requirements.txt --without-hashes
-    pip install -r requirements.txt
+    pip install -e ".[dev,test]"
     ```
 
 3. **Environment setup:**
-    Create `.env` file with your OpenRouter API key:
-
-    ```env
-    OPENROUTER_API_KEY="your_openrouter_api_key_here"
-    ```
+    Create a `.env` file in the root directory. See `.env.example` for required variables.
 
 ## Usage
-
-**Note on the Pre-built FAISS Index:** This repository includes a pre-built FAISS index located in the `faiss_index/` directory. This index is based on the default dataset (`data/output/processed_pmc_data/pmc_chunks.json`) and allows you to start querying immediately after initializing the pipeline without needing to process the documents first.
 
 **Quick Start:**
 
 1. Run the Streamlit application: `streamlit run app.py`
-2. Enter API key in sidebar if not in environment
-3. Click "Initialize Pipeline"
-4. **To use the pre-built index:** You can skip loading documents and proceed directly to querying the knowledge graph (Step 5).
-   **To use your own data:** Load your documents (e.g., the default `pmc_chunks.json` or a custom JSON file) to build a new index.
-5. Query the knowledge graph
+2. Enter your API key in the sidebar (if not set in `.env`)
+3. Click "Initialize Pipeline" - the pre-built FAISS index allows immediate querying
+4. Start asking questions or load custom documents
 
-**Application Workflow:**
+**Application Interface:**
 
-**Sidebar Controls (`:dna: Medical RAG Config`):**
-
-- **API Configuration:** Enter `OPENROUTER_API_KEY` if not in environment
-- **Pipeline Control:** Initialize/Reset pipeline
-- **Settings:** Toggle semantic caching and adjust similarity threshold
-- **Load Documents:** Process default data or upload custom JSON files
-
-**Supported JSON Formats:**
-
-- **Pre-chunked:** `{"documents": [{"content": "...", "metadata": {...}}, ...]}`
-- **Raw PMC:** `[{"abstract": "...", ...}, ...]` (auto-chunked)
-
-**Main Interface:**
-
-- **Query Input:** Ask questions with real-time graph traversal visualization
-- **Results:** LLM answers, traversal paths, content snippets, and graph statistics
-- **Conversation History:** Session-based query/response tracking
-
-## Pre-built FAISS Index
-
-This repository includes a pre-built FAISS index located in the `faiss_index/` directory. The index consists of two files:
-
-- `index.faiss`: The FAISS index itself, containing the vector embeddings of the documents.
-- `index.pkl`: A serialized Python pickle file that stores the mapping between the vector embeddings and the document chunks.
-
-This pre-built index is based on the default dataset provided in `data/output/processed_pmc_data/pmc_chunks.json`. By using this index, you can start querying the knowledge graph immediately after initializing the pipeline, without the need to process the documents and build the index from scratch.
-
-If you choose to use your own dataset or want to rebuild the index for any reason, you can do so by loading your documents through the Streamlit application. This will overwrite the existing index with a new one based on your data.
+- **Sidebar (`:dna: Medical RAG Config`):** API configuration, pipeline control, settings, and document loading
+- **Main Interface:** Query input with real-time graph visualization, LLM answers, and conversation history
 
 ## Configuration
 
-**Environment Variables (`.env` file):**
+Configuration is managed through environment variables (`.env` file) and defaults in `src/medical_graph_rag/core/config.py`.
 
-```env
-OPENROUTER_API_KEY="required"
-LLM_MODEL_NAME="nousresearch/nous-hermes-2-mixtral-8x7b-dpo"  # optional
-EMBEDDING_MODEL_NAME="sentence-transformers/all-MiniLM-L6-v2"  # optional
-```
-
-**Key Backend Settings (`src/medical_graph_rag/core/config.py`):**
-
-- **Models:** `LLM_MODEL_NAME`, `EMBEDDING_MODEL_NAME`, `RERANKER_MODEL_NAME`
-- **Paths:** `PERSIST_DIRECTORY`, cache directories for knowledge graph and semantic cache
-- **Processing:** `BATCH_SIZE`, `RERANKER_TOP_N`, traversal limits
-- **Cache:** Similarity thresholds, max cache size
-
-**Configuration Priority:**
-
+**Priority order:**
 1. Streamlit UI settings (session-specific)
 2. Environment variables
-3. `config.py` defaults
+3. Config defaults
+
+Key settings include model names (`LLM_MODEL_NAME`, `EMBEDDING_MODEL_NAME`), paths, and processing parameters.
 
 ## Project Structure
 
 ```text
-src/medical_graph_rag/
-├── core/           # Main pipeline, config, utilities
-├── data_processing/# Document ingestion, chunking, batch processing
-├── knowledge_graph/# Graph building, querying, visualization
-└── nlp/           # Vector store, RAG engine, semantic caching
-
-data/
-├── input/         # Raw input documents
-└── output/        # Processed data (pmc_chunks.json)
-
-app.py             # Streamlit web application
-streaming.py       # Real-time graph traversal display
-tests/             # Unit and integration tests
+.
+├── .env.example
+├── .github/
+├── .gitignore
+├── LICENSE
+├── README.md
+├── app.py
+├── data/
+│   ├── input/
+│   └── output/
+├── faiss_index/
+├── pyproject.toml
+├── pytest.ini
+├── src/
+│   └── medical_graph_rag/
+│       ├── core/
+│       ├── data_processing/
+│       ├── knowledge_graph/
+│       └── nlp/
+├── streaming.py
+├── tests/
+└── uv.lock
 ```
 
 ## Contributing
 
-1. Fork repository and create feature branch
-2. Install dev dependencies: `poetry install --with dev,test`
-3. Make changes following project style (black, isort)
-4. Write tests and update documentation
-5. Set up pre-commit hooks: `poetry run pre-commit install`
-6. Submit pull request with clear description
+1. Fork the repository and create a feature branch
+2. Install development dependencies: `uv sync --all-extras`
+3. Make your changes, following the project's style (black, isort)
+4. Write tests and update documentation as needed
+5. Set up pre-commit hooks: `pre-commit install`
+6. Submit a pull request with a clear description of your changes
 
 ## License
 
-MIT License - see `LICENSE` file for details.
-**Environment Variables (`.env` file):**
-
-```env
-OPENROUTER_API_KEY="required"
-LLM_MODEL_NAME="nousresearch/nous-hermes-2-mixtral-8x7b-dpo"  # optional
-EMBEDDING_MODEL_NAME="sentence-transformers/all-MiniLM-L6-v2"  # optional
-```
-
-**Key Backend Settings (`src/medical_graph_rag/core/config.py`):**
-
-- **Models:** `LLM_MODEL_NAME`, `EMBEDDING_MODEL_NAME`, `RERANKER_MODEL_NAME`
-- **Paths:** `PERSIST_DIRECTORY`, cache directories for knowledge graph and semantic cache
-- **Processing:** `BATCH_SIZE`, `RERANKER_TOP_N`, traversal limits
-- **Cache:** Similarity thresholds, max cache size
-
-**Configuration Priority:**
-
-1. Streamlit UI settings (session-specific)
-2. Environment variables
-3. `config.py` defaults
-
-## Project Structure
-
-```text
-src/medical_graph_rag/
-├── core/           # Main pipeline, config, utilities
-├── data_processing/# Document ingestion, chunking, batch processing
-├── knowledge_graph/# Graph building, querying, visualization
-└── nlp/           # Vector store, RAG engine, semantic caching
-
-data/
-├── input/         # Raw input documents
-└── output/        # Processed data (pmc_chunks.json)
-
-app.py             # Streamlit web application
-streaming.py       # Real-time graph traversal display
-tests/             # Unit and integration tests
-```
-
-## Contributing
-
-1. Fork repository and create feature branch
-2. Install dev dependencies: `poetry install --with dev,test`
-3. Make changes following project style (black, isort)
-4. Write tests and update documentation
-5. Set up pre-commit hooks: `poetry run pre-commit install`
-6. Submit pull request with clear description
-
-## License
-
-MIT License - see `LICENSE` file for details.
+This project is licensed under the MIT License - see the `LICENSE` file for details.
