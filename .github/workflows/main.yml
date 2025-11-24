@@ -14,7 +14,7 @@ jobs:
         python-version: ["3.13"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Python with UV for ultra-fast installs
       - name: Install uv
