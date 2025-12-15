@@ -27,7 +27,7 @@ jobs:
 
       # Comprehensive dependency and model caching
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: deps-cache
         with:
           path: |
