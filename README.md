@@ -2,6 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/Chrisolande/Medical-Research-Assistant/actions/workflows/main.yml/badge.svg)](https://github.com/Chrisolande/Medical-Research-Assistant/actions/workflows/main.yml)
+[![Code Quality](https://github.com/Chrisolande/Medical-Research-Assistant/actions/workflows/code-quality.yml/badge.svg)](https://github.com/Chrisolande/Medical-Research-Assistant/actions/workflows/code-quality.yml)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 A RAG pipeline that combines a biomedical knowledge graph with vector search to answer medical research questions. Documents are embedded, linked by semantic similarity and shared biomedical entities, and traversed with a priority-based graph algorithm that expands context until the LLM confirms a sufficient answer.
 
 ## Demo
