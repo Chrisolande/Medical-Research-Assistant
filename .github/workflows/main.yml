@@ -53,12 +53,10 @@ jobs:
           import os
           import time
           try:
-              # Import your config to use the same model
-              from medical_graph_rag.core.config import FLASHRANK_MODEL_NAME, FLASHRANK_CACHE_DIR
+              from medical_graph_rag.config import FLASHRANK_MODEL_NAME, FLASHRANK_CACHE_DIR
               from flashrank import Ranker, RerankRequest
               print(f'Pre-downloading flashrank model: {FLASHRANK_MODEL_NAME}...')
               ranker = Ranker(model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR)
-              # Test with correct flashrank API
               rerankrequest = RerankRequest(query='test query', passages=[{'text': 'test passage'}])
               test_result = ranker.rerank(rerankrequest)
               print('Model cached and verified successfully')

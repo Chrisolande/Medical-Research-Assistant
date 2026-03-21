@@ -117,7 +117,17 @@ jobs:
                 --skip=B101,B403,B601 --exclude .venv,venv,env,.git,__pycache__ || true
           fi
 
-          # Exit with error if any critical tool failed
+          # Run radon (cyclomatic complexity — enforce B or better)
+          echo "Running radon complexity check..."
+          if ! uv run radon cc app.py medical_graph_rag/ -s --min C \
+              --exclude ".venv,venv,env,.git,__pycache__" | tee /dev/stderr | grep -q .; then
+            echo "radon: all files meet grade B or above"
+          else
+            echo "radon: one or more functions exceed grade B — failing build"
+            EXIT_CODE=1
+          fi
+
+
           exit $EXIT_CODE
 
       - name: Upload bandit report
