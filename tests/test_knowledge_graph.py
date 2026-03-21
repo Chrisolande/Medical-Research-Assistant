@@ -60,7 +60,9 @@ def test_concepts_stored_lowercase():
     kg = _make_kg_for_unit_tests()
     splits = [_make_split("doc-one")]
     kg._add_nodes(splits)
-    kg._ner_pipeline = lambda _batch: [[{"word": "Diabetes", "score": 0.9}]]
+    kg._ner_pipeline = lambda _batch: [
+        [{"word": "Diabetes", "score": 0.9, "entity_group": "DISEASE"}]
+    ]
 
     kg._extract_concepts_batch(splits)
 

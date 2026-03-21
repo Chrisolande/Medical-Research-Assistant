@@ -128,7 +128,7 @@ repos:
         args: [--py310-plus]
         additional_dependencies: [pyupgrade==3.17.0]
 
-  # Notebook cell execution order and output validation
+
   - repo: https://github.com/mwouts/jupytext
     rev: v1.16.4
     hooks:
@@ -136,7 +136,7 @@ repos:
         args: [--sync]
         types: [jupyter]
 
-  # notebook quality checks
+
   - repo: https://github.com/srstevenson/nb-clean
     rev: 3.3.0
     hooks:

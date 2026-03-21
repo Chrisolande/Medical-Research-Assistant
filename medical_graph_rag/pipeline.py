@@ -12,9 +12,6 @@ from medical_graph_rag.graph import KnowledgeGraph
 from medical_graph_rag.graph_viz import GraphVisualizer
 from medical_graph_rag.rag_chain import QueryEngine
 from medical_graph_rag.vectorstore import VectorStore
-from dotenv import load_dotenv
-
-_ = load_dotenv()
 
 logger = logging.getLogger(__name__)
 

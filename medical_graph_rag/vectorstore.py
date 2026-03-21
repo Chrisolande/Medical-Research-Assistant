@@ -87,6 +87,7 @@ class VectorStore:
         )
         self._load_local_index()
 
+    # ============ INDEX PERSISTENCE ============
     def _load_local_index(self):
         """Load Local Index method."""
         if not os.path.exists(self.persist_directory):
@@ -141,6 +142,7 @@ class VectorStore:
         self.vector_index = None
         self.added_doc_hashes.clear()
 
+    # ============ DOCUMENT HASHING ============
     def _get_document_hash(self, doc: Document) -> str:
         """Get Document Hash method."""
         return (
@@ -168,6 +170,7 @@ class VectorStore:
             doc_hash := self._get_document_hash(doc)
         ) and doc_hash not in self.added_doc_hashes
 
+    # ============ DOCUMENT PROCESSING ============
     def _filter_valid_docs(self, documents: list[Document]) -> list[Document]:
         """Filter Valid Docs method."""
         valid_docs = [
@@ -238,6 +241,7 @@ class VectorStore:
             )
         )
 
+    # ============ RERANKER SETUP ============
     def _setup_reranker(self):
         """Setup Reranker method."""
         if not self.use_reranker or not self.vector_index:
@@ -254,6 +258,7 @@ class VectorStore:
             logger.error(f"Failed to initialize reranker: {e}")
             self.use_reranker = False
 
+    # ============ SEARCH OPERATIONS ============
     async def _perform_reranked_search(self, query: str, k: int = 4) -> list[Document]:
         """Perform reranked search."""
         if self.use_reranker and self.compression_retriever:
@@ -305,6 +310,7 @@ class VectorStore:
             *(self.similarity_search(query, k=k) for query in queries)
         )
 
+    # ============ RETRIEVAL ============
     def _retrieve_sync(self, query: str, filter_threshold: float = 0.6):
         """Retrieve relevant documents using compression pipeline."""
         if not self.vector_index:

@@ -5,9 +5,8 @@ import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
-#                              Dataclass Definitions                           #
-
 _ = load_dotenv()
+# Dataclass Definitions
 
 
 @dataclass
@@ -45,7 +44,7 @@ class EdgeStyle:
     traversal_style: str = "--"
 
 
-#                                 Model Names                                  #
+# Model Names
 
 EMBEDDING_MODEL_NAME = "abhinand/MedEmbed-small-v0.1"
 RERANKER_MODEL_NAME = "jinaai/jina-reranker-v1-turbo-en"
@@ -53,7 +52,7 @@ FLASHRANK_MODEL_NAME = "ms-marco-MiniLM-L-12-v2"
 LLM_MODEL_NAME = "deepseek-chat"
 
 
-#                               Paths & Directories                            #
+# Paths & Directories
 
 # General vector store persistence directory
 PERSIST_DIRECTORY = "faiss_index"
@@ -61,17 +60,17 @@ PERSIST_DIRECTORY = "faiss_index"
 FLASHRANK_CACHE_DIR = os.path.expanduser("~/.cache/flashrank")
 
 
-#                                  API Keys/Bases                              #
+# API Keys/Bases
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
 
-#                               Reranker Settings                              #
+# Reranker Settings
 
 RERANKER_TOP_N = 4
 
 
-#                              VectorStore Settings                            #
+# VectorStore Settings
 
 # Batch size for processing documents into the vector store
 BATCH_SIZE = 500
@@ -81,16 +80,13 @@ MAX_CONCURRENT = 10
 LLM_MAX_TOKENS = 4000
 
 
-#                             Semantic Cache Configuration                     #
+# Semantic Cache Configuration
 
 DUMMY_DOC_CONTENT = "Langchain Document Initializer"
 DEFAULT_DATABASE_PATH = ".langchain.db"
-# This is specifically for the SQLiteCache's FAISS index
 DEFAULT_FAISS_INDEX_PATH = "../semantic_cache_index"
 
-# NOTE:
-# FAISS `similarity_search_with_score*` returns distance scores for IndexFlatL2.
-# Lower values mean closer semantic matches.
+
 DEFAULT_MAX_DISTANCE_THRESHOLD = 0.4
 SEMANTIC_CACHE_TOP_K = 5
 
@@ -100,7 +96,7 @@ DEFAULT_BATCH_SIZE = 10
 ENABLE_QUANTIZATION = False
 
 
-#                            PMCBatchProcessor Settings                        #
+# PMCBatchProcessor Settings
 
 PMC_BATCH_SIZE = 96
 PMC_MAX_CONCURRENT_BATCHES = 3
@@ -109,10 +105,33 @@ PMC_RETRY_DELAY = 1.0
 PMC_INTER_BATCH_DELAY = 0.1  # Delay between batches
 MIN_ABSTRACT_CONTENT_LENGTH = 50  # Minimum content length for a valid document abstract
 
-#                               Query Engine Settings                          #
-MIN_NODES_TO_TRAVERSE = 8
+# Query Engine Settings
 MAX_NODES_TO_TRAVERSE = 25
 LLM_MAX_CONTEXT_LENGTH = 4000  # Max context length for the LLM
 ANSWER_CHECK_INTERVAL = 3
 GRAPH_EDGE_SIMILARITY_THRESHOLD = 0.8
 USE_LLM_CHAIN_EXTRACTOR = False
+
+
+# NER Concept Filtering
+
+BIOMEDICAL_ENTITY_GROUPS = frozenset(
+    {
+        "DISEASE",
+        "CHEMICAL",
+        "SPECIES",
+        "DNA",
+        "CELL_TYPE",
+        "CELL_LINE",
+        "RNA",
+        "PROTEIN",
+    }
+)
+MIN_CONCEPT_LENGTH = 3
+
+
+# PubMed Settings
+
+NCBI_EMAIL = os.getenv("NCBI_EMAIL", "")
+PUBMED_DEFAULT_MAX_RESULTS = 50
+PUBMED_MAX_RESULTS_LIMIT = 200

@@ -9,7 +9,11 @@ from nltk.stem import WordNetLemmatizer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 
-from medical_graph_rag.config import GRAPH_EDGE_SIMILARITY_THRESHOLD
+from medical_graph_rag.config import (
+    BIOMEDICAL_ENTITY_GROUPS,
+    GRAPH_EDGE_SIMILARITY_THRESHOLD,
+    MIN_CONCEPT_LENGTH,
+)
 from medical_graph_rag.utils import (
     CacheManager,
     calculate_edge_weight,
@@ -61,9 +65,20 @@ class KnowledgeGraph:
                 "ner",
                 model="d4data/biomedical-ner-all",
                 tokenizer="d4data/biomedical-ner-all",
-                aggregation_strategy="simple",
+                aggregation_strategy="first",
             )
         return self._ner_pipeline
+
+    def _is_valid_concept(self, entity: dict) -> bool:
+        """Return True if the NER entity is a valid biomedical concept."""
+        word = entity.get("word", "").strip()
+        return (
+            entity.get("score", 0) > 0.8
+            and entity.get("entity_group", "") in BIOMEDICAL_ENTITY_GROUPS
+            and not word.startswith("##")
+            and not word.replace(".", "").replace("-", "").isdigit()
+            and len(word) >= MIN_CONCEPT_LENGTH
+        )
 
     def _load_cache(self):
         """Load Cache method."""
@@ -105,6 +120,21 @@ class KnowledgeGraph:
             [self.lemmatizer.lemmatize(word) for word in concept.lower().split()]
         )
 
+    def _compute_uncached_embeddings(self, uncached: list, embeddings: list) -> None:
+        """Compute and store embeddings for texts not yet in the cache."""
+        logger.info(f"Computing {len(uncached)} new embeddings")
+        total_batches = (len(uncached) + self.batch_size - 1) // self.batch_size
+        with tqdm(total=total_batches, desc="Embedding Batches") as pbar:
+            for i in range(0, len(uncached), self.batch_size):
+                batch = uncached[i : i + self.batch_size]
+                batch_texts = [t[1] for t in batch]
+                batch_embs = self.embeddings.embed_documents(batch_texts)
+                for (idx, _text, h), emb in zip(batch, batch_embs, strict=False):
+                    self.embeddings_cache[h] = emb
+                    embeddings[idx] = emb
+                self._save_cache()
+                pbar.update(1)
+
     def _create_embeddings(self, splits: list[str]):
         """Create Embeddings."""
         logger.info(f"Creating embeddings for {len(splits)} documents")
@@ -122,21 +152,7 @@ class KnowledgeGraph:
                 uncached.append((i, text, h))
 
         if uncached:
-            logger.info(f"Computing {len(uncached)} new embeddings")
-
-            total_batches = (len(uncached) + self.batch_size - 1) // self.batch_size
-            with tqdm(total=total_batches, desc="Embedding Batches") as pbar:
-                for i in range(0, len(uncached), self.batch_size):
-                    batch = uncached[i : i + self.batch_size]
-                    batch_texts = [t[1] for t in batch]
-                    batch_embs = self.embeddings.embed_documents(batch_texts)
-
-                    for (idx, _text, h), emb in zip(batch, batch_embs, strict=False):
-                        self.embeddings_cache[h] = emb
-                        embeddings[idx] = emb
-
-                    self._save_cache()
-                    pbar.update(1)
+            self._compute_uncached_embeddings(uncached, embeddings)
         else:
             logger.info("All embeddings found in cache")
 
@@ -147,6 +163,46 @@ class KnowledgeGraph:
                 f"at indices: {missing[:10]}{'...' if len(missing) > 10 else ''}"
             )
         return embeddings
+
+    def _concepts_from_ner(self, ner_result: list) -> list[str]:
+        """Extract valid biomedical concepts from a single NER result list."""
+        return list(
+            {e["word"].lower() for e in ner_result if self._is_valid_concept(e)}
+        )
+
+    def _merge_mesh_concepts(self, split, concepts: list[str]) -> list[str]:
+        """Merge MeSH term metadata into the concept list."""
+        mesh = (
+            split.metadata.get("mesh_terms", "") if hasattr(split, "metadata") else ""
+        )
+        if not mesh:
+            return concepts
+        mesh_set = {
+            t.strip().lower()
+            for t in mesh.split(";")
+            if len(t.strip()) >= MIN_CONCEPT_LENGTH
+        }
+        return list(set(concepts) | mesh_set)
+
+    def _process_ner_split(self, split, ner_result: list) -> None:
+        """Store concepts for a single split, merging NER output with MeSH terms."""
+        concepts = self._concepts_from_ner(ner_result)
+        concepts = self._merge_mesh_concepts(split, concepts)
+        self.concept_cache[split.page_content] = concepts
+        if not concepts:
+            logger.debug(f"No valid concepts for chunk: {split.page_content[:80]}...")
+
+    def _process_ner_batch(self, batch: list) -> None:
+        """Run NER on one batch and populate concept_cache."""
+        batch_texts = [split.page_content for _, split in batch]
+        try:
+            batch_results = self.ner_pipeline(batch_texts)
+            for (_idx, split), ner_result in zip(batch, batch_results, strict=False):
+                self._process_ner_split(split, ner_result)
+        except Exception as e:
+            logger.error(f"Error processing NER batch: {e}")
+            for _idx, split in batch:
+                self.concept_cache[split.page_content] = []
 
     def _extract_concepts_batch(self, splits):
         """Extract concepts using transformers NER pipeline with batching."""
@@ -165,41 +221,16 @@ class KnowledgeGraph:
 
         logger.info(f"Processing {len(uncached_splits)} uncached documents")
 
-        # Process in batches
         for batch_start in tqdm(
             range(0, len(uncached_splits), self.batch_size), desc="NER Batches"
         ):
             batch = uncached_splits[batch_start : batch_start + self.batch_size]
-            batch_texts = [
-                split.page_content for _, split in batch
-            ]  # Truncate for NER model
-
-            try:
-                # Run NER pipeline on batch
-                batch_results = self.ner_pipeline(batch_texts)
-
-                # Process results
-                for (_idx, split), ner_result in zip(
-                    batch, batch_results, strict=False
-                ):
-                    self.concept_cache[split.page_content] = list(
-                        {e["word"].lower() for e in ner_result if e["score"] > 0.8}
-                    )
-
-            except Exception as e:
-                logger.error(f"Error processing NER batch: {e}")
-                # Fallback: store empty concepts for this batch
-                for _idx, split in batch:
-                    self.concept_cache[split.page_content] = []
-
-            # Save cache periodically
+            self._process_ner_batch(batch)
             if batch_start > 0 and batch_start % (self.batch_size * 5) == 0:
                 self._save_cache()
 
-        # Final cache save
         self._save_cache()
 
-        # Update graph nodes
         for i, split in enumerate(splits):
             self.graph.nodes[i]["concepts"] = self.concept_cache[split.page_content]
 
@@ -275,6 +306,22 @@ class KnowledgeGraph:
         logger.info(f"Added {len(self._node_splits)} nodes to graph")
         return self._node_splits
 
+    def build_knowledge_graph(self, splits):
+        """Build Knowledge Graph method."""
+        logger.info("Building knowledge graph")
+        self.graph.clear()
+        self.content_to_node_id = {}
+        splits = self._add_nodes(splits)
+        embeddings = self._create_embeddings(splits)
+        self._extract_concepts_batch(splits)
+        self._add_edges(embeddings)
+        self._save_cache()
+        logger.info(
+            f"Built graph: {self.graph.number_of_nodes()} nodes, "
+            f"{self.graph.number_of_edges()} edges"
+        )
+        return self.graph
+
     def get_stats(self):
         """Get knowledge graph statistics."""
         stats = {
@@ -315,35 +362,3 @@ class KnowledgeGraph:
         return stats
 
 
-def build_knowledge_graph(self, splits):
-    logger.info("Building knowledge graph")
-
-    if self.graph.number_of_nodes() > 0:
-        logger.info(
-            f"Graph already loaded from cache with {self.graph.number_of_nodes()} nodes "
-            f"and {self.graph.number_of_edges()} edges, skipping build"
-        )
-        return self.graph
-
-    self.graph.clear()
-
-    logger.info("Adding nodes...")
-    splits = self._add_nodes(splits)
-
-    logger.info("Creating embeddings...")
-    embeddings = self._create_embeddings(splits)
-
-    logger.info("Extracting concepts...")
-    self._extract_concepts_batch(splits)
-
-    logger.info("Adding edges...")
-    self._add_edges(embeddings)
-
-    logger.info("Final cache save...")
-    self._save_cache()
-
-    logger.info(
-        f"Knowledge graph built: {self.graph.number_of_nodes()} nodes, "
-        f"{self.graph.number_of_edges()} edges"
-    )
-    return self.graph

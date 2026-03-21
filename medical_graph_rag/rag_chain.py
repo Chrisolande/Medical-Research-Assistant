@@ -241,6 +241,36 @@ class QueryEngine:
                     f"overlap={overlap:.2f}, distance={distance:.3f}"
                 )
 
+    def _log_traversal_end(
+        self, traversal_path: list, priority_queue: list
+    ) -> None:
+        """Log the reason traversal ended without a complete answer."""
+        if len(traversal_path) >= self.max_nodes_to_traverse:
+            logger.warning(
+                f"Max nodes to traverse ({self.max_nodes_to_traverse}) "
+                "reached without a complete answer."
+            )
+        elif not priority_queue:
+            logger.info("Priority queue exhausted without finding a complete answer.")
+
+    def _generate_fallback_answer(self, query: str, context: str) -> str:
+        """Generate an answer from accumulated context when traversal finds none."""
+        logger.info(
+            "No sufficient answer found during traversal. "
+            "Generating final answer from accumulated context."
+        )
+        response_prompt = PromptTemplate(
+            input_variables=["query", "context"],
+            template=(
+                "You are a helpful assistant. Analyze the following context and use it "
+                "to provide a comprehensive answer to the query. If the context allows, "
+                "try to synthesize information rather than just extracting it. If the "
+                "context is insufficient, clearly state that.\n\n"
+                "Context: {context}\n\nQuery: {query}\n\nAnswer:"
+            ),
+        )
+        return (response_prompt | self.llm).invoke({"query": query, "context": context})
+
     async def _expand_context(
         self,
         query: str,
@@ -305,26 +335,10 @@ class QueryEngine:
                 priority_queue,
             )
         else:
-            if len(traversal_path) >= self.max_nodes_to_traverse:
-                logger.warning(
-                    f"Max nodes to traverse ({self.max_nodes_to_traverse}) reached without a complete answer."
-                )
-            elif not priority_queue:
-                logger.info(
-                    "Priority queue exhausted without finding a complete answer."
-                )
+            self._log_traversal_end(traversal_path, priority_queue)
 
         if not final_answer:
-            logger.info(
-                "No sufficient answer found during traversal. Generating final answer from accumulated context."
-            )
-            response_prompt = PromptTemplate(
-                input_variables=["query", "context"],
-                template="You are a helpful assistant. Analyze the following context and use it to provide a comprehensive answer to the query. If the context allows, try to synthesize information rather than just extracting it. If the context is insufficient, clearly state that.\n\nContext: {context}\n\nQuery: {query}\n\nAnswer:",
-            )
-            response_chain = response_prompt | self.llm
-            input_data = {"query": query, "context": expanded_context}
-            final_answer = response_chain.invoke(input_data)
+            final_answer = self._generate_fallback_answer(query, expanded_context)
 
         return expanded_context, traversal_path, filtered_content, final_answer
 

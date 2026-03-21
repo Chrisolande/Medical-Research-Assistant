@@ -22,6 +22,7 @@ class GraphVisualizer:
 
         logger.info("Initialized the GraphVisualizer")
 
+    # === GRAPH TRAVERSAL ===
     def _create_traversal_graph(
         self, graph: nx.Graph, traversal_path: list[int]
     ) -> nx.Graph:
@@ -250,6 +251,7 @@ class GraphVisualizer:
         ax.set_title("Graph Traversal Visualization", fontsize=16, fontweight="bold")
         ax.axis("off")
 
+    # === MAIN VISUALIZATION ===
     async def visualize_traversal_async(
         self, graph: nx.Graph, traversal_path: list[int]
     ) -> None:

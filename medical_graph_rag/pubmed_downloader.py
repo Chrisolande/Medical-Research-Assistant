@@ -2,11 +2,14 @@
 
 import asyncio
 import json
+import logging
 import time
 from dataclasses import dataclass
 
 from Bio import Entrez
 from tqdm.asyncio import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -42,16 +45,16 @@ class PubMedEntrezDownloader:
             sort_order,
             publication_types,
         )
-        print(f"Found {len(result)} PMIDs")
+        logger.info(f"Found {len(result)} PMIDs")
         return result
 
     async def fetch_article_details(self, pmids, batch_size=100):
         """Fetch article details."""
         if not pmids:
-            print("No PMIDs to fetch")
+            logger.warning("No PMIDs to fetch")
             return []
 
-        print(f"Fetching details for {len(pmids)} articles")
+        logger.info(f"Fetching details for {len(pmids)} articles")
         loop = asyncio.get_event_loop()
 
         tasks = []
@@ -67,26 +70,29 @@ class PubMedEntrezDownloader:
             if isinstance(result, list):
                 articles.extend(result)
 
-        print(f"Successfully fetched {len(articles)} articles")
+        logger.info(f"Successfully fetched {len(articles)} articles")
         return articles
+
+    @staticmethod
+    def _build_date_filter(date_from: str | None, date_to: str | None) -> str:
+        """Build a PubMed date-range filter string."""
+        if date_from and date_to:
+            return f" AND {date_from}[PDAT]:{date_to}[PDAT]"
+        if date_from:
+            return f" AND {date_from}[PDAT]:3000[PDAT]"
+        if date_to:
+            return f" AND 1900[PDAT]:{date_to}[PDAT]"
+        return ""
 
     def _sync_search_pubmed(
         self, query, max_results, date_from, date_to, sort_order, publication_types
     ):
         """Search pubmed synchronously."""
-        # Handle case where no specific query is provided - use a broad search instead of "*"
-        if not query or query.strip() == "":
-            search_term = "research[Title/Abstract]"  # Broad but valid search
-        else:
-            search_term = query
+        is_empty_query = not query or query.strip() == ""
+        search_term = "research[Title/Abstract]" if is_empty_query else query
 
-        if date_from or date_to and date_from and date_to:
-            if date_from and date_to:
-                search_term += f" AND {date_from}[PDAT]:{date_to}[PDAT]"
-            elif date_from:
-                search_term += f" AND {date_from}[PDAT]:3000[PDAT]"
-            elif date_to:
-                search_term += f" AND 1900[PDAT]:{date_to}[PDAT]"
+        if date_from or date_to:
+            search_term += self._build_date_filter(date_from, date_to)
 
         if publication_types:
             pub_filter = " OR ".join(
@@ -94,118 +100,133 @@ class PubMedEntrezDownloader:
             )
             search_term += f" AND ({pub_filter})"
 
-        # For diverse papers, sort by date to get recent papers first
-        if not query or query.strip() == "":
+        if is_empty_query:
             sort_order = "pub_date"
 
-        print(f"Search term: {search_term}")
+        logger.info(f"Search term: {search_term}")
         handle = Entrez.esearch(
-            db="pmc", term=search_term, retmax=max_results, sort=sort_order
+            db="pubmed", term=search_term, retmax=max_results, sort=sort_order
         )
         search_results = Entrez.read(handle)
         handle.close()
 
         return search_results["IdList"]
 
-    def _sync_fetch_batch(self, batch_pmids):
-        """Sync Fetch Batch method."""
+    def _sync_fetch_batch(self, batch_pmids: list[str]) -> list[dict]:
+        """Fetch a batch of articles by PubMed ID and parse them."""
         try:
-            handle = Entrez.esummary(db="pmc", id=",".join(batch_pmids))
-            summaries = Entrez.read(handle)
-            handle.close()
-
             handle = Entrez.efetch(
-                db="pmc", id=",".join(batch_pmids), rettype="medline", retmode="xml"
+                db="pubmed",
+                id=",".join(batch_pmids),
+                rettype="xml",
+                retmode="xml",
             )
             records = Entrez.read(handle)
             handle.close()
 
             articles = []
-            for summary, record in zip(
-                summaries, records["PubmedArticle"], strict=False
-            ):
-                article_data = self._parse_article(summary, record)
+            for record in records["PubmedArticle"]:
+                article_data = self._parse_article(record)
                 if article_data:
                     articles.append(article_data)
 
             time.sleep(0.34)
             return articles
 
-        except Exception:
+        except Exception as e:
+            logger.error(
+                f"Batch fetch failed for {len(batch_pmids)} PMIDs: {e}",
+                exc_info=True,
+            )
             return []
 
-    def _parse_article(self, summary, record):
-        """Parse article summary and record into structured data."""
-        pmid = str(summary.get("Id", ""))
-        title = summary.get("Title", "").strip()
-        journal = summary.get("Source", "")
-        pub_date = summary.get("PubDate", "")
+    @staticmethod
+    def _extract_abstract(article: dict) -> str:
+        """Extract concatenated abstract text from an article dict."""
+        if "Abstract" not in article or "AbstractText" not in article["Abstract"]:
+            return ""
+        return " ".join(str(t) for t in article["Abstract"]["AbstractText"])
 
-        authors_list = summary.get("AuthorList", [])
-        authors = "; ".join(list(authors_list)) if authors_list else ""
-
-        article = record["MedlineCitation"]["Article"]
-
-        # Abstract
-        abstract = ""
-        if "Abstract" in article and "AbstractText" in article["Abstract"]:
-            abstract_texts = [
-                str(abs_text) for abs_text in article["Abstract"]["AbstractText"]
-            ]
-            abstract = " ".join(abstract_texts)
-
-        # Publication details
-        journal_info = article.get("Journal", {})
-        journal_title = journal_info.get("Title", journal)
-
-        journal_issue = journal_info.get("JournalIssue", {})
-        volume = journal_issue.get("Volume", "")
-        issue = journal_issue.get("Issue", "")
-
-        pub_date_info = journal_issue.get("PubDate", {})
-        year = pub_date_info.get("Year", "")
-        month = pub_date_info.get("Month", "")
-        day = pub_date_info.get("Day", "")
-
-        # Identifiers
+    @staticmethod
+    def _extract_identifiers(article: dict) -> tuple[str, str]:
+        """Extract DOI and PMC ID from the ELocationID list."""
         doi = pmc_id = ""
-        if "ELocationID" in article:
-            for eloc in article["ELocationID"]:
-                if eloc.attributes.get("EIdType") == "doi":
-                    doi = str(eloc)
-                elif eloc.attributes.get("EIdType") == "pmc":
-                    pmc_id = str(eloc)
+        for eloc in article.get("ELocationID", []):
+            eid_type = eloc.attributes.get("EIdType", "")
+            if eid_type == "doi":
+                doi = str(eloc)
+            elif eid_type == "pmc":
+                pmc_id = str(eloc)
+        return doi, pmc_id
 
-        # MeSH terms
-        mesh_terms = []
-        if "MeshHeadingList" in record["MedlineCitation"]:
+    @staticmethod
+    def _extract_pub_date_info(journal_issue: dict) -> tuple[str, str, str]:
+        """Extract year, month, day from a JournalIssue dict."""
+        pub_date_info = journal_issue.get("PubDate", {})
+        return (
+            pub_date_info.get("Year", ""),
+            pub_date_info.get("Month", ""),
+            pub_date_info.get("Day", ""),
+        )
+
+    @staticmethod
+    def _extract_authors(article: dict) -> str:
+        """Extract formatted author string from an article dict."""
+        authors_list = article.get("AuthorList", [])
+        return "; ".join(
+            f"{a.get('LastName', '')} {a.get('ForeName', '')}".strip()
+            for a in authors_list
+            if "LastName" in a
+        )
+
+    def _parse_article(self, record: dict) -> dict | None:
+        """Parse a PubmedArticle record into structured data."""
+        try:
+            citation = record["MedlineCitation"]
+            article = citation["Article"]
+
+            pmid = str(citation.get("PMID", ""))
+            title = str(article.get("ArticleTitle", "")).strip()
+            abstract = self._extract_abstract(article)
+            authors = self._extract_authors(article)
+
+            journal_info = article.get("Journal", {})
+            journal_title = str(journal_info.get("Title", ""))
+            journal_issue = journal_info.get("JournalIssue", {})
+            volume = str(journal_issue.get("Volume", ""))
+            issue = str(journal_issue.get("Issue", ""))
+            year, month, day = self._extract_pub_date_info(journal_issue)
+
+            doi, pmc_id = self._extract_identifiers(article)
+
             mesh_terms = [
-                str(mesh["DescriptorName"])
-                for mesh in record["MedlineCitation"]["MeshHeadingList"]
+                str(m["DescriptorName"]) for m in citation.get("MeshHeadingList", [])
             ]
+            pub_types = [str(pt) for pt in article.get("PublicationTypeList", [])]
 
-        # Publication types
-        pub_types = [str(pt) for pt in article.get("PublicationTypeList", [])]
+            return {
+                "pmid": pmid,
+                "title": title,
+                "abstract": abstract,
+                "authors": authors,
+                "journal": journal_title,
+                "volume": volume,
+                "issue": issue,
+                "year": year,
+                "month": month,
+                "day": day,
+                "pub_date": year,
+                "doi": doi,
+                "pmc_id": pmc_id,
+                "mesh_terms": "; ".join(mesh_terms),
+                "publication_types": "; ".join(pub_types),
+                "pubmed_url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                "doi_url": f"https://doi.org/{doi}" if doi else "",
+            }
 
-        return {
-            "pmid": pmid,
-            "title": title,
-            "abstract": abstract,
-            "authors": authors,
-            "journal": journal_title,
-            "volume": volume,
-            "issue": issue,
-            "year": year,
-            "month": month,
-            "day": day,
-            "pub_date": pub_date,
-            "doi": doi,
-            "pmc_id": pmc_id,
-            "mesh_terms": "; ".join(mesh_terms),
-            "publication_types": "; ".join(pub_types),
-            "pubmed_url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-            "doi_url": f"https://doi.org/{doi}" if doi else "",
-        }
+        except (KeyError, TypeError) as e:
+            logger.warning(f"Could not parse article record: {e}")
+            return None
 
     def save_to_json(self, articles, filename):
         """Save To Json method."""

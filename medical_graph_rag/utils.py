@@ -1,11 +1,9 @@
-"""Utils module."""
-
 import asyncio
 import hashlib
 import json
 import logging
 import math
-import pickle  # nosec - pickle usage reviewed for security
+import pickle  # nosec
 import re
 import textwrap
 from collections.abc import Generator
@@ -23,12 +21,8 @@ from medical_graph_rag.config import (
     ENABLE_QUANTIZATION,
 )
 
-#                               Logging Configuration                          #
+
 logger = logging.getLogger(__name__)
-
-# Semantic Cache Setup
-
-# This block sets up the global LLM cache. It will run when utils.py is imported.
 _semantic_cache_instance = None
 
 
@@ -49,9 +43,6 @@ def ensure_semantic_cache(
         set_llm_cache(_semantic_cache_instance)
         logger.info("Semantic cache initialized and set globally.")
     return _semantic_cache_instance
-
-
-# Document Printing Utilities
 
 
 def pretty_print_docs(docs, wrap_width: int = 80, queries: list[str] | None = None):
@@ -107,13 +98,7 @@ def print_filtered_content(
     filtered_content: dict[int, str],
     content_preview_length: int = 200,
 ) -> None:
-    """Print the filtered content of visited nodes in traversal order.
-
-    Args:
-    traversal_path (List[int]): The list of nodes to print the filtered content for.
-    filtered_content (Dict[int, str]): A mapping of node IDs to the filtered content.
-    content_preview_length (int, optional): The length of the content preview. Defaults to 200.
-    """
+    """Print the filtered content of visited nodes in traversal order."""
     logger.info(f"Printing filtered content for {len(traversal_path)} nodes")
 
     if not traversal_path:
@@ -137,9 +122,6 @@ def print_filtered_content(
 
     print(f"\n Completed traversal of {len(traversal_path)} nodes")
     logger.info("Content printing completed.")
-
-
-# Cache Management Utilities
 
 
 class CacheManager:
@@ -177,9 +159,6 @@ class CacheManager:
             logger.info(f"Cache saved to {cache_file}.")
         except Exception as e:
             logger.error(f"Failed to save cache to {cache_file}: {e}", exc_info=True)
-
-
-# JSON & Text Processing Utilities
 
 
 def _clean_json_candidate(candidate: str) -> str:
@@ -260,9 +239,6 @@ def create_text_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()  # nosec
 
 
-# Graph Utilities
-
-
 def calculate_edge_weight(
     similarity_score: float,
     shared_concepts: list[str],
@@ -277,9 +253,6 @@ def calculate_edge_weight(
     return (
         similarity_weight * similarity_score + (1 - similarity_weight) * concept_score
     )
-
-
-# Batch Processing Utilities
 
 
 def load_json_data(
@@ -322,7 +295,7 @@ def create_batches(
 ) -> Generator[list[Any], None, None]:
     """Generates batches from a list of items."""
     if not items:
-        return  # Yield nothing for empty input
+        return
 
     total_batches = math.ceil(len(items) / batch_size)
     logger.info(f"Creating {total_batches} batches of size {batch_size}.")
@@ -401,11 +374,7 @@ def save_processing_results(
                 )
 
 
-# Asynchronous operations
-
-
 async def run_in_executor(executor: ThreadPoolExecutor, func, *args: Any) -> Any:
-    """Helper to run a blocking function in a ThreadPoolExecutor from an async
-    context."""
+    """Helper to run a blocking function in a ThreadPoolExecutor from an async context."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, func, *args)

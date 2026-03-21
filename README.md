@@ -27,7 +27,7 @@ Medical research assistant is a Python-based project that implements a Retrieval
 
     ```bash
     git clone https://github.com/Chrisolande/Medical-Research-Assistant.git
-    cd medical_graph_rag
+    cd Medical-Research-Assistant
     python3 -m venv venv  # Python 3.11+ required
     source venv/bin/activate  # Windows: venv\Scripts\activate
     ```
