@@ -24,7 +24,9 @@ def test_init_uses_injected_embedding_and_ner():
         ner = object()
         main = Main(cache_dir="cache", embedding_model=emb, ner_pipeline=ner)
         assert main.llm == "llm"
-        kg_cls.assert_called_once_with(cache_dir="cache", embeddings=emb, ner_pipeline=ner)
+        kg_cls.assert_called_once_with(
+            cache_dir="cache", embeddings=emb, ner_pipeline=ner
+        )
         vs_cls.assert_called_once_with(embeddings=emb)
         gv_cls.assert_called_once()
 
@@ -77,7 +79,9 @@ def test_initialize_llm_success():
 
 
 def test_initialize_embeddings_uses_configured_model():
-    with patch("medical_graph_rag.pipeline.HuggingFaceEmbeddings", return_value="emb") as cls:
+    with patch(
+        "medical_graph_rag.pipeline.HuggingFaceEmbeddings", return_value="emb"
+    ) as cls:
         main = Main.__new__(Main)
         emb = main._initialize_embeddings()
         assert emb == "emb"
@@ -86,7 +90,10 @@ def test_initialize_embeddings_uses_configured_model():
 
 def test_init_logs_and_raises_on_failure():
     with (
-        patch("medical_graph_rag.pipeline.Main._initialize_llm", side_effect=RuntimeError("boom")),
+        patch(
+            "medical_graph_rag.pipeline.Main._initialize_llm",
+            side_effect=RuntimeError("boom"),
+        ),
         patch("medical_graph_rag.pipeline.logger.error") as log_error,
     ):
         with pytest.raises(RuntimeError):

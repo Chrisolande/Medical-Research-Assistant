@@ -1,80 +1,53 @@
-name: CI
+name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: ["main", "develop"]
   pull_request:
-    branches: [main]
+    branches: ["main", "develop"]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.13"]
 
     steps:
       - uses: actions/checkout@v4
 
-      # Python with UV for ultra-fast installs
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+      - name: Set up Python
+        run: uv python install 3.11
 
-      # Comprehensive dependency and model caching
-      - name: Cache dependencies
+      - name: Cache dependencies and models
         uses: actions/cache@v4
-        id: deps-cache
         with:
           path: |
             ~/.cache/uv
             ~/.cache/flashrank
             ~/.cache/huggingface
             .venv
-          key: ${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}-models-v1
+          key: ${{ runner.os }}-py3.11-${{ hashFiles('pyproject.toml', 'uv.lock') }}-v1
           restore-keys: |
-            ${{ runner.os }}-py${{ matrix.python-version }}-
+            ${{ runner.os }}-py3.11-
 
-      # Install dependencies
       - name: Install dependencies
-        run: |
-          uv sync --extra dev --extra test
-          uv add pytest-xdist --group dev
+        run: uv sync --extra dev --extra test
 
-      # Pre-download models before parallel testing
-      - name: Pre-download models
+      - name: Pre-download FlashRank model
         run: |
-          mkdir -p ~/.cache/flashrank
           uv run python -c "
-          import os
-          import time
-          try:
-              from medical_graph_rag.config import FLASHRANK_MODEL_NAME, FLASHRANK_CACHE_DIR
-              from flashrank import Ranker, RerankRequest
-              print(f'Pre-downloading flashrank model: {FLASHRANK_MODEL_NAME}...')
-              ranker = Ranker(model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR)
-              rerankrequest = RerankRequest(query='test query', passages=[{'text': 'test passage'}])
-              test_result = ranker.rerank(rerankrequest)
-              print('Model cached and verified successfully')
-          except Exception as e:
-              print(f'Model download failed: {e}')
-              exit(1)
+          from medical_graph_rag.config import FLASHRANK_MODEL_NAME, FLASHRANK_CACHE_DIR
+          from flashrank import Ranker, RerankRequest
+          ranker = Ranker(model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR)
+          result = ranker.rerank(RerankRequest(query='test', passages=[{'text': 'test'}]))
+          print('FlashRank model ready')
           "
 
-      # Test: Parallel execution with fallback
-      - name: Test with pytest
-        run: |
-          # Try parallel first, fallback to serial if it fails
-          if uv run python -c "import xdist" 2>/dev/null; then
-            echo "Running tests in parallel..."
-            uv run pytest -n auto --maxfail=1 --tb=line --disable-warnings --no-cov || \
-            (echo "Parallel testing failed, falling back to serial..." && \
-             uv run pytest --maxfail=1 --tb=line --disable-warnings --no-cov)
-          else
-            echo "Running tests serially..."
-            uv run pytest --maxfail=1 --tb=line --disable-warnings --no-cov
-          fi
+      - name: Run tests
+        run: uv run pytest --tb=short --no-cov
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov=medical_graph_rag --cov-report=xml --cov-report=term-missing

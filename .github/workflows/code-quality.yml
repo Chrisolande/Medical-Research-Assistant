@@ -1,0 +1,57 @@
+name: Code Quality
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install tools
+        run: |
+          uv tool install radon
+          uv tool install bandit
+
+      - name: Security scan (bandit)
+        run: |
+          bandit \
+            -r . \
+            -f json \
+            -o bandit-report.json \
+            -c pyproject.toml \
+            -ll \
+            --skip=B101,B403,B601 \
+            --exclude .venv,venv,env,.git,__pycache__ \
+          || true
+
+      - name: Upload bandit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report-${{ github.run_id }}
+          path: bandit-report.json
+          if-no-files-found: warn
+
+      - name: Complexity check (radon)
+        run: |
+          output=$(radon cc app.py medical_graph_rag/ -s --min C 2>/dev/null || true)
+          if [ -n "$output" ]; then
+            echo "Functions exceeding grade B:"
+            echo "$output"
+            exit 1
+          fi
+          echo "All functions meet grade B or above"

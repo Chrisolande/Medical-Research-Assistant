@@ -189,15 +189,6 @@ bandit -r medical_graph_rag/ app.py -ll --skip B101,B403,B601
 pre-commit install
 ```
 
-To enable the coverage badge, connect the repo to [codecov.io](https://codecov.io) and add the upload step to your CI workflow:
-
-```yaml
-- name: Upload coverage
-  uses: codecov/codecov-action@v4
-  with:
-    token: ${{ secrets.CODECOV_TOKEN }}
-```
-
 ---
 
 ## Models used

@@ -360,5 +360,3 @@ class KnowledgeGraph:
             stats["avg_edge_weight"] = float(np.mean(weights))
             stats["max_edge_weight"] = float(max(weights))
         return stats
-
-

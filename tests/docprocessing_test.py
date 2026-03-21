@@ -42,9 +42,9 @@ def test_metadata_func(test_data):
         "embeddings_model": test_data["embeddings_model"],
     }
     result = processor.metadata_func(record, metadata)
-    assert result == expected, (
-        "Metadata should include specified fields and existing data"
-    )
+    assert (
+        result == expected
+    ), "Metadata should include specified fields and existing data"
 
 
 @patch("medical_graph_rag.document_processor.Path")

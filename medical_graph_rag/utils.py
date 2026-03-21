@@ -21,7 +21,6 @@ from medical_graph_rag.config import (
     ENABLE_QUANTIZATION,
 )
 
-
 logger = logging.getLogger(__name__)
 _semantic_cache_instance = None
 
@@ -375,6 +374,7 @@ def save_processing_results(
 
 
 async def run_in_executor(executor: ThreadPoolExecutor, func, *args: Any) -> Any:
-    """Helper to run a blocking function in a ThreadPoolExecutor from an async context."""
+    """Helper to run a blocking function in a ThreadPoolExecutor from an async
+    context."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(executor, func, *args)

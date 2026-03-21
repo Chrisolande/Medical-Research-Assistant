@@ -11,7 +11,9 @@ def _build_engine():
     vector_store = MagicMock()
     knowledge_graph = MagicMock()
     llm = MagicMock()
-    engine = QueryEngine(vector_store=vector_store, knowledge_graph=knowledge_graph, llm=llm)
+    engine = QueryEngine(
+        vector_store=vector_store, knowledge_graph=knowledge_graph, llm=llm
+    )
     return engine, vector_store, knowledge_graph
 
 

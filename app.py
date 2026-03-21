@@ -1,7 +1,3 @@
-import nest_asyncio
-
-nest_asyncio.apply()
-
 import asyncio
 import json
 import logging
@@ -10,6 +6,7 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 
+import nest_asyncio
 import streamlit as st
 from langchain.globals import set_llm_cache
 from langchain_core.documents import Document
@@ -26,6 +23,8 @@ from medical_graph_rag.document_processor import DocumentProcessor
 from medical_graph_rag.pipeline import Main
 from medical_graph_rag.utils import ensure_semantic_cache
 from streaming import StreamingNodeDisplay
+
+nest_asyncio.apply()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

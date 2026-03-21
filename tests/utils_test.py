@@ -1,8 +1,6 @@
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
-import pytest
 from langchain_core.documents import Document
 
 from medical_graph_rag.utils import (

@@ -241,9 +241,7 @@ class QueryEngine:
                     f"overlap={overlap:.2f}, distance={distance:.3f}"
                 )
 
-    def _log_traversal_end(
-        self, traversal_path: list, priority_queue: list
-    ) -> None:
+    def _log_traversal_end(self, traversal_path: list, priority_queue: list) -> None:
         """Log the reason traversal ended without a complete answer."""
         if len(traversal_path) >= self.max_nodes_to_traverse:
             logger.warning(
