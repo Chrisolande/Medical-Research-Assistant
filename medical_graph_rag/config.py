@@ -105,7 +105,9 @@ PMC_RETRY_DELAY = 1.0
 PMC_INTER_BATCH_DELAY = 0.1  # Delay between batches
 MIN_ABSTRACT_CONTENT_LENGTH = 50  # Minimum content length for a valid document abstract
 
+
 # Query Engine Settings
+MIN_NODES_TO_TRAVERSE = 5  # Default minimum nodes to traverse for QueryEngine
 MAX_NODES_TO_TRAVERSE = 25
 LLM_MAX_CONTEXT_LENGTH = 4000  # Max context length for the LLM
 ANSWER_CHECK_INTERVAL = 3

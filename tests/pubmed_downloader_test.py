@@ -12,7 +12,9 @@ def test_sync_search_pubmed_empty_query_uses_default_term(monkeypatch):
         assert kwargs["term"] == "research[Title/Abstract]"
         return DummyHandle()
 
-    monkeypatch.setattr("medical_graph_rag.pubmed_downloader.Entrez.esearch", fake_esearch)
+    monkeypatch.setattr(
+        "medical_graph_rag.pubmed_downloader.Entrez.esearch", fake_esearch
+    )
     monkeypatch.setattr(
         "medical_graph_rag.pubmed_downloader.Entrez.read", lambda _h: {"IdList": ["1"]}
     )
@@ -22,25 +24,22 @@ def test_sync_search_pubmed_empty_query_uses_default_term(monkeypatch):
 
 def test_parse_article_populates_core_fields():
     downloader = PubMedEntrezDownloader(email="test@example.com")
-    summary = {
-        "Id": "42",
-        "Title": "A Title",
-        "Source": "Journal",
-        "PubDate": "2024",
-        "AuthorList": ["A", "B"],
-    }
     record = {
         "MedlineCitation": {
+            "PMID": "42",
             "Article": {
                 "Abstract": {"AbstractText": ["line one", "line two"]},
-                "Journal": {"Title": "J", "JournalIssue": {"PubDate": {"Year": "2024"}}},
+                "Journal": {
+                    "Title": "J",
+                    "JournalIssue": {"PubDate": {"Year": "2024"}},
+                },
                 "PublicationTypeList": ["Review"],
             },
             "MeshHeadingList": [{"DescriptorName": "Concept"}],
         }
     }
 
-    parsed = downloader._parse_article(summary, record)
+    parsed = downloader._parse_article(record)
     assert parsed["pmid"] == "42"
     assert "line one line two" in parsed["abstract"]
     assert parsed["mesh_terms"] == "Concept"
@@ -52,6 +51,8 @@ def test_sync_fetch_batch_handles_exception(monkeypatch):
     def raise_error(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("medical_graph_rag.pubmed_downloader.Entrez.esummary", raise_error)
+    monkeypatch.setattr(
+        "medical_graph_rag.pubmed_downloader.Entrez.efetch", raise_error
+    )
     result = downloader._sync_fetch_batch(["1"])
     assert result == []
