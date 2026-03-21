@@ -21,30 +21,26 @@ from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_community.document_compressors import FlashrankRerank
 from langchain_community.document_transformers import EmbeddingsRedundantFilter
 from langchain_community.vectorstores import FAISS
+from langchain_deepseek import ChatDeepSeek
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_openai import ChatOpenAI
 
-from medical_graph_rag.core.config import (
+from medical_graph_rag.config import (
     BATCH_SIZE,
+    DEEPSEEK_API_KEY,
     EMBEDDING_MODEL_NAME,
     FLASHRANK_CACHE_DIR,
     FLASHRANK_MODEL_NAME,
     LLM_MAX_TOKENS,
     LLM_MODEL_NAME,
     MAX_CONCURRENT,
-    OPENROUTER_API_BASE,
     PERSIST_DIRECTORY,
     RERANKER_MODEL_NAME,
     RERANKER_TOP_N,
+    USE_LLM_CHAIN_EXTRACTOR,
 )
-from medical_graph_rag.core.utils import pretty_print_docs
+from medical_graph_rag.utils import pretty_print_docs
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
-
-ranker = Ranker(model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR)
 
 
 @dataclass
@@ -59,6 +55,7 @@ class VectorStore:
 
     # Reranker settings
     use_reranker: bool = True
+    use_llm_extractor: bool = USE_LLM_CHAIN_EXTRACTOR
     reranker_model: str = RERANKER_MODEL_NAME
     reranker_top_n: int | None = RERANKER_TOP_N
 
@@ -68,27 +65,28 @@ class VectorStore:
     added_doc_hashes: set = field(default_factory=set)
     semaphore: Semaphore = None
 
-    embeddings: HuggingFaceEmbeddings = field(
-        default_factory=lambda: HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
-    )
+    embeddings: HuggingFaceEmbeddings | None = None
+    _ranker: Ranker | None = field(default=None, init=False)
 
     def __post_init__(self):
         """Initialize post_init."""
-        # ensure_semantic_cache()  # Ensure semantic cache is initialized
         self.semaphore = Semaphore(self.max_concurrent)
-        api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENROUTER_API_KEY or OPENAI_API_KEY not found!")
-        self.llm = ChatOpenAI(
+        self.embeddings = self.embeddings or HuggingFaceEmbeddings(
+            model_name=EMBEDDING_MODEL_NAME
+        )
+        self._ranker = Ranker(
+            model_name=FLASHRANK_MODEL_NAME, cache_dir=FLASHRANK_CACHE_DIR
+        )
+        if not DEEPSEEK_API_KEY:
+            raise ValueError("DEEPSEEK_API_KEY environment variable not set")
+        self.llm = ChatDeepSeek(
             model=self.model_name,
             max_tokens=LLM_MAX_TOKENS,
-            openai_api_key=api_key,
-            openai_api_base=OPENROUTER_API_BASE,
+            api_key=DEEPSEEK_API_KEY,
             temperature=0,
         )
         self._load_local_index()
 
-    # ============ INDEX PERSISTENCE ============
     def _load_local_index(self):
         """Load Local Index method."""
         if not os.path.exists(self.persist_directory):
@@ -143,7 +141,6 @@ class VectorStore:
         self.vector_index = None
         self.added_doc_hashes.clear()
 
-    # ============ DOCUMENT HASHING ============
     def _get_document_hash(self, doc: Document) -> str:
         """Get Document Hash method."""
         return (
@@ -171,7 +168,6 @@ class VectorStore:
             doc_hash := self._get_document_hash(doc)
         ) and doc_hash not in self.added_doc_hashes
 
-    # ============ DOCUMENT PROCESSING ============
     def _filter_valid_docs(self, documents: list[Document]) -> list[Document]:
         """Filter Valid Docs method."""
         valid_docs = [
@@ -242,13 +238,10 @@ class VectorStore:
             )
         )
 
-    # ============ RERANKER SETUP ============
     def _setup_reranker(self):
         """Setup Reranker method."""
         if not self.use_reranker or not self.vector_index:
             return
-        # TODO: Check the effets of the compression if its an overkill or not
-        # TODO: Check if multiquery retrieval will be needed
         try:
             model = HuggingFaceCrossEncoder(model_name=self.reranker_model)
             compressor = CrossEncoderReranker(model=model, top_n=self.reranker_top_n)
@@ -261,7 +254,6 @@ class VectorStore:
             logger.error(f"Failed to initialize reranker: {e}")
             self.use_reranker = False
 
-    # ============ SEARCH OPERATIONS ============
     async def _perform_reranked_search(self, query: str, k: int = 4) -> list[Document]:
         """Perform reranked search."""
         if self.use_reranker and self.compression_retriever:
@@ -289,17 +281,16 @@ class VectorStore:
     async def similarity_search_with_score(self, query: str, k: int = 4):
         """Perform similarity search with score."""
         if not self.vector_index:
-            logger.warning(
-                "Vector index is not initialized. Cannot perform similarity search with score."
-            )
+            logger.warning("Vector index not initialised.")
             return []
 
         try:
-            return self.vector_index.similarity_search_with_score(query, k=k)
-        except Exception as e:
-            logger.error(
-                f"Error during similarity search with score: {e}", exc_info=True
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None, self.vector_index.similarity_search_with_score, query, k
             )
+        except Exception as e:
+            logger.error(f"Similarity search with score failed: {e}", exc_info=True)
             return []
 
     async def batch_query(self, queries: list[str], k: int = 4):
@@ -314,25 +305,24 @@ class VectorStore:
             *(self.similarity_search(query, k=k) for query in queries)
         )
 
-    # ============ RETRIEVAL ============
-    def retrieve_relevant_documents(self, query: str, filter_threshold: float = 0.6):
+    def _retrieve_sync(self, query: str, filter_threshold: float = 0.6):
         """Retrieve relevant documents using compression pipeline."""
         if not self.vector_index:
             return []
 
         retriever = self.vector_index.as_retriever(search_kwargs={"k": 8})
-        pipeline_compressor = DocumentCompressorPipeline(
-            transformers=[
-                EmbeddingsFilter(
-                    embeddings=self.embeddings, similarity_threshold=filter_threshold
-                ),
-                EmbeddingsRedundantFilter(
-                    embeddings=self.embeddings, similarity_threshold=0.95
-                ),
-                FlashrankRerank(client=ranker),
-                LLMChainExtractor.from_llm(self.llm),
-            ]
-        )
+        transformers = [
+            EmbeddingsFilter(
+                embeddings=self.embeddings, similarity_threshold=filter_threshold
+            ),
+            EmbeddingsRedundantFilter(
+                embeddings=self.embeddings, similarity_threshold=0.95
+            ),
+            FlashrankRerank(client=self._ranker),
+        ]
+        if self.use_llm_extractor:
+            transformers.append(LLMChainExtractor.from_llm(self.llm))
+        pipeline_compressor = DocumentCompressorPipeline(transformers=transformers)
         compression_retriever = ContextualCompressionRetriever(
             base_compressor=pipeline_compressor, base_retriever=retriever
         )
@@ -342,7 +332,7 @@ class VectorStore:
             if results:
                 pretty_print_docs(results)
             else:
-                print("No relevant documents found for the query.")
+                logger.debug("No relevant documents found for the query.")
 
             return results or []
         except ValueError as e:
@@ -352,3 +342,11 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Retrieval error: {e}")
             return []
+
+    async def retrieve_relevant_documents(
+        self, query: str, filter_threshold: float = 0.6
+    ) -> list[Document]:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, self._retrieve_sync, query, filter_threshold
+        )

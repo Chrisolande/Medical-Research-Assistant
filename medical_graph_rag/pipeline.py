@@ -1,28 +1,31 @@
 import logging
-import os
 
+from langchain_deepseek import ChatDeepSeek
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_openai import ChatOpenAI
 
-from medical_graph_rag.core.config import (
+from medical_graph_rag.config import (
+    DEEPSEEK_API_KEY,
     EMBEDDING_MODEL_NAME,
     LLM_MODEL_NAME,
-    OPENROUTER_API_BASE,
 )
-from medical_graph_rag.knowledge_graph.graph_viz import GraphVisualizer
-from medical_graph_rag.knowledge_graph.knowledge_graph import KnowledgeGraph
-from medical_graph_rag.nlp.rag_chain import QueryEngine
-from medical_graph_rag.nlp.vectorstore import VectorStore
+from medical_graph_rag.graph import KnowledgeGraph
+from medical_graph_rag.graph_viz import GraphVisualizer
+from medical_graph_rag.rag_chain import QueryEngine
+from medical_graph_rag.vectorstore import VectorStore
+from dotenv import load_dotenv
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+_ = load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 
 class Main:
-    def __init__(self, cache_dir: str = "../my_cache"):
+    def __init__(
+        self,
+        cache_dir: str = "my_cache",
+        embedding_model: HuggingFaceEmbeddings | None = None,
+        ner_pipeline=None,
+    ):
         """Initialize the main processing pipeline.
 
         Args:
@@ -30,31 +33,29 @@ class Main:
         """
         try:
             self.llm = self._initialize_llm()
-            self.embedding_model = self._initialize_embeddings()
-            self.knowledge_graph = KnowledgeGraph(cache_dir=cache_dir)
-            self.vector_store = VectorStore()
+            self.embedding_model = embedding_model or self._initialize_embeddings()
+            self.knowledge_graph = KnowledgeGraph(
+                cache_dir=cache_dir,
+                embeddings=self.embedding_model,
+                ner_pipeline=ner_pipeline,
+            )
+            self.vector_store = VectorStore(embeddings=self.embedding_model)
             self.query_engine = None
             self.visualizer = GraphVisualizer()
         except Exception as e:
             logger.error(f"Initialization failed: {str(e)}")
             raise
 
-    def _initialize_llm(self) -> ChatOpenAI:
+    def _initialize_llm(self) -> ChatDeepSeek:
         """Initialize the LLM with configuration."""
-        api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError(
-                "OPENROUTER_API_KEY or OPENAI_API_KEY environment variable not set"
-            )
+        if not DEEPSEEK_API_KEY:
+            raise ValueError("DEEPSEEK_API_KEY environment variable not set")
 
-        return ChatOpenAI(
+        return ChatDeepSeek(
             model=LLM_MODEL_NAME,
-            openai_api_key=api_key,
-            openai_api_base=OPENROUTER_API_BASE,
+            api_key=DEEPSEEK_API_KEY,
             temperature=0,
-            streaming=False,
             max_retries=3,
-            request_timeout=30,
         )
 
     def _initialize_embeddings(self) -> HuggingFaceEmbeddings:

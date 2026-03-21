@@ -6,7 +6,6 @@ import shutil
 import threading
 import time
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -15,18 +14,18 @@ from langchain_community.cache import SQLiteCache
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from medical_graph_rag.core.config import (
+from medical_graph_rag.config import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_DATABASE_PATH,
     DEFAULT_FAISS_INDEX_PATH,
     DEFAULT_MAX_CACHE_SIZE,
+    DEFAULT_MAX_DISTANCE_THRESHOLD,
     DEFAULT_MEMORY_CACHE_SIZE,
-    DEFAULT_SIMILARITY_THRESHOLD,
     DUMMY_DOC_CONTENT,
     EMBEDDING_MODEL_NAME,
     ENABLE_QUANTIZATION,
+    SEMANTIC_CACHE_TOP_K,
 )
-from medical_graph_rag.core.utils import log_error, log_info, run_in_executor
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,8 @@ class SemanticCache(SQLiteCache):
 
     database_path: str = DEFAULT_DATABASE_PATH
     faiss_index_path: str = DEFAULT_FAISS_INDEX_PATH
-    similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD
+    max_distance_threshold: float = DEFAULT_MAX_DISTANCE_THRESHOLD
+    semantic_search_top_k: int = SEMANTIC_CACHE_TOP_K
     max_cache_size: int = DEFAULT_MAX_CACHE_SIZE
     memory_cache_size: int = DEFAULT_MEMORY_CACHE_SIZE
     batch_size: int = DEFAULT_BATCH_SIZE
@@ -57,7 +57,6 @@ class SemanticCache(SQLiteCache):
         },
         init=False,
     )
-    executor: ThreadPoolExecutor = field(default=None, init=False)
     lock: threading.RLock = field(default_factory=threading.RLock, init=False)
     embeddings: HuggingFaceEmbeddings = field(default=None, init=False)
     vector_store: FAISS | None = field(default=None, init=False)
@@ -66,7 +65,6 @@ class SemanticCache(SQLiteCache):
     def __post_init__(self):
         """Initialize cache components."""
         super().__init__(self.database_path)
-        self.executor = ThreadPoolExecutor(max_workers=4)
         self.embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
 
     # Vector Store Management
@@ -89,9 +87,9 @@ class SemanticCache(SQLiteCache):
                     self.embeddings,
                     allow_dangerous_deserialization=True,
                 )
-                log_info(f"Loaded FAISS index from {self.faiss_index_path}")
+                logger.info(f"Loaded FAISS index from {self.faiss_index_path}")
             except Exception as e:
-                log_error(f"Error loading FAISS index: {e}", exc_info=True)
+                logger.error(f"Error loading FAISS index: {e}", exc_info=True)
                 self._create_new_faiss_index()
         else:
             self._create_new_faiss_index()
@@ -108,9 +106,9 @@ class SemanticCache(SQLiteCache):
             if self.enable_quantization:
                 self._apply_quantization()
 
-            log_info("Created new FAISS index")
+            logger.info("Created new FAISS index")
         except Exception as e:
-            log_error(f"Failed to initialize FAISS: {e}", exc_info=True)
+            logger.error(f"Failed to initialize FAISS: {e}", exc_info=True)
             self.vector_store = None
 
     def _apply_quantization(self):
@@ -133,9 +131,9 @@ class SemanticCache(SQLiteCache):
                     index_ivf.train(vectors)
                     index_ivf.add(vectors)
                     self.vector_store.index = index_ivf
-                    log_info("Applied quantization to FAISS index")
+                    logger.info("Applied quantization to FAISS index")
             except ImportError:
-                log_info("faiss-cpu not available for quantization")
+                logger.info("faiss-cpu not available for quantization")
 
     # Embedding Management
     def _get_embedding_with_cache(self, text: str) -> list[float]:
@@ -161,16 +159,17 @@ class SemanticCache(SQLiteCache):
         cache_key = f"{prompt}:{llm_string}"
 
         # Memory cache check
-        if cache_key in self.memory_cache:
-            self.metrics["memory_hits"] += 1
-            log_info("Memory cache hit")
-            return self.memory_cache[cache_key]
+        with self.lock:
+            if cache_key in self.memory_cache:
+                self.metrics["memory_hits"] += 1
+                logger.info("Memory cache hit")
+                return self.memory_cache[cache_key]
 
         # SQLite cache check
         result = super().lookup(prompt, llm_string)
         if result:
             self.metrics["cache_hits"] += 1
-            log_info("SQLite cache hit")
+            logger.info("SQLite cache hit")
             self._add_to_memory_cache(cache_key, result)
             return result
 
@@ -191,12 +190,12 @@ class SemanticCache(SQLiteCache):
             start_time = time.time()
             query_embedding = self._get_embedding_with_cache(prompt)
             docs_with_score = self.vector_store.similarity_search_with_score_by_vector(
-                query_embedding, k=3
+                query_embedding, k=self.semantic_search_top_k
             )
             self.metrics["search_time"] += time.time() - start_time
 
             for doc, score in docs_with_score:
-                if self._is_dummy_doc(doc) or score > self.similarity_threshold:
+                if self._is_dummy_doc(doc) or score > self.max_distance_threshold:
                     continue
 
                 cached_llm_string = doc.metadata.get("llm_string_key")
@@ -204,12 +203,12 @@ class SemanticCache(SQLiteCache):
                     result = super().lookup(doc.page_content, cached_llm_string)
                     if result:
                         self.metrics["semantic_hits"] += 1
-                        log_info(f"Semantic match found with score {score:.4f}")
+                        logger.info(f"Semantic match found with score {score:.4f}")
                         self._add_to_memory_cache(cache_key, result)
                         return result
 
         except Exception as e:
-            log_error(f"Error during semantic lookup: {e}", exc_info=True)
+            logger.error(f"Error during semantic lookup: {e}", exc_info=True)
 
         self.metrics["cache_misses"] += 1
         return None
@@ -221,14 +220,6 @@ class SemanticCache(SQLiteCache):
         cache_key = f"{prompt}:{llm_string}"
         self._add_to_memory_cache(cache_key, return_val)
         self._update_semantic_store(prompt, llm_string)
-
-    async def update_async(
-        self, prompt: str, llm_string: str, return_val: list[Generation]
-    ):
-        """Async version of update for better performance."""
-        await run_in_executor(
-            self.executor, self.update, prompt, llm_string, return_val
-        )
 
     def _update_semantic_store(self, prompt: str, llm_string: str):
         """Update semantic vector store."""
@@ -252,7 +243,7 @@ class SemanticCache(SQLiteCache):
             self._save_vector_store()
 
         except Exception as e:
-            log_error(f"Error updating semantic store: {e}", exc_info=True)
+            logger.error(f"Error updating semantic store: {e}", exc_info=True)
 
     # Utility Methods
     def _is_dummy_only(self) -> bool:
@@ -271,10 +262,11 @@ class SemanticCache(SQLiteCache):
 
     def _add_to_memory_cache(self, key: str, value: list[Generation]):
         """Add to memory cache with size limit."""
-        if len(self.memory_cache) >= self.memory_cache_size:
-            first_key = next(iter(self.memory_cache))
-            del self.memory_cache[first_key]
-        self.memory_cache[key] = value
+        with self.lock:
+            if len(self.memory_cache) >= self.memory_cache_size:
+                first_key = next(iter(self.memory_cache))
+                del self.memory_cache[first_key]
+            self.memory_cache[key] = value
 
     def _remove_dummy_doc(self):
         """Remove dummy documents from vector store."""
@@ -285,7 +277,7 @@ class SemanticCache(SQLiteCache):
         ]
         if dummy_ids:
             self.vector_store.delete(dummy_ids)
-            log_info(f"Removed {len(dummy_ids)} dummy documents")
+            logger.info(f"Removed {len(dummy_ids)} dummy documents")
 
     def _evict_oldest_entries(self):
         """Evict oldest entries when cache is full."""
@@ -300,7 +292,7 @@ class SemanticCache(SQLiteCache):
             evict_count = int(len(docs_with_timestamps) * 0.2)
             evict_ids = [doc_id for doc_id, _ in docs_with_timestamps[:evict_count]]
             self.vector_store.delete(evict_ids)
-            log_info(f"Evicted {len(evict_ids)} oldest entries")
+            logger.info(f"Evicted {len(evict_ids)} oldest entries")
 
     def _save_vector_store(self):
         """Save vector store to disk."""
@@ -339,9 +331,9 @@ class SemanticCache(SQLiteCache):
         if os.path.exists(self.database_path):
             try:
                 os.remove(self.database_path)
-                log_info(f"Deleted SQLite database file: {self.database_path}")
+                logger.info(f"Deleted SQLite database file: {self.database_path}")
             except Exception as e:
-                log_error(f"Error deleting SQLite database: {e}")
+                logger.error(f"Error deleting SQLite database: {e}")
 
         # Then try to clear SQLite cache
         try:
@@ -353,18 +345,13 @@ class SemanticCache(SQLiteCache):
         # Clear FAISS index
         if os.path.exists(self.faiss_index_path):
             shutil.rmtree(self.faiss_index_path)
-            log_info(f"Deleted FAISS index: {self.faiss_index_path}")
+            logger.info(f"Deleted FAISS index: {self.faiss_index_path}")
 
         # Reset state
         self.vector_store = None
         self._lazy_loaded = False
-        self.metrics = {k: 0 for k in self.metrics}
-        log_info("All caches cleared completely")
-
-    def __del__(self):
-        """Cleanup executor on deletion."""
-        if hasattr(self, "executor") and self.executor:
-            self.executor.shutdown(wait=False)
+        self.metrics = dict.fromkeys(self.metrics, 0)
+        logger.info("All caches cleared completely")
 
 
 #

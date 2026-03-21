@@ -10,7 +10,7 @@ from typing import Any
 
 from langchain_core.documents import Document
 
-from medical_graph_rag.core.config import (
+from medical_graph_rag.config import (
     MIN_ABSTRACT_CONTENT_LENGTH,
     PMC_BATCH_SIZE,
     PMC_INTER_BATCH_DELAY,
@@ -18,7 +18,7 @@ from medical_graph_rag.core.config import (
     PMC_RETRY_ATTEMPTS,
     PMC_RETRY_DELAY,
 )
-from medical_graph_rag.core.utils import (
+from medical_graph_rag.utils import (
     create_batches,
     load_json_data,
     save_processing_results,

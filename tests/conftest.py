@@ -1,6 +1,6 @@
 import pytest
 
-from medical_graph_rag.core.config import (
+from medical_graph_rag.config import (
     MIN_ABSTRACT_CONTENT_LENGTH,
     PMC_BATCH_SIZE,
     PMC_INTER_BATCH_DELAY,
@@ -8,7 +8,7 @@ from medical_graph_rag.core.config import (
     PMC_RETRY_ATTEMPTS,
     PMC_RETRY_DELAY,
 )
-from medical_graph_rag.data_processing.document_processor import DocumentProcessor
+from medical_graph_rag.document_processor import DocumentProcessor
 
 
 @pytest.fixture(scope="session")

@@ -8,17 +8,43 @@ from datetime import datetime
 
 import streamlit as st
 from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
 
-from medical_graph_rag.core.config import DEFAULT_SIMILARITY_THRESHOLD
-from medical_graph_rag.core.main import Main
-from medical_graph_rag.core.utils import ensure_semantic_cache
-from medical_graph_rag.data_processing.batch_processor import PMCBatchProcessor
-from medical_graph_rag.data_processing.document_processor import DocumentProcessor
+from medical_graph_rag.batch_processor import PMCBatchProcessor
+from medical_graph_rag.config import DEFAULT_MAX_DISTANCE_THRESHOLD
+from medical_graph_rag.document_processor import DocumentProcessor
+from medical_graph_rag.pipeline import Main
+from medical_graph_rag.utils import ensure_semantic_cache
 from streaming import StreamingNodeDisplay
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+@st.cache_resource(show_spinner="Loading embedding model...")
+def load_embedding_model() -> HuggingFaceEmbeddings:
+    from langchain_huggingface import HuggingFaceEmbeddings
+
+    from medical_graph_rag.config import EMBEDDING_MODEL_NAME
+
+    return HuggingFaceEmbeddings(
+        model_name=EMBEDDING_MODEL_NAME,
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
+    )
+
+
+@st.cache_resource(show_spinner="Loading NER pipeline...")
+def load_ner_pipeline():
+    from transformers import pipeline
+
+    return pipeline(
+        "ner",
+        model="d4data/biomedical-ner-all",
+        tokenizer="d4data/biomedical-ner-all",
+        aggregation_strategy="simple",
+    )
 
 
 @dataclass
@@ -41,7 +67,7 @@ class AppState:
         default_factory=StreamingNodeDisplay
     )
     use_cache: bool = False
-    similarity_threshold = DEFAULT_SIMILARITY_THRESHOLD
+    max_distance_threshold = DEFAULT_MAX_DISTANCE_THRESHOLD
 
 
 class FileProcessor:
@@ -260,30 +286,30 @@ class UIComponents:
         )
         # Similarity threshold
         new_threshold = st.slider(
-            ":dart: Similarity Threshold",
+            ":dart: Max Semantic Distance",
             min_value=0.0,
-            max_value=1.0,
-            value=app_state.similarity_threshold,
+            max_value=3.0,
+            value=app_state.max_distance_threshold,
             step=0.05,
-            help="Lower values = precise matches",
+            help="Lower values = stricter semantic cache matching (L2 distance)",
         )
 
         if (
             new_cache != app_state.use_cache
-            or new_threshold != app_state.similarity_threshold
+            or new_threshold != app_state.max_distance_threshold
         ):
             # Update the app state
             app_state.use_cache = new_cache
-            app_state.similarity_threshold = new_threshold
+            app_state.max_distance_threshold = new_threshold
 
             # Handle cache enabling/disabling
             if app_state.use_cache:
                 # Enable caching globally
                 ensure_semantic_cache(
-                    similarity_threshold=app_state.similarity_threshold
+                    max_distance_threshold=app_state.max_distance_threshold
                 )
                 st.success(
-                    f"Semantic cache enabled with similarity threshold {app_state.similarity_threshold}"
+                    f"Semantic cache enabled with max distance {app_state.max_distance_threshold}"
                 )
             else:
                 # Disable caching by clearing the global cache
@@ -299,28 +325,31 @@ class UIComponents:
     def _render_api_key_input(app_state: AppState):
         st.markdown("### :key: API Configuration")
 
-        api_key_exists = bool(os.getenv("OPENROUTER_API_KEY"))
+        api_key_exists = bool(os.getenv("DEEPSEEK_API_KEY"))
         if api_key_exists:
             st.success(":white_check_mark: API key found in environment")
         else:
             st.warning(":warning: API key not found in environment")
 
             api_key = st.text_input(
-                "Openrouter API Key",
+                "DeepSeek API Key",
                 type="password",
-                help="Enter your openrouter API Key",
+                help="Enter your DeepSeek API key",
             )
 
             if api_key:
                 # Set the environment variable temporarily
-                os.environ["OPENAI_API_KEY"] = api_key
-                os.environ["OPENROUTER_API_KEY"] = api_key
+                os.environ["DEEPSEEK_API_KEY"] = api_key
                 st.success(":white_check_mark: API key set successfully")
 
                 if app_state.main:
                     st.info("Reinitializing the entire system with the new API key")
                     try:
-                        app_state.main = Main(cache_dir=app_state.cache_dir)
+                        app_state.main = Main(
+                            cache_dir=app_state.cache_dir,
+                            embedding_model=load_embedding_model(),
+                            ner_pipeline=load_ner_pipeline(),
+                        )
                         st.success("Pipeline reinitialized with the new API key")
 
                     except Exception as e:
@@ -380,7 +409,11 @@ class UIComponents:
     def _initialize_pipeline(app_state: AppState):
         """Initialize the main pipeline."""
         try:
-            app_state.main = Main(cache_dir=app_state.cache_dir)
+            app_state.main = Main(
+                cache_dir=app_state.cache_dir,
+                embedding_model=load_embedding_model(),
+                ner_pipeline=load_ner_pipeline(),
+            )
             st.success("Pipeline initialized successfully!")
         except Exception as e:
             st.error(f"Failed to initialize pipeline: {str(e)}")
@@ -397,7 +430,7 @@ class UIComponents:
                     col1, col2 = st.columns([3, 1])
                     with col1:
                         st.write(
-                            f"**Q{len(app_state.conversation_history)-i}:** {conv.query}"
+                            f"**Q{len(app_state.conversation_history) - i}:** {conv.query}"
                         )
                         st.write(f"**A:** {conv.response[:200]}...")
                     with col2:
@@ -462,8 +495,10 @@ class UIComponents:
                 st.subheader(":world_map: Traversal Path")
                 st.write(f"Nodes traversed: {traversal_path}")
 
-                st.subheader(":bar_chart: Knowledge Graph Statistics")
-                stats = app_state.main.knowledge_graph.get_stats()
+                st.subheader(":bar_chart: Traversal Subgraph Statistics")
+                stats = app_state.main.knowledge_graph.get_subgraph_stats(
+                    traversal_path
+                )
                 st.json(stats)
 
             with col2:

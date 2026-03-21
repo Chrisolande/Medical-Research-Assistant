@@ -1,5 +1,6 @@
 """Utils module."""
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -7,45 +8,42 @@ import math
 import pickle  # nosec - pickle usage reviewed for security
 import re
 import textwrap
-from asyncio import get_event_loop
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 from langchain.globals import set_llm_cache
 from langchain_core.documents import Document
 
-from medical_graph_rag.core.common_helpers import log_error, log_info
-from medical_graph_rag.core.config import (
+from medical_graph_rag.config import (
     DEFAULT_DATABASE_PATH,
     DEFAULT_FAISS_INDEX_PATH,
-    DEFAULT_SIMILARITY_THRESHOLD,
+    DEFAULT_MAX_DISTANCE_THRESHOLD,
     ENABLE_QUANTIZATION,
 )
 
-# ---------------------------------------------------------------------------- #
 #                               Logging Configuration                          #
-# ---------------------------------------------------------------------------- #
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------- #
-#                             Semantic Cache Setup                             #
-# ---------------------------------------------------------------------------- #
+# Semantic Cache Setup
 
 # This block sets up the global LLM cache. It will run when utils.py is imported.
 _semantic_cache_instance = None
 
 
-def ensure_semantic_cache(similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD):
+def ensure_semantic_cache(
+    max_distance_threshold: float = DEFAULT_MAX_DISTANCE_THRESHOLD,
+):
     """Ensure semantic cache is initialized globally."""
     global _semantic_cache_instance
     if _semantic_cache_instance is None:
-        from medical_graph_rag.nlp.prompt_caching import SemanticCache
+        from medical_graph_rag.cache import SemanticCache
 
         _semantic_cache_instance = SemanticCache(
             database_path=DEFAULT_DATABASE_PATH,
             faiss_index_path=DEFAULT_FAISS_INDEX_PATH,
-            similarity_threshold=similarity_threshold,
+            max_distance_threshold=max_distance_threshold,
             enable_quantization=ENABLE_QUANTIZATION,
         )
         set_llm_cache(_semantic_cache_instance)
@@ -53,9 +51,7 @@ def ensure_semantic_cache(similarity_threshold: float = DEFAULT_SIMILARITY_THRES
     return _semantic_cache_instance
 
 
-# ---------------------------------------------------------------------------- #
-#                             Document Printing Utilities                      #
-# ---------------------------------------------------------------------------- #
+# Document Printing Utilities
 
 
 def pretty_print_docs(docs, wrap_width: int = 80, queries: list[str] | None = None):
@@ -70,14 +66,14 @@ def pretty_print_docs(docs, wrap_width: int = 80, queries: list[str] | None = No
     # Handle batch results (list of lists)
     if docs and isinstance(docs[0], list):
         for query_idx, query_docs in enumerate(docs):
-            print(f"\n{'='*wrap_width}")
+            print(f"\n{'=' * wrap_width}")
             query_text = (
                 f": {queries[query_idx]}"
                 if queries and query_idx < len(queries)
                 else ""
             )
             print(f"QUERY {query_idx + 1} RESULTS{query_text}")
-            print(f"{'='*wrap_width}")
+            print(f"{'=' * wrap_width}")
             _print_single_query_docs(query_docs, wrap_width)
         return
 
@@ -100,7 +96,7 @@ def _print_single_query_docs(docs: list[Document], wrap_width: int):
         if hasattr(d, "metadata") and d.metadata:
             metadata_str = f"\nMetadata: {d.metadata}"
 
-        formatted_docs.append(f"Document {i+1}:{metadata_str}\n\n{wrapped_content}")
+        formatted_docs.append(f"Document {i + 1}:{metadata_str}\n\n{wrapped_content}")
 
     separator = f"\n{'-' * (wrap_width if wrap_width > 10 else 10)}\n"
     print(separator.join(formatted_docs))
@@ -143,9 +139,7 @@ def print_filtered_content(
     logger.info("Content printing completed.")
 
 
-# ---------------------------------------------------------------------------- #
-#                               Cache Management Utilities                     #
-# ---------------------------------------------------------------------------- #
+# Cache Management Utilities
 
 
 class CacheManager:
@@ -155,7 +149,7 @@ class CacheManager:
         """Initialize init."""
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
-        log_info(f"CacheManager initialized. Cache directory: {self.cache_dir}")
+        logger.info(f"CacheManager initialized. Cache directory: {self.cache_dir}")
 
     def load_cache(self) -> dict[str, Any]:
         """Loads cache from disk."""
@@ -164,12 +158,14 @@ class CacheManager:
             try:
                 with open(cache_file, "rb") as f:
                     data = pickle.load(f)  # nosec
-                    log_info(f"Cache loaded from {cache_file}.")
+                    logger.info(f"Cache loaded from {cache_file}.")
                     return data
             except Exception as e:
-                log_error(f"Failed to load cache from {cache_file}: {e}", exc_info=True)
+                logger.error(
+                    f"Failed to load cache from {cache_file}: {e}", exc_info=True
+                )
                 return {}
-        log_info(f"No cache file found at {cache_file}. Starting with empty cache.")
+        logger.info(f"No cache file found at {cache_file}. Starting with empty cache.")
         return {}
 
     def save_cache(self, data: dict[str, Any]) -> None:
@@ -178,87 +174,84 @@ class CacheManager:
         try:
             with open(cache_file, "wb") as f:
                 pickle.dump(data, f)
-            log_info(f"Cache saved to {cache_file}.")
+            logger.info(f"Cache saved to {cache_file}.")
         except Exception as e:
-            log_error(f"Failed to save cache to {cache_file}: {e}", exc_info=True)
+            logger.error(f"Failed to save cache to {cache_file}: {e}", exc_info=True)
 
 
-# ---------------------------------------------------------------------------- #
-#                            JSON & Text Processing Utilities                  #
-# ---------------------------------------------------------------------------- #
+# JSON & Text Processing Utilities
+
+
+def _clean_json_candidate(candidate: str) -> str:
+    cleaned = candidate.strip()
+    cleaned = re.sub(r"^[^{]*(\{)", r"\1", cleaned)
+    cleaned = re.sub(r"(\})[^}]*$", r"\1", cleaned)
+    cleaned = re.sub(r",(\s*[}\]])", r"\1", cleaned)
+    cleaned = re.sub(r"'([^']*)':", r'"\1":', cleaned)
+    cleaned = re.sub(r":\s*'([^']*)'", r': "\1"', cleaned)
+    return "".join(char for char in cleaned if ord(char) >= 32 or char in "\n\t")
+
+
+def _extract_line_based_concepts(text: str) -> dict[str, list[str]]:
+    concept_dict: dict[str, list[str]] = {}
+    list_pattern = r'"?(\d+)"?\s*:\s*\[(.*?)\]'
+    single_pattern = r'"(\d+)":\s*"([^"]+)"'
+
+    for line in (ln.strip() for ln in text.splitlines()):
+        if not line:
+            continue
+
+        single_match = re.search(single_pattern, line)
+        if single_match:
+            concept_dict[single_match.group(1)] = [single_match.group(2)]
+            continue
+
+        list_match = re.search(list_pattern, line)
+        if not list_match:
+            continue
+
+        key, values = list_match.group(1), list_match.group(2)
+        concepts = re.findall(r'"([^"]+)"', values)
+        if not concepts:
+            concepts = [c.strip() for c in values.split(",") if c.strip()]
+        if concepts:
+            concept_dict[key] = concepts
+
+    return concept_dict
+
+
+def _extract_quoted_fallback(text: str) -> dict[str, list[str]]:
+    concept_dict: dict[str, list[str]] = {}
+    all_quotes = re.findall(r'"([^"]+)"', text)
+    if not all_quotes or len(all_quotes) < 2:
+        return concept_dict
+
+    for i in range(0, len(all_quotes), 3):
+        if i // 3 >= 10:
+            break
+        concepts = all_quotes[i : i + 3]
+        if concepts:
+            concept_dict[str(i // 3)] = concepts
+    return concept_dict
 
 
 def extract_and_parse_json(text: str) -> dict[str, list[str]] | None:
     """Extract and parse JSON with multiple fallback strategies from a given text."""
-
     json_patterns = [
-        r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}",  # Handle nested braces
-        r"\{.*?\}(?=\s*$|\s*\n)",  # JSON followed by end/newline
+        r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}",
+        r"\{.*?\}(?=\s*$|\s*\n)",
     ]
 
     for pattern in json_patterns:
-        matches = re.findall(pattern, text, re.DOTALL)
-        for match in matches:
+        for match in re.findall(pattern, text, re.DOTALL):
             try:
-                cleaned = match.strip()
-                cleaned = re.sub(r"^[^{]*(\{)", r"\1", cleaned)
-                cleaned = re.sub(r"(\})[^}]*$", r"\1", cleaned)
-                cleaned = re.sub(r",(\s*[}\]])", r"\1", cleaned)
-                cleaned = re.sub(r"'([^']*)':", r'"\1":', cleaned)
-                cleaned = re.sub(r":\s*'([^']*)'", r': "\1"', cleaned)
-
-                cleaned = "".join(
-                    char for char in cleaned if ord(char) >= 32 or char in "\n\t"
-                )
-
-                return json.loads(cleaned)
+                return json.loads(_clean_json_candidate(match))
             except (json.JSONDecodeError, ValueError):
                 continue
 
-    # Line-by-line extraction
-    concept_dict = {}
-    lines = text.split("\n")
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-
-        patterns = [
-            r'"?(\d+)"?\s*:\s*\[(.*?)\]',  # e.g., "0": ["concept1", "concept2"] or 0: ["concept1"]
-            r'"(\d+)":\s*"([^"]+)"',  # e.g., "0": "concept1"
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, line)
-            if match:
-                key = match.group(1)
-                if len(match.groups()) == 2 and pattern == r'"(\d+)":\s*"([^"]+)"':
-                    if pattern == r'"(\d+)":\s*"([^"]+)"':
-                        concepts = [match.group(2)]
-                    else:
-                        values = match.group(2)
-                        # Try to find quoted concepts first
-                        concepts = re.findall(r'"([^"]+)"', values)
-                        if not concepts:
-                            # Fallback to comma-separated unquoted concepts
-                            concepts = [
-                                c.strip() for c in values.split(",") if c.strip()
-                            ]
-
-                    if concepts:
-                        concept_dict[key] = concepts
-                break
-
-    # Extract any quoted strings as potential concepts (last resort)
+    concept_dict = _extract_line_based_concepts(text)
     if not concept_dict:
-        all_quotes = re.findall(r'"([^"]+)"', text)
-        if all_quotes and len(all_quotes) >= 2:
-            # Group quotes into potential concept lists (heuristic)
-            for i in range(0, len(all_quotes), 3):
-                if i // 3 < 10:  # Limit to ~10 documents for this heuristic
-                    concepts = all_quotes[i : i + 3]
-                    concept_dict[str(i // 3)] = concepts
-
+        concept_dict = _extract_quoted_fallback(text)
     return concept_dict if concept_dict else None
 
 
@@ -267,9 +260,7 @@ def create_text_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()  # nosec
 
 
-# ---------------------------------------------------------------------------- #
-#                               Graph Utilities                                #
-# ---------------------------------------------------------------------------- #
+# Graph Utilities
 
 
 def calculate_edge_weight(
@@ -288,9 +279,7 @@ def calculate_edge_weight(
     )
 
 
-# ---------------------------------------------------------------------------- #
-#                             Batch Processing Utilities                       #
-# ---------------------------------------------------------------------------- #
+# Batch Processing Utilities
 
 
 def load_json_data(
@@ -412,10 +401,11 @@ def save_processing_results(
                 )
 
 
-# ---------------------------------------------------------------------------- #
-#                              Asynchronous operations                         #
-# ---------------------------------------------------------------------------- #
+# Asynchronous operations
 
 
-async def run_in_executor(func, *args, **kwargs):
-    return await get_event_loop().run_in_executor(None, func, *args, **kwargs)
+async def run_in_executor(executor: ThreadPoolExecutor, func, *args: Any) -> Any:
+    """Helper to run a blocking function in a ThreadPoolExecutor from an async
+    context."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, func, *args)

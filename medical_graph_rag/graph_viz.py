@@ -5,12 +5,9 @@ import matplotlib.patches as patches
 import networkx as nx
 from matplotlib import pyplot as plt
 
-from medical_graph_rag.core.config import EdgeStyle, NodeStyle, VisualizationConfig
-from medical_graph_rag.core.utils import print_filtered_content
+from medical_graph_rag.config import EdgeStyle, NodeStyle, VisualizationConfig
+from medical_graph_rag.utils import print_filtered_content
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 
@@ -25,17 +22,12 @@ class GraphVisualizer:
 
         logger.info("Initialized the GraphVisualizer")
 
-    # === GRAPH TRAVERSAL ===
     def _create_traversal_graph(
         self, graph: nx.Graph, traversal_path: list[int]
     ) -> nx.Graph:
         """Create traveral graph."""
-        logger.info("Creating the traversal subgraph with neighbors...")
-
+        logger.info("Creating the traversal subgraph...")
         nodes_to_include = set(traversal_path)
-        for node in traversal_path:
-            nodes_to_include.update(graph.neighbors(node))
-
         traversal_graph = graph.subgraph(nodes_to_include).copy()
 
         logger.info(
@@ -67,7 +59,7 @@ class GraphVisualizer:
                 concept_text = concept_text[: self.config.max_label_length] + "..."
             labels[node] = f"{i + 1}. {concept_text}"
 
-        for _node in graph.nodes():
+        for node in graph.nodes():
             if node not in labels:
                 concepts = graph.nodes[node].get("concepts", [])
                 concept_text = concepts[0] if concepts else str(node)
@@ -248,15 +240,6 @@ class GraphVisualizer:
                 markersize=15,
                 label="End Node",
             ),
-            plt.Line2D(
-                [0],
-                [0],
-                marker="o",
-                color="w",
-                markerfacecolor=self.node_style.regular,
-                markersize=15,
-                label="Neighbor Node",
-            ),
         ]
 
         legend = ax.legend(
@@ -267,7 +250,6 @@ class GraphVisualizer:
         ax.set_title("Graph Traversal Visualization", fontsize=16, fontweight="bold")
         ax.axis("off")
 
-    # === MAIN VISUALIZATION ===
     async def visualize_traversal_async(
         self, graph: nx.Graph, traversal_path: list[int]
     ) -> None:

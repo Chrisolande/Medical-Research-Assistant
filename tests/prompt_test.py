@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import types
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import MagicMock, patch
 
@@ -8,8 +9,8 @@ import pytest
 from langchain.schema import Generation
 from langchain_community.vectorstores import FAISS
 
-from medical_graph_rag.core.config import DUMMY_DOC_CONTENT
-from medical_graph_rag.nlp.prompt_caching import SemanticCache
+from medical_graph_rag.cache import SemanticCache
+from medical_graph_rag.config import DUMMY_DOC_CONTENT
 
 
 # Fixtures
@@ -27,7 +28,7 @@ def cache_config(temp_dir):
     return {
         "database_path": os.path.join(temp_dir, "test_cache.db"),
         "faiss_index_path": os.path.join(temp_dir, "test_faiss"),
-        "similarity_threshold": 0.8,
+        "max_distance_threshold": 0.8,
         "max_cache_size": 10,
         "memory_cache_size": 5,
         "batch_size": 2,
@@ -38,7 +39,7 @@ def cache_config(temp_dir):
 @pytest.fixture
 def mock_embeddings():
     """Mock HuggingFaceEmbeddings."""
-    with patch("medical_graph_rag.nlp.prompt_caching.HuggingFaceEmbeddings") as mock:
+    with patch("medical_graph_rag.cache.HuggingFaceEmbeddings") as mock:
         mock_instance = mock.return_value
         mock_instance.embed_query.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
         yield mock_instance
@@ -47,7 +48,7 @@ def mock_embeddings():
 @pytest.fixture
 def mock_faiss():
     """Mock FAISS vector store."""
-    with patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock:
+    with patch("medical_graph_rag.cache.FAISS") as mock:
         mock_instance = mock.return_value
         mock_instance.load_local.return_value = MagicMock(spec=FAISS)
         mock_instance.from_texts.return_value = MagicMock(spec=FAISS)
@@ -79,7 +80,7 @@ class TestInitialization:
         """Test SemanticCache initialization."""
         assert semantic_cache.database_path.endswith("test_cache.db")
         assert semantic_cache.faiss_index_path.endswith("test_faiss")
-        assert semantic_cache.similarity_threshold == 0.8
+        assert semantic_cache.max_distance_threshold == 0.8
         assert semantic_cache.max_cache_size == 10
         assert semantic_cache.memory_cache_size == 5
         assert semantic_cache.batch_size == 2
@@ -101,7 +102,7 @@ class TestLazyLoading:
 
     def test_lazy_load_vector_store_new_index(self, semantic_cache):
         """Test lazy loading for new FAISS index."""
-        with patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock_faiss_class:
+        with patch("medical_graph_rag.cache.FAISS") as mock_faiss_class:
             mock_faiss_instance = MagicMock()
             mock_faiss_class.from_texts.return_value = mock_faiss_instance
 
@@ -117,7 +118,7 @@ class TestLazyLoading:
 
     def test_lazy_load_vector_store_existing_index(self, semantic_cache):
         """Test lazy loading for existing FAISS index."""
-        with patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock_faiss_class:
+        with patch("medical_graph_rag.cache.FAISS") as mock_faiss_class:
             mock_faiss_instance = MagicMock()
             mock_faiss_class.load_local.return_value = mock_faiss_instance
 
@@ -223,6 +224,24 @@ class TestLookupOperations:
                 assert result == sample_generations
                 assert semantic_cache.metrics["semantic_hits"] == 1
 
+    def test_lookup_uses_configured_semantic_top_k(self, semantic_cache, mock_faiss):
+        """Semantic lookup should use configurable top-k value."""
+        prompt = "test prompt"
+        llm_string = "test_llm"
+        semantic_cache.semantic_search_top_k = 7
+        semantic_cache.vector_store = mock_faiss
+        semantic_cache._lazy_loaded = True
+
+        with (
+            patch("langchain_community.cache.SQLiteCache.lookup", return_value=None),
+            patch.object(semantic_cache, "_is_dummy_doc", return_value=False),
+        ):
+            semantic_cache.lookup(prompt, llm_string)
+
+        mock_faiss.similarity_search_with_score_by_vector.assert_called_once()
+        _, kwargs = mock_faiss.similarity_search_with_score_by_vector.call_args
+        assert kwargs["k"] == 7
+
     def test_lookup_no_match(self, semantic_cache, mock_faiss):
         """Test lookup with no matches."""
         prompt = "test prompt"
@@ -245,7 +264,7 @@ class TestLookupOperations:
         semantic_cache._lazy_loaded = True
         with (
             patch("langchain_community.cache.SQLiteCache.lookup", return_value=None),
-            patch("medical_graph_rag.nlp.prompt_caching.log_error") as mock_log_error,
+            patch("medical_graph_rag.cache.logger.error") as mock_log_error,
         ):
             result = semantic_cache.lookup(prompt, llm_string)
             assert result is None
@@ -323,9 +342,15 @@ class TestQuantization:
         semantic_cache.enable_quantization = True
 
         with (
-            patch("medical_graph_rag.nlp.prompt_caching.FAISS") as mock_faiss_class,
-            patch("faiss.IndexFlatL2") as mock_index_flat,
-            patch("faiss.IndexIVFPQ") as mock_index_ivf_class,
+            patch("medical_graph_rag.cache.FAISS") as mock_faiss_class,
+            patch.dict(
+                "sys.modules",
+                {
+                    "faiss": types.SimpleNamespace(
+                        IndexFlatL2=MagicMock(), IndexIVFPQ=MagicMock()
+                    )
+                },
+            ),
             patch("os.path.exists", return_value=False),
         ):
             # Create a mock index with proper integer values
@@ -341,9 +366,11 @@ class TestQuantization:
 
             # Mock the quantization components
             mock_quantizer = MagicMock()
-            mock_index_flat.return_value = mock_quantizer
             mock_index_ivf = MagicMock()
-            mock_index_ivf_class.return_value = mock_index_ivf
+            import faiss
+
+            faiss.IndexFlatL2.return_value = mock_quantizer
+            faiss.IndexIVFPQ.return_value = mock_index_ivf
 
             # Call _create_new_faiss_index which will trigger quantization
             semantic_cache._create_new_faiss_index()
@@ -352,8 +379,8 @@ class TestQuantization:
             assert semantic_cache.vector_store is not None
 
             # Verify quantization was applied (since ntotal > 100)
-            mock_index_flat.assert_called_once_with(128)  # Called with dimension
-            mock_index_ivf_class.assert_called_once()  # IVF index was created
+            faiss.IndexFlatL2.assert_called_once_with(128)  # Called with dimension
+            faiss.IndexIVFPQ.assert_called_once()  # IVF index was created
 
             # Verify training and adding vectors
             mock_index_ivf.train.assert_called_once()

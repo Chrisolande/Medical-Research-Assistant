@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from langchain_core.documents import Document
 
-from medical_graph_rag.data_processing.batch_processor import (
+from medical_graph_rag.batch_processor import (
     MIN_ABSTRACT_CONTENT_LENGTH,
     PMCBatchProcessor,
 )
@@ -57,8 +57,8 @@ def test_init(document_processor, test_data):
     assert processor.executor is not None
 
 
-@patch("medical_graph_rag.data_processing.batch_processor.load_json_data")
-@patch("medical_graph_rag.data_processing.batch_processor.logging.Logger.info")
+@patch("medical_graph_rag.batch_processor.load_json_data")
+@patch("medical_graph_rag.batch_processor.logging.Logger.info")
 def test_load_pmc_data_valid_docs(
     mock_logger, mock_load, batch_processor, temp_json_file, sample_pmc_data
 ):
@@ -90,7 +90,7 @@ def test_load_pmc_data_valid_docs(
         )
 
 
-@patch("medical_graph_rag.data_processing.batch_processor.load_json_data")
+@patch("medical_graph_rag.batch_processor.load_json_data")
 def test_load_pmc_data_max_docs_limit(
     mock_load, batch_processor, temp_json_file, sample_pmc_data
 ):
@@ -110,14 +110,14 @@ def test_load_pmc_data_max_docs_limit(
 
     # perform assertions
     assert isinstance(result, list), f"Expected list, got {type(result)}"
-    assert (
-        len(result) == expected_count
-    ), f"Expected {expected_count} valid documents, got {len(result)}"
+    assert len(result) == expected_count, (
+        f"Expected {expected_count} valid documents, got {len(result)}"
+    )
     assert len(result) <= 1, f"Expected at most 1 document, got {len(result)}"
     if result:
-        assert (
-            result[0]["pmid"] == "12345"
-        ), f"Expected PMID 12345, got {result[0]['pmid']}"
+        assert result[0]["pmid"] == "12345", (
+            f"Expected PMID 12345, got {result[0]['pmid']}"
+        )
         assert result[0].get("abstract", "").strip(), "Document has no valid abstract"
         assert (
             len(result[0].get("abstract", "").strip()) >= MIN_ABSTRACT_CONTENT_LENGTH
@@ -197,9 +197,7 @@ async def test_process_pmc_file_async_complete_flow(
     batch_processor, temp_json_file, sample_pmc_data
 ):
     """Test complete async processing flow."""
-    with patch(
-        "medical_graph_rag.data_processing.batch_processor.load_json_data"
-    ) as mock_load:
+    with patch("medical_graph_rag.batch_processor.load_json_data") as mock_load:
         mock_load.return_value = sample_pmc_data
 
         result = await batch_processor.process_pmc_file_async(
@@ -220,9 +218,7 @@ async def test_process_pmc_file_async_complete_flow(
 @pytest.mark.asyncio
 async def test_process_pmc_file_async_no_valid_docs(batch_processor, temp_json_file):
     """Test processing with no valid documents."""
-    with patch(
-        "medical_graph_rag.data_processing.batch_processor.load_json_data"
-    ) as mock_load:
+    with patch("medical_graph_rag.batch_processor.load_json_data") as mock_load:
         mock_load.return_value = []
 
         result = await batch_processor.process_pmc_file_async(temp_json_file)
@@ -242,9 +238,7 @@ async def test_process_pmc_file_async_with_progress_callback(
     def progress_callback(completed, total, result):
         callback_calls.append((completed, total, result))
 
-    with patch(
-        "medical_graph_rag.data_processing.batch_processor.load_json_data"
-    ) as mock_load:
+    with patch("medical_graph_rag.batch_processor.load_json_data") as mock_load:
         mock_load.return_value = sample_pmc_data[:1]
 
         await batch_processor.process_pmc_file_async(
@@ -285,7 +279,7 @@ def test_save_results(batch_processor, tmp_path):
     }
 
     with patch(
-        "medical_graph_rag.data_processing.batch_processor.save_processing_results"
+        "medical_graph_rag.batch_processor.save_processing_results"
     ) as mock_save:
         batch_processor.save_results(results, str(tmp_path))
 

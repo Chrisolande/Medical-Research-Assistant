@@ -6,15 +6,28 @@ from typing import Any
 
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.documents import Document
+from pydantic import BaseModel, Field
 
-from medical_graph_rag.core.config import (
+from medical_graph_rag.config import (
+    ANSWER_CHECK_INTERVAL,
     LLM_MAX_CONTEXT_LENGTH,
     MAX_NODES_TO_TRAVERSE,
     MIN_NODES_TO_TRAVERSE,
-    AnswerCheck,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class AnswerCheck(BaseModel):
+    """Check if a query is answerable with sufficient information from the provided
+    context."""
+
+    is_sufficient: bool = Field(
+        description="Whether the context provides sufficient information."
+    )
+    synthesized_answer: str = Field(
+        description="The synthesized answer based on the context."
+    )
 
 
 @dataclass
@@ -25,6 +38,7 @@ class QueryEngine:
     min_nodes_to_traverse: int = MIN_NODES_TO_TRAVERSE
     max_nodes_to_traverse: int = MAX_NODES_TO_TRAVERSE
     max_context_length: int = LLM_MAX_CONTEXT_LENGTH
+    answer_check_interval: int = ANSWER_CHECK_INTERVAL
 
     def __post_init__(self):
         self.answer_check_chain = self._create_answer_check_chain()
@@ -122,11 +136,9 @@ class QueryEngine:
                 continue
 
             closest_node_content, similarity_score = closest_nodes_results[0]
-            closest_node_id = None
-            for n, data in self.knowledge_graph.graph.nodes(data=True):
-                if data.get("content") == closest_node_content.page_content:
-                    closest_node_id = n
-                    break
+            closest_node_id = self.knowledge_graph.content_to_node_id.get(
+                closest_node_content.page_content
+            )
 
             if closest_node_id is None:
                 logger.warning(
@@ -172,10 +184,9 @@ class QueryEngine:
         if streaming_callback:
             streaming_callback(step, current_node, node_content[:100], node_concepts)
 
-        print(f"\nStep {step} - Node {current_node}:")
-        print(f"Content: {node_content[:100]}...")
-        print(f"Concepts: {', '.join(node_concepts)}")
-        print("-" * 50)
+        logger.debug(f"Step {step} - Node {current_node}")
+        logger.debug(f"Content: {node_content[:100]}...")
+        logger.debug(f"Concepts: {', '.join(node_concepts)}")
 
         is_sufficient, synthesized_answer = self._check_answer(query, expanded_context)
         if is_sufficient:
@@ -198,6 +209,7 @@ class QueryEngine:
         current_node: Any,
         current_priority: float,
         traversal_path: list[Any],
+        visited_concepts: set,
         distances: dict[Any, float],
         priority_queue: list[tuple[float, Any]],
     ) -> None:
@@ -207,12 +219,26 @@ class QueryEngine:
 
             edge_data = self.knowledge_graph.graph[current_node][neighbor]
             edge_weight = edge_data.get("weight", 0.5)
-            distance = current_priority + (1 / (edge_weight + 1e-15))
+
+            neighbor_concepts = {
+                self.knowledge_graph._lemmatize_concept(c)
+                for c in self.knowledge_graph.graph.nodes[neighbor].get("concepts", [])
+            }
+            if neighbor_concepts and visited_concepts:
+                overlap = len(neighbor_concepts & visited_concepts) / len(
+                    neighbor_concepts
+                )
+            else:
+                overlap = 0.0
+
+            novelty_penalty = 1.0 + overlap
+            distance = current_priority + (1 / (edge_weight + 1e-15)) * novelty_penalty
             if distance < distances.get(neighbor, float("inf")):
                 distances[neighbor] = distance
                 heapq.heappush(priority_queue, (distance, neighbor))
                 logger.debug(
-                    f"Added neighbor {neighbor} to queue with distance {distance:.2f}"
+                    f"Neighbour {neighbor}: edge_weight={edge_weight:.3f}, "
+                    f"overlap={overlap:.2f}, distance={distance:.3f}"
                 )
 
     async def _expand_context(
@@ -258,7 +284,10 @@ class QueryEngine:
                 streaming_callback,
             )
 
-            should_check_completion = len(traversal_path) >= self.min_nodes_to_traverse
+            should_check_completion = (
+                len(traversal_path) >= self.min_nodes_to_traverse
+                and len(traversal_path) % self.answer_check_interval == 0
+            )
 
             if is_sufficient_now and should_check_completion:
                 final_answer = current_node_answer
@@ -271,6 +300,7 @@ class QueryEngine:
                 current_node,
                 current_priority,
                 traversal_path,
+                visited_concepts,
                 distances,
                 priority_queue,
             )
@@ -302,7 +332,7 @@ class QueryEngine:
         self, query: str, streaming_callback: Callable | None = None
     ) -> tuple[str, list[Any], dict[Any, str]]:
         logger.info(f"Starting query for: '{query}'")
-        relevant_docs = self.vector_store.retrieve_relevant_documents(query)
+        relevant_docs = await self.vector_store.retrieve_relevant_documents(query)
         if not relevant_docs:
             logger.warning("No initial relevant documents found from vector store.")
             return "No relevant information found.", [], {}

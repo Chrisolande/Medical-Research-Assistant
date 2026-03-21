@@ -8,7 +8,7 @@ from langchain.embeddings import DeterministicFakeEmbedding
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
 
-from medical_graph_rag.nlp.vectorstore import VectorStore
+from medical_graph_rag.vectorstore import VectorStore
 
 
 @pytest.fixture
@@ -46,53 +46,50 @@ def mock_faiss_index():
 
 @pytest.fixture(autouse=True)
 def mock_api_key():
-    with patch.dict(os.environ, {"OPENROUTER_API_KEY": "fake-test-key"}):
+    with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-test-key"}):
         yield
 
 
 @pytest.fixture(autouse=True)
 def mock_dependencies(temp_persist_dir):
     with (
+        patch("medical_graph_rag.vectorstore.HuggingFaceEmbeddings") as MockEmbeddings,
+        patch("medical_graph_rag.vectorstore.ChatDeepSeek") as MockChatDeepSeek,
+        patch("medical_graph_rag.vectorstore.DEEPSEEK_API_KEY", "fake-test-key"),
+        patch("medical_graph_rag.vectorstore.FAISS.load_local") as MockFAISSLoadLocal,
         patch(
-            "medical_graph_rag.nlp.vectorstore.HuggingFaceEmbeddings"
-        ) as MockEmbeddings,
-        patch("medical_graph_rag.nlp.vectorstore.ChatOpenAI") as MockChatOpenAI,
-        patch(
-            "medical_graph_rag.nlp.vectorstore.FAISS.load_local"
-        ) as MockFAISSLoadLocal,
-        patch(
-            "medical_graph_rag.nlp.vectorstore.os.path.exists", return_value=False
+            "medical_graph_rag.vectorstore.os.path.exists", return_value=False
         ) as mock_os_path_exists,
-        patch("medical_graph_rag.nlp.vectorstore.ranker", autospec=True),
+        patch("medical_graph_rag.vectorstore.Ranker", autospec=True),
         patch(
-            "medical_graph_rag.nlp.vectorstore.ContextualCompressionRetriever"
+            "medical_graph_rag.vectorstore.ContextualCompressionRetriever"
         ) as MockContextualCompressionRetriever,
         patch(
-            "medical_graph_rag.nlp.vectorstore.CrossEncoderReranker", autospec=True
+            "medical_graph_rag.vectorstore.CrossEncoderReranker", autospec=True
         ) as MockCrossEncoderReranker,
         patch(
-            "medical_graph_rag.nlp.vectorstore.HuggingFaceCrossEncoder", autospec=True
+            "medical_graph_rag.vectorstore.HuggingFaceCrossEncoder", autospec=True
         ) as MockHuggingFaceCrossEncoder,
         patch(
-            "medical_graph_rag.nlp.vectorstore.EmbeddingsFilter", autospec=True
+            "medical_graph_rag.vectorstore.EmbeddingsFilter", autospec=True
         ) as MockEmbeddingsFilter,
         patch(
-            "medical_graph_rag.nlp.vectorstore.EmbeddingsRedundantFilter", autospec=True
+            "medical_graph_rag.vectorstore.EmbeddingsRedundantFilter", autospec=True
         ) as MockEmbeddingsRedundantFilter,
         patch(
-            "medical_graph_rag.nlp.vectorstore.FlashrankRerank", autospec=True
+            "medical_graph_rag.vectorstore.FlashrankRerank", autospec=True
         ) as MockFlashrankRerank,
         patch(
-            "medical_graph_rag.nlp.vectorstore.LLMChainExtractor", autospec=True
+            "medical_graph_rag.vectorstore.LLMChainExtractor", autospec=True
         ) as MockLLMChainExtractor,
         patch(
-            "medical_graph_rag.nlp.vectorstore.DocumentCompressorPipeline",
+            "medical_graph_rag.vectorstore.DocumentCompressorPipeline",
             autospec=True,
         ) as MockDocumentCompressorPipeline,
-        patch("medical_graph_rag.nlp.vectorstore.shutil.rmtree") as mock_shutil_rmtree,
+        patch("medical_graph_rag.vectorstore.shutil.rmtree") as mock_shutil_rmtree,
     ):
         MockEmbeddings.return_value = DeterministicFakeEmbedding(size=10)
-        MockChatOpenAI.return_value = MagicMock()
+        MockChatDeepSeek.return_value = MagicMock()
 
         mock_retriever_instance = MagicMock()
         mock_retriever_instance.ainvoke = AsyncMock(
@@ -123,7 +120,7 @@ def mock_dependencies(temp_persist_dir):
 
         yield (
             MockEmbeddings,
-            MockChatOpenAI,
+            MockChatDeepSeek,
             MockFAISSLoadLocal,
             MockContextualCompressionRetriever,
             mock_os_path_exists,
@@ -177,7 +174,7 @@ class TestVectorStore:
         docs = [Document(page_content="Hello world")]
 
         with patch(
-            "medical_graph_rag.nlp.vectorstore.FAISS.from_documents"
+            "medical_graph_rag.vectorstore.FAISS.from_documents"
         ) as MockFAISSFromDocs:
             MockFAISSFromDocs.return_value = MagicMock(spec=FAISS)
             MockFAISSFromDocs.return_value.save_local = MagicMock()
@@ -223,7 +220,7 @@ class TestVectorStore:
         docs = [Document(page_content="error doc")]
 
         with patch(
-            "medical_graph_rag.nlp.vectorstore.FAISS.from_documents"
+            "medical_graph_rag.vectorstore.FAISS.from_documents"
         ) as MockFAISSFromDocs:
             MockFAISSFromDocs.side_effect = Exception("Batch add error")
             added_count = await vec_store._add_batch_and_persist(docs)
@@ -398,7 +395,7 @@ class TestVectorStore:
     ):
         _, _, _, _, _, _ = mock_dependencies
         with patch(
-            "medical_graph_rag.nlp.vectorstore.HuggingFaceCrossEncoder"
+            "medical_graph_rag.vectorstore.HuggingFaceCrossEncoder"
         ) as MockHuggingFaceCrossEncoder:
             MockHuggingFaceCrossEncoder.side_effect = Exception("Reranker init error")
             vec_store = VectorStore(
@@ -447,7 +444,7 @@ class TestVectorStore:
             Document(page_content="compressed doc")
         ]
 
-        results = vec_store.retrieve_relevant_documents("test query")
+        results = await vec_store.retrieve_relevant_documents("test query")
         MockContextualCompressionRetriever.return_value.invoke.assert_called_once_with(
             "test query"
         )
@@ -472,13 +469,13 @@ class TestVectorStore:
 
         MockContextualCompressionRetriever.return_value.invoke.return_value = []
 
-        with patch("builtins.print") as mock_print:
-            results = vec_store.retrieve_relevant_documents("test query")
+        with patch("medical_graph_rag.vectorstore.logger.debug") as mock_log_debug:
+            results = await vec_store.retrieve_relevant_documents("test query")
             MockContextualCompressionRetriever.return_value.invoke.assert_called_once_with(
                 "test query"
             )
             assert results == []
-            mock_print.assert_called_once_with(
+            mock_log_debug.assert_called_once_with(
                 "No relevant documents found for the query."
             )
 
@@ -502,7 +499,7 @@ class TestVectorStore:
             "Error: token_type_ids missing from input feed"
         )
 
-        results = vec_store.retrieve_relevant_documents("test query")
+        results = await vec_store.retrieve_relevant_documents("test query")
         assert results == []
         MockContextualCompressionRetriever.return_value.invoke.assert_called_once_with(
             "test query"
@@ -528,7 +525,7 @@ class TestVectorStore:
             "Generic retrieval error"
         )
 
-        results = vec_store.retrieve_relevant_documents("test query")
+        results = await vec_store.retrieve_relevant_documents("test query")
         assert results == []
         MockContextualCompressionRetriever.return_value.invoke.assert_called_once_with(
             "test query"

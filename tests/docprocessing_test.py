@@ -3,13 +3,11 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 from langchain_core.documents import Document
 
-from medical_graph_rag.data_processing.document_processor import DocumentProcessor
+from medical_graph_rag.document_processor import DocumentProcessor
 
 
-@patch("medical_graph_rag.data_processing.document_processor.HuggingFaceEmbeddings")
-@patch(
-    "medical_graph_rag.data_processing.document_processor.RecursiveCharacterTextSplitter"
-)
+@patch("medical_graph_rag.document_processor.HuggingFaceEmbeddings")
+@patch("medical_graph_rag.document_processor.RecursiveCharacterTextSplitter")
 def test_init(mock_text_splitter, mock_embeddings, test_data):
     """Test DocumentProcessor initialization."""
     processor = DocumentProcessor(
@@ -44,12 +42,12 @@ def test_metadata_func(test_data):
         "embeddings_model": test_data["embeddings_model"],
     }
     result = processor.metadata_func(record, metadata)
-    assert (
-        result == expected
-    ), "Metadata should include specified fields and existing data"
+    assert result == expected, (
+        "Metadata should include specified fields and existing data"
+    )
 
 
-@patch("medical_graph_rag.data_processing.document_processor.Path")
+@patch("medical_graph_rag.document_processor.Path")
 def test_validate_and_clean_valid_file(mock_path, document_processor):
     """Test _validate_and_clean with valid file and text."""
     mock_path_instance = MagicMock()
@@ -62,7 +60,7 @@ def test_validate_and_clean_valid_file(mock_path, document_processor):
     assert cleaned == "Hello. World! This is a test."
 
 
-@patch("medical_graph_rag.data_processing.document_processor.Path")
+@patch("medical_graph_rag.document_processor.Path")
 def test_validate_and_clean_invalid_file(mock_path, document_processor):
     """Test _validate_and_clean with invalid/non-existent file."""
     mock_path_instance = MagicMock()
@@ -72,7 +70,7 @@ def test_validate_and_clean_invalid_file(mock_path, document_processor):
         document_processor._validate_and_clean("test.json", "")
 
 
-@patch("medical_graph_rag.data_processing.document_processor.Path")
+@patch("medical_graph_rag.document_processor.Path")
 def test_validate_and_clean_not_file(mock_path, document_processor):
     """Test _validate_and_clean with non-file path."""
     mock_path_instance = MagicMock()
@@ -83,8 +81,8 @@ def test_validate_and_clean_not_file(mock_path, document_processor):
         document_processor._validate_and_clean("test.json", "")
 
 
-@patch("medical_graph_rag.data_processing.document_processor.JSONLoader")
-@patch("medical_graph_rag.data_processing.document_processor.Path")
+@patch("medical_graph_rag.document_processor.JSONLoader")
+@patch("medical_graph_rag.document_processor.Path")
 def test_load_and_process_documents_valid(
     mock_path, mock_loader, document_processor, test_data
 ):
@@ -123,8 +121,8 @@ def test_load_and_process_documents_valid(
     assert docs[0].metadata == test_data["metadata"][0]
 
 
-@patch("medical_graph_rag.data_processing.document_processor.JSONLoader")
-@patch("medical_graph_rag.data_processing.document_processor.Path")
+@patch("medical_graph_rag.document_processor.JSONLoader")
+@patch("medical_graph_rag.document_processor.Path")
 def test_load_and_process_documents_empty(mock_path, mock_loader, document_processor):
     mock_path_instance = MagicMock()
     mock_path_instance.exists.return_value = True
@@ -136,8 +134,8 @@ def test_load_and_process_documents_empty(mock_path, mock_loader, document_proce
     assert docs == []
 
 
-@patch("medical_graph_rag.data_processing.document_processor.JSONLoader")
-@patch("medical_graph_rag.data_processing.document_processor.Path")
+@patch("medical_graph_rag.document_processor.JSONLoader")
+@patch("medical_graph_rag.document_processor.Path")
 def test_load_and_process_documents_error(mock_path, mock_loader, document_processor):
     """Test load_and_process_documents with loader error."""
     mock_path_instance = MagicMock()

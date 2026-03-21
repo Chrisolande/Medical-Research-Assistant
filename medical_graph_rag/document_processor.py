@@ -13,10 +13,9 @@ from langchain_community.document_loaders import JSONLoader
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from medical_graph_rag.core.config import EMBEDDING_MODEL_NAME
+from medical_graph_rag.config import EMBEDDING_MODEL_NAME
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +47,13 @@ class DocumentProcessor:
 
     def __post_init__(self):
         """Initialize post_init."""
-        self.embeddings = HuggingFaceEmbeddings(model_name=self.embeddings_model)
+        try:
+            self.embeddings = HuggingFaceEmbeddings(model_name=self.embeddings_model)
+        except ImportError:
+            self.embeddings = None
+            logger.warning(
+                "HuggingFace embeddings unavailable; continuing without embeddings."
+            )
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=300, chunk_overlap=75
         )
