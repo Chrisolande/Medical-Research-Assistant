@@ -2,8 +2,6 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![wakatime](https://wakatime.com/badge/github/Chrisolande/Medical-Research-Assistant.svg)](https://wakatime.com/badge/github/Chrisolande/Medical-Research-Assistant)
-
 A RAG pipeline that combines a biomedical knowledge graph with vector search to answer medical research questions. Documents are embedded, linked by semantic similarity and shared biomedical entities, and traversed with a priority-based graph algorithm that expands context until the LLM confirms a sufficient answer.
 
 ## Demo
