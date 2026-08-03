@@ -110,14 +110,14 @@ def test_load_pmc_data_max_docs_limit(
 
     # perform assertions
     assert isinstance(result, list), f"Expected list, got {type(result)}"
-    assert (
-        len(result) == expected_count
-    ), f"Expected {expected_count} valid documents, got {len(result)}"
+    assert len(result) == expected_count, (
+        f"Expected {expected_count} valid documents, got {len(result)}"
+    )
     assert len(result) <= 1, f"Expected at most 1 document, got {len(result)}"
     if result:
-        assert (
-            result[0]["pmid"] == "12345"
-        ), f"Expected PMID 12345, got {result[0]['pmid']}"
+        assert result[0]["pmid"] == "12345", (
+            f"Expected PMID 12345, got {result[0]['pmid']}"
+        )
         assert result[0].get("abstract", "").strip(), "Document has no valid abstract"
         assert (
             len(result[0].get("abstract", "").strip()) >= MIN_ABSTRACT_CONTENT_LENGTH
